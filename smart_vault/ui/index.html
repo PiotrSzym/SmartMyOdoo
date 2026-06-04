@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMyVault - Premium Cyber UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        }
+        .text-gradient {
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-8 flex flex-col items-center">
+
+    <!-- Ekran inicjalizacji -->
+    <div id="init-screen" class="w-full max-w-md mt-20 hidden">
+        <div class="glass-card p-8 text-center border-indigo-500/50">
+            <h1 class="text-3xl font-bold mb-4 text-gradient">Inicjalizacja Skarbca</h1>
+            <p class="text-slate-400 text-sm mb-6">Wykryto pierwsze uruchomienie. Zabezpiecz swój nowy skarbiec.</p>
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Nowy PIN (dla botów i CLI)</label>
+                    <input type="password" id="init-pin" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Master Password (odzyskiwanie GUI)</label>
+                    <input type="password" id="init-master" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500">
+                </div>
+                <button onclick="initVault()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg transition mt-4">Stwórz Skarbiec</button>
+                <p id="init-error" class="text-red-400 text-sm mt-2 hidden text-center"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-screen" class="w-full max-w-md mt-20 hidden">
+        <div class="glass-card p-8 text-center">
+            <h1 class="text-3xl font-bold mb-6 text-gradient">SmartMyVault</h1>
+            <p class="text-slate-400 text-sm mb-8">Wprowadź PIN lub Master Password aby odblokować.</p>
+            <input type="password" id="auth-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white mb-4 focus:outline-none focus:border-indigo-500" placeholder="••••••••" onkeydown="if(event.key === 'Enter') login()">
+            <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg transition">Odblokuj</button>
+            <p id="login-error" class="text-red-400 text-sm mt-4 hidden">Nieprawidłowe hasło</p>
+        </div>
+    </div>
+
+    <div id="vault-screen" class="w-full max-w-5xl hidden flex-col gap-6">
+        <div class="flex justify-between items-center">
+            <h1 class="text-4xl font-bold text-gradient">SmartMyVault</h1>
+            <div class="flex gap-4 items-center">
+                <button onclick="showDocsModal()" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-2 text-sm font-medium">
+                    <span>📖</span> Dokumentacja
+                </button>
+                <button id="btn-change-pin" onclick="showChangePinModal()" class="hidden border border-slate-600 hover:border-slate-400 text-slate-300 py-2 px-4 rounded-lg transition text-sm">Resetuj PIN (Admin)</button>
+                <button onclick="logout()" class="border border-red-900 hover:border-red-600 text-red-400 py-2 px-4 rounded-lg transition text-sm">Zablokuj Sejf</button>
+            </div>
+        </div>
+
+        <div id="guidance-box" class="glass-card p-6 relative transition-all duration-300">
+            <button onclick="dismissGuidance()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xs px-2 py-1 bg-white/5 rounded border border-white/10">✕ Nie pokazuj więcej</button>
+            <h2 class="text-xl font-semibold mb-2 pr-32">Guidance - Złote Zasady</h2>
+            <ul class="list-disc pl-5 text-sm text-slate-400 space-y-1">
+                <li>Twoje klucze są zaszyfrowane kluczem głównym KEK (Key Encrypting Key). W terminalu agenty używają tylko 4-cyfrowego kodu PIN.</li>
+                <li>Jeśli zalogowałeś się za pomocą Master Password (Jako Admin), możesz po prawej u góry wymusić zmianę zagubionego PIN-u dla botów.</li>
+                <li>Przycisk "Kopiuj" bezgłośnie przenosi wartość do schowka przeglądarki.</li>
+            </ul>
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+            <div class="relative w-64">
+                <input type="text" id="search-bar" onkeyup="filterSecrets()" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="Szukaj klucza...">
+            </div>
+            
+            <div class="flex gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-700">
+                <button onclick="setView('grid')" id="btn-view-grid" class="p-2 bg-indigo-600/30 text-indigo-300 rounded transition" title="Widok kafelków">🔲</button>
+                <button onclick="setView('list')" id="btn-view-list" class="p-2 text-slate-400 hover:text-slate-200 rounded transition" title="Widok listy">📄</button>
+            </div>
+            
+            <div class="flex gap-2">
+                <button onclick="toggleTrash()" id="btn-trash" class="border border-slate-600 hover:bg-slate-800 text-slate-300 py-2 px-4 rounded-lg transition">🗑️ Kosz</button>
+                <button onclick="showSecretModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition">+ Nowy Sekret</button>
+            </div>
+        </div>
+
+        <div id="secrets-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Render secrets here -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="secret-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-md p-6 relative">
+            <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 id="modal-title" class="text-2xl font-bold mb-6 text-gradient">Dodaj Sekret</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Nazwa Klucza (Używana w ENV)</label>
+                    <input type="text" id="f-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Hasło / Secret Token</label>
+                    <input type="password" id="f-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Login (Opcjonalne)</label>
+                        <input type="text" id="f-login" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">API Key (Opcjonalne)</label>
+                        <input type="password" id="f-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">URL Bazy/Serwisu (Opcjonalne)</label>
+                    <input type="text" id="f-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Data Ważności (Opcjonalne)</label>
+                    <input type="date" id="f-expires" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" style="color-scheme: dark;">
+                </div>
+                <button onclick="saveSecret()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold mt-4">Zapisz do Skarbca</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pin-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-sm p-6 relative">
+            <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 class="text-xl font-bold mb-6 text-gradient">Zmiana kodu PIN</h2>
+            <input type="password" id="new-pin" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white mb-4" placeholder="Nowy 4-cyfrowy PIN">
+            <button onclick="changePin()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg font-semibold">Aktualizuj PIN</button>
+        </div>
+    </div>
+
+    <div id="docs-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-2xl p-8 relative max-h-[85vh] overflow-y-auto">
+            <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">✕</button>
+            <h2 class="text-2xl font-bold mb-6 text-gradient">Architektura Bezpieczeństwa & Dokumentacja</h2>
+            
+            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
+                <div>
+                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">🤔 Jak i dlaczego to działa?</h3>
+                    <p class="mt-2">Skarbiec opiera się na kryptografii wielowarstwowej z tzw. <b>Key Encrypting Key (KEK)</b>. Zamiast szyfrować dane bezpośrednio Twoim hasłem, system generuje losowy, super-silny klucz główny (Vault Key) algorytmem AES-128-CBC (Fernet). Następnie ten Vault Key jest w locie dwukrotnie kopiowany i szyfrowany osobno: raz przez Twój 4-cyfrowy <code>PIN</code> (w pliku <code>.pin_key</code>), a drugi raz przez długie <code>Master Password</code> (w pliku <code>.master_key</code>).</p>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-semibold text-emerald-400 flex items-center gap-2">✅ Co jest w pełni BEZPIECZNE?</h3>
+                    <ul class="list-disc pl-5 mt-2 space-y-2">
+                        <li><b>Hasła leżące na dysku:</b> Plik <code>.vault_data</code> to kompletny bełkot kryptograficzny. Nawet jak haker wykradnie cały folder <code>smart_vault</code> (wraz ze wszystkimi solami i kluczami), bez poprawnego PINu lub Master Password nie zrekonstruuje klucza głównego i nie odczyta nawet jednej litery.</li>
+                        <li><b>Bezgłośny Schowek:</b> Kopiowanie hasła w GUI pomija konsolę systemową. Kliknięcie używa natywnego <code>Clipboard API</code> w przeglądarce, maskując wartości gwiazdkami. AI podglądające terminal nie ma szans na przeczytanie kopiowanego hasła.</li>
+                        <li><b>Izolacja ENV w Dockerze:</b> Komenda <code>python vault.py run docker-compose up</code> wstrzykuje sekrety do środowiska powłoki jako zmienne w locie, dzięki czemu Twoje pliki `docker-compose.yml` pozostają wolne od wycieków z na sztywno wpisanymi tokenami.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-red-900/20 border border-red-500/30 p-4 rounded-lg">
+                    <h3 class="text-lg font-semibold text-red-400 flex items-center gap-2">⚠️ Co NIE JEST bezpieczne (Na co uważać)?</h3>
+                    <ul class="list-disc pl-5 mt-2 space-y-2 text-red-200/80">
+                        <li><b>Zgubienie OBU poświadczeń:</b> Zgubienie PINu to żaden problem (zresetujesz go używając Master Password). Jednak zapomnienie Master Password przy jednoczesnej utracie PINu oznacza <b>TRWAŁĄ I BEZPOWROTNĄ utratę dostępu</b> do wszystkich haseł. Kryptografia AES-128 nie ma "tylnej furtki".</li>
+                        <li><b>Działający serwer GUI w tle:</b> Skarbiec API działa na protokole HTTP (<code>localhost:5050</code>). Ogranicza go to do komunikacji lokalnej, ale złośliwy program na Twoim komputerze mógłby teoretycznie odpytać port 5050 gdy panel jest odblokowany. Dlatego zalecamy używać opcji <b class="text-red-400">Zablokuj Sejf</b> lub ubijać terminal w IDE po zakończeniu pracy, co zamyka okno autoryzacji.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 glass-card bg-emerald-900/50 border-emerald-500/30 px-6 py-3 text-emerald-400 hidden translate-y-10 transition-transform duration-300 z-50">
+        Copied to clipboard!
+    </div>
+
+    <script>
+        let currentAuth = "";
+        let secretsCache = {};
+        let currentView = 'grid'; // 'grid' | 'list'
+        let showTrash = false;
+
+        window.onload = async function() {
+            if(localStorage.getItem('hide_vault_guidance') === 'true') {
+                document.getElementById('guidance-box').classList.add('hidden');
+            }
+            try {
+                const res = await fetch('/api/status');
+                if (!res.ok) {
+                    throw new Error("API zwróciło kod " + res.status + ". Prawdopodobnie działa wciąż stara wersja serwera bez tego endpointu.");
+                }
+                const data = await res.json();
+                if(data.initialized) {
+                    document.getElementById('login-screen').classList.remove('hidden');
+                } else {
+                    document.getElementById('init-screen').classList.remove('hidden');
+                }
+            } catch(e) {
+                console.error("Błąd połączenia z serwerem API.", e);
+                alert("Błąd połączenia z API: " + e.message + "\n\nZAMKNIJ wszystkie działające terminale z 'python vault.py gui' i uruchom skrypt ponownie!");
+            }
+        };
+
+        async function initVault() {
+            const pin = document.getElementById('init-pin').value;
+            const master = document.getElementById('init-master').value;
+            if(!pin || !master) {
+                document.getElementById('init-error').innerText = "Wypełnij oba pola.";
+                document.getElementById('init-error').classList.remove('hidden');
+                return;
+            }
+            const res = await fetch('/api/init', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pin, master})
+            });
+            if(res.ok) {
+                document.getElementById('init-screen').classList.add('hidden');
+                document.getElementById('login-screen').classList.remove('hidden');
+                showToast("Skarbiec utworzony! Zaloguj się.");
+            } else {
+                const err = await res.json();
+                document.getElementById('init-error').innerText = err.error || "Błąd inicjalizacji.";
+                document.getElementById('init-error').classList.remove('hidden');
+            }
+        }
+
+        async function login() {
+            const pwd = document.getElementById('auth-password').value;
+            const res = await fetch('/api/auth', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({password: pwd})
+            });
+            if (res.ok) {
+                const data = await res.json();
+                currentAuth = pwd;
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('vault-screen').classList.remove('hidden');
+                document.getElementById('vault-screen').classList.add('flex');
+                
+                if(data.role === 'admin') {
+                    document.getElementById('btn-change-pin').classList.remove('hidden');
+                    // "jezli master jest wrowadzoney to zresetuj hasło" - otwieramy modal resetu PIN by default
+                    showChangePinModal();
+                } else {
+                    document.getElementById('btn-change-pin').classList.add('hidden');
+                }
+                
+                document.getElementById('login-error').classList.add('hidden');
+                loadSecrets();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            currentAuth = "";
+            document.getElementById('auth-password').value = "";
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('vault-screen').classList.add('hidden');
+            document.getElementById('vault-screen').classList.remove('flex');
+            document.getElementById('btn-change-pin').classList.add('hidden');
+        }
+
+        async function loadSecrets() {
+            const res = await fetch(`/api/secrets?t=${Date.now()}`, { 
+                headers: {'Authorization': `Bearer ${currentAuth}`},
+                cache: 'no-store'
+            });
+            if(res.ok) {
+                secretsCache = await res.json();
+                renderSecrets();
+            }
+        }
+
+        function setView(mode) {
+            currentView = mode;
+            const btnGrid = document.getElementById('btn-view-grid');
+            const btnList = document.getElementById('btn-view-list');
+            const list = document.getElementById('secrets-list');
+
+            if(mode === 'grid') {
+                btnGrid.classList.replace('text-slate-400', 'text-indigo-300');
+                btnGrid.classList.replace('hover:text-slate-200', 'bg-indigo-600/30');
+                btnGrid.classList.add('bg-indigo-600/30');
+                
+                btnList.classList.replace('text-indigo-300', 'text-slate-400');
+                btnList.classList.remove('bg-indigo-600/30');
+                btnList.classList.add('hover:text-slate-200');
+
+                list.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+            } else {
+                btnList.classList.replace('text-slate-400', 'text-indigo-300');
+                btnList.classList.replace('hover:text-slate-200', 'bg-indigo-600/30');
+                btnList.classList.add('bg-indigo-600/30');
+                
+                btnGrid.classList.replace('text-indigo-300', 'text-slate-400');
+                btnGrid.classList.remove('bg-indigo-600/30');
+                btnGrid.classList.add('hover:text-slate-200');
+
+                list.className = "flex flex-col gap-4";
+            }
+            renderSecrets();
+        }
+
+        function dismissGuidance() {
+            localStorage.setItem('hide_vault_guidance', 'true');
+            document.getElementById('guidance-box').classList.add('hidden');
+        }
+
+        function toggleTrash() {
+            showTrash = !showTrash;
+            const btn = document.getElementById('btn-trash');
+            if(showTrash) {
+                btn.classList.add('bg-red-900/50', 'border-red-500', 'text-red-300');
+                btn.classList.remove('border-slate-600', 'hover:bg-slate-800', 'text-slate-300');
+            } else {
+                btn.classList.remove('bg-red-900/50', 'border-red-500', 'text-red-300');
+                btn.classList.add('border-slate-600', 'hover:bg-slate-800', 'text-slate-300');
+            }
+            renderSecrets();
+        }
+
+        function renderSecrets() {
+            const term = document.getElementById('search-bar').value.toLowerCase();
+            const list = document.getElementById('secrets-list');
+            list.innerHTML = "";
+            const isGrid = currentView === 'grid';
+            
+            Object.entries(secretsCache).forEach(([key, val]) => {
+                if(!key.toLowerCase().includes(term)) return;
+                
+                // Trash filter
+                const isDeleted = !!val.deleted_at;
+                if(showTrash && !isDeleted) return;
+                if(!showTrash && isDeleted) return;
+                
+                const card = document.createElement('div');
+                card.className = `glass-card p-5 relative group ${isGrid ? '' : 'flex flex-col md:flex-row md:items-center justify-between gap-4'}`;
+                if(isDeleted) card.classList.add('border-red-500/30', 'bg-red-900/10');
+                
+                let detailsHtml = `
+                    <div class="space-y-1 text-sm ${isDeleted ? 'text-red-300/80' : 'text-slate-300'} mt-3">
+                        ${val.login ? `<div class="flex items-center gap-2"><span class="text-slate-500">Log:</span> <span class="font-medium">${val.login}</span></div>` : ''}
+                        ${val.url ? `<div class="flex items-center gap-2 truncate" title="${val.url}"><span class="text-slate-500">URL:</span> <span class="truncate">${val.url}</span></div>` : ''}
+                        ${val.expires ? `<div class="flex items-center gap-2 text-yellow-500/80"><span class="text-slate-500">Exp:</span> <span>${val.expires}</span></div>` : ''}
+                        ${isDeleted ? `<div class="flex items-center gap-2 text-red-400 mt-2 text-xs uppercase font-bold tracking-widest">🗑️ Usunięto: ${val.deleted_at.substring(0,10)}</div>` : ''}
+                    </div>
+                `;
+
+                card.innerHTML = `
+                    <div class="${isGrid ? 'mb-4' : 'flex-1'}">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-lg ${isDeleted ? 'text-red-400 line-through' : 'text-indigo-300'} break-all">${key}</h3>
+                            ${isGrid ? `
+                            <div class="flex gap-2">
+                                ${showTrash ? `
+                                    <button onclick="restoreSecret('${key}')" class="text-emerald-400 hover:text-emerald-300 p-1 text-xs uppercase font-bold tracking-wider" title="Przywróć">Przywróć</button>
+                                    <button onclick="permanentDeleteSecret('${key}')" class="text-slate-400 hover:text-red-400 p-1" title="Usuń trwale">✕</button>
+                                ` : `
+                                    <button onclick="editSecret('${key}')" class="text-slate-400 hover:text-white p-1" title="Edytuj">✎</button>
+                                    <button onclick="deleteSecret('${key}')" class="text-slate-400 hover:text-red-400 p-1" title="Usuń do Kosza">✕</button>
+                                `}
+                            </div>` : ''}
+                        </div>
+                        ${detailsHtml}
+                    </div>
+                    
+                    <div class="flex ${isGrid ? 'w-full flex-col mt-4' : 'flex-shrink-0 items-center gap-4'}">
+                        ${!isGrid ? `
+                        <div class="flex gap-2">
+                            ${showTrash ? `
+                                <button onclick="restoreSecret('${key}')" class="text-emerald-400 hover:text-emerald-300 p-1 text-xs uppercase font-bold tracking-wider" title="Przywróć">Przywróć</button>
+                                <button onclick="permanentDeleteSecret('${key}')" class="text-slate-400 hover:text-red-400 p-1" title="Usuń trwale">✕</button>
+                            ` : `
+                                <button onclick="editSecret('${key}')" class="text-slate-400 hover:text-white p-2" title="Edytuj">✎</button>
+                                <button onclick="deleteSecret('${key}')" class="text-slate-400 hover:text-red-400 p-2" title="Usuń do Kosza">✕</button>
+                            `}
+                        </div>` : ''}
+                        ${!showTrash ? `
+                        <button onclick="copyToClipboard('${key}')" class="${isGrid ? 'w-full' : 'px-8'} bg-white/5 hover:bg-white/10 border border-white/10 py-2 rounded transition flex items-center justify-center gap-2">
+                            <span>Kopiuj Hasło</span>
+                        </button>` : ''}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function filterSecrets() {
+            renderSecrets();
+        }
+
+        async function copyToClipboard(keyName) {
+            const pwd = secretsCache[keyName].password;
+            try {
+                await navigator.clipboard.writeText(pwd);
+                showToast("Sekret skopiowany do schowka!");
+            } catch(e) {
+                showToast("Błąd schowka (API wymaga HTTPS lub localhost)");
+            }
+        }
+
+        function showSecretModal() {
+            document.getElementById('modal-title').innerText = "Dodaj Sekret";
+            document.getElementById('f-name').value = "";
+            document.getElementById('f-name').disabled = false;
+            document.getElementById('f-password').value = "";
+            document.getElementById('f-login').value = "";
+            document.getElementById('f-apikey').value = "";
+            document.getElementById('f-url').value = "";
+            document.getElementById('f-expires').value = "";
+            document.getElementById('secret-modal').classList.remove('hidden');
+            document.getElementById('secret-modal').classList.add('flex');
+        }
+
+        function editSecret(keyName) {
+            const data = secretsCache[keyName];
+            document.getElementById('modal-title').innerText = "Edytuj Sekret";
+            document.getElementById('f-name').value = keyName;
+            document.getElementById('f-name').disabled = true;
+            document.getElementById('f-password').value = data.password || "";
+            document.getElementById('f-login').value = data.login || "";
+            document.getElementById('f-apikey').value = data.api_key || "";
+            document.getElementById('f-url').value = data.url || "";
+            document.getElementById('f-expires').value = data.expires || "";
+            document.getElementById('secret-modal').classList.remove('hidden');
+            document.getElementById('secret-modal').classList.add('flex');
+        }
+
+        async function saveSecret() {
+            const keyName = document.getElementById('f-name').value;
+            if(!keyName) return;
+            
+            const payload = {
+                password: document.getElementById('f-password').value,
+                login: document.getElementById('f-login').value,
+                api_key: document.getElementById('f-apikey').value,
+                url: document.getElementById('f-url').value,
+                expires: document.getElementById('f-expires').value
+            };
+            
+            await fetch(`/api/secrets/${keyName}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentAuth}`
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            closeModals();
+            loadSecrets();
+        }
+
+        async function deleteSecret(keyName) {
+            if(confirm(`Czy na pewno usunąć '${keyName}' do Kosza? Zniknie on ze skryptów CLI.`)) {
+                await fetch(`/api/secrets/${keyName}`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${currentAuth}`}
+                });
+                loadSecrets();
+            }
+        }
+
+        async function restoreSecret(keyName) {
+            await fetch(`/api/secrets/${keyName}/restore`, {
+                method: 'POST',
+                headers: {'Authorization': `Bearer ${currentAuth}`}
+            });
+            showToast("Sekret przywrócony!");
+            loadSecrets();
+        }
+
+        async function permanentDeleteSecret(keyName) {
+            if(confirm(`UWAGA: Czy na pewno TRWALE usunąć '${keyName}'? Ta operacja jest nieodwracalna!`)) {
+                await fetch(`/api/secrets/${keyName}/permanent`, {
+                    method: 'DELETE',
+                    headers: {'Authorization': `Bearer ${currentAuth}`}
+                });
+                loadSecrets();
+            }
+        }
+
+        function showChangePinModal() {
+            document.getElementById('new-pin').value = "";
+            document.getElementById('pin-modal').classList.remove('hidden');
+            document.getElementById('pin-modal').classList.add('flex');
+        }
+
+        async function changePin() {
+            const pin = document.getElementById('new-pin').value;
+            if(!pin || pin.length < 4) {
+                alert("PIN musi mieć minimum 4 znaki.");
+                return;
+            }
+            const res = await fetch('/api/change-pin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentAuth}`
+                },
+                body: JSON.stringify({new_pin: pin})
+            });
+            if(res.ok) {
+                showToast("Nowy klucz PIN został przypisany!");
+                closeModals();
+            } else {
+                alert("Błąd zmiany PIN. Sesja wygasła lub brak uprawnień Master.");
+            }
+        }
+
+        function showDocsModal() {
+            document.getElementById('docs-modal').classList.remove('hidden');
+            document.getElementById('docs-modal').classList.add('flex');
+        }
+
+        function closeModals() {
+            document.getElementById('secret-modal').classList.add('hidden');
+            document.getElementById('secret-modal').classList.remove('flex');
+            document.getElementById('pin-modal').classList.add('hidden');
+            document.getElementById('pin-modal').classList.remove('flex');
+            document.getElementById('docs-modal').classList.add('hidden');
+            document.getElementById('docs-modal').classList.remove('flex');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.remove('translate-y-10'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10');
+                setTimeout(() => toast.classList.add('hidden'), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

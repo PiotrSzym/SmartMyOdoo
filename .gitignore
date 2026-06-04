@@ -1,0 +1,51 @@
+# ==============================================================================
+# SmartMyOdoo - Git Ignore Policy (Zarządzane przez /arch)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. TeamEngine & AI Context (Lokalne środowisko AI nigdy nie trafia do repozytorium)
+# ------------------------------------------------------------------------------
+.agents/
+TeamEngine/
+.gemini/
+.cursorrules
+.geminirules
+
+# ------------------------------------------------------------------------------
+# 2. Bazy Wiedzy i Decyzji (Kryptonim: LANCET, ADR)
+# Zgodnie z polityką /arch, wiedza operacyjna zostaje na dysku lokalnym
+# ------------------------------------------------------------------------------
+LANCET/
+ADR/
+docs/adr/
+architecture_decision_records/
+
+# ------------------------------------------------------------------------------
+# 3. Zmienne Środowiskowe i Sekrety
+# ------------------------------------------------------------------------------
+.env
+.env.local
+*.pem
+*.key
+secret/
+credentials/
+*.enc
+*.cfg
+
+# ------------------------------------------------------------------------------
+# 4. Artefakty systemowe i środowiskowe (Node, Python, Odoo)
+# ------------------------------------------------------------------------------
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+tmp/
+logs/
+*.log
+*.sqlite3
+*.db
