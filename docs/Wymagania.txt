@@ -1,0 +1,214 @@
+Damian Ratus (00:00): I teraz tak, kto się łączy? Dzień dobry. To się łączy z kilkoma środowiskami. My działamy z BIR-ą, więc łączymy się z BIR-ą i może to też działać z BIR-ą. Po co? Ponieważ całe zadanie, cały proces zaczyna się od końca, zarejestrowane zadanie. Czyli opisuje błąd, klient opisuje jakiś błąd, ja sobie to rejestruje. Jak pracujecie na ODO, to może dobyć task założony w ODO. Nie mamy niczego problemu. I on bazując na tej wiedzy, którą ma w projekcie, odpowiada na to pytanie. I co ważne, widzi cały kontekst, widzi pozostałe zadania, widzi kod, bo ma dostęp do GitHuba i widzi, ma dostęp do bazy. Więc mając całe te informacje, jest w stanie udzielić szybko informacji Na przykład. Pokażę Wam jak to w praktyce działa. To są projekty, które mogę pokazać.
+
+Damian Ratus (00:59): Nie ma żadnych danych, których brakuje. Wrzucam do niego cyrkowego taska. Nawet drukuję etykiety z poziomu produktu. Wybieram dymo, szablon i drukuje się cena. Wiem, że to jest pierdoła, to idzie zmienić sobie tam studia i tak dalej. Teraz ja wchodząc tutaj zaznaczam mu Popracuj z... Sobie znajdę, bo ja mam cztery pootwierane w projekcie. Przełączmy się do tej grupy, którą chce. Zaczynam zadania w taki sposób, że Zajmij się zadaniem AC-70. To jest skrót z DZWIR-a. I on sobie zaczyna konsultować. Czyta w DZWIR-a ticket, łączy się z tym, uruchamia się plazmiska itd. No i znalazł diagnozę. Ticket brak ceny na wydruku Dymo, itd. Kreator przycina, który to jest szablon, znalazł szablon itd. Ja go zapytałem czy może to zmodyfikować bez kodu. I on mi odpowiada, że tak.
+
+Damian Ratus (02:19): Cały raport modyfikuje, wyrzuca co ma. No i mam zawsze plan, on przed tym daje dwie opcje. Albo robię to kodem czyli przełączę personelu dewelopera, on mi robi kod kastronizacji, którą wrzucam w kit kabel itd. Albo robi to w studio. To jest prosta modyfikacja, więc zaznaczam, robię dwa. No i on zaczyna robić to co To co skończyłem i na końcu mam dwie opcje. Na końcu mogę zalogować od razu 15 minut do tego zadania. Jako praca konsultanta moja lub AI. Z racji tego, że widzisz, że mamy podłączone tempo. Widzisz to? Od razu loguje czas pracy konsultanta. Tyle tego zadania. Zajęło to czat kilka minut. Raportował 15, ja mogę zaraportować dodatkowy czas związany z tym zadaniem. Proste zadanie, ale bardziej zaawansowane zadanie. Popatrzcie tutaj.
+
+Damian Ratus (03:20): To jest moduł do eksportu EG, który poprosiłem go żeby zrobił port do wersji 19. To jest zadanie 71. I mam moduł do wersji 18, który eksportuje do rewizora. Poruszyłem go, żeby zrobił port. Wrzuciłem mu paczkę. I on taki port jest w stanie przygotować. Oczywiście miało swoje błędy, bo tu oczywiście wyceny magazynową Stock Valuation Layer nie znalazł takiego pola, no bo go nie ma. Ale udało się to rozwiązać docelowo. I cała konwersacja polega na tym, że on znajduje, znajduje pliki, widzi takie projekcje, takie zadania. Wybieramy rozwiązanie, co chcę zrobić i po kolei sobie działamy tutaj. W tej wersji zrobimy gotową padkę z modułem w zipie. Może też zrobić branżę deweloperską. Może zrobić też branżę deweloperską tak jak tutaj. Czyli od razu tworzy branżę, którą może inwestować. I to cloudem robicie, tak?
+
+Damian Ratus (04:35): To jest klot i kodeks spięty.
+
+Sergey Morin (04:38): Nie, nie, no raczej tylko kodeks.
+
+Damian Ratus (04:39): Dodatkowo. No kodeksa też używamy tutaj w tym trybie dowodopadowym jest kodeks spięty. Aha, w tym ten.
+
+Adam Miernik (04:48): Dobra, a klient jakąś musi zgodę u Was wyrazić na to jak to wygląda?
+
+Damian Ratus (04:53): Tak, tak, tak. Zaraz Wam pokażę z perspektywy klienta jak to wygląda, ale jeżeli chodzi o testy jeszcze, bo tak u mnie to wpadło w zadanie, to jest ten sam moduł. Tu jest w ogóle prośba o podniesienie do wersji 1.12. Dorzuciłem mu tylko dokumentację, dokumentację edi. Bo w wersji 1.11, to jest z zeszłego roku, w wersji 1.12 wprowadza jedną rzecz, ksef wprowadza. I poprosiłem go, żeby w tym module zapoznał się z tym dokumentem i dopisał mi rzeczy, które potrzebuje. Tutaj jest tego ksef. Jest chyba jedna tabela. Tu jest jakiś kabel, który musiałbym odopisać. I on zapoznał się z tą dokumentacją. I zrobił mi zadanie dla kodeksa. To nazywam AIVAR-a. Zrobił zadanie dodatkowe, pod zadanie tutaj. To jest moduł WIDOM, który kupiliśmy od nich.
+
+Damian Ratus (05:53): Oni mieli go w wersji 16, a my podjęliśmy go do 18 i 19. To jest zadanie już dla kodeksa, który ma odkrojone informacje co ma zrobić. Rzeczy, które ma zrobić. Kroki do wykonania. Coś po tym się dzieje. Kodeks sobie tutaj zaczyna pracę i czyta ma od dołu. I też testuje. Robi plan, ustawa branż, planuje, implementation, potem robi testy, robi UI testy, robi commit. Efekt jest tego taki, że otrzymuje to jest 216. Otrzymuje branżę 216 i mogę od razu... Otrzymuję coś takiego, mogę sobie wejść w taką branżę, przebudować ją i sprawdzić kod, który on wygenerował wraz z testami. No i potem dalej, jeżeli są jakieś błędy, mogę w zadaniu odpisywać. Na końcu jest człowiek, jednak ten kod jest weryfikowany przez dewelopera.
+
+Damian Ratus (06:56): Tu jest jakaś rewrote zrobione i po tej akceptacji przez dewelopera mogę dopiero iść na stage i na live. Ale cała lwia część pracy, czyli zapoznanie się z dokumentacją, opisanie techniczne, zrobienie modułu jest po stronie AI. Moja praca jest tylko na początku, gdzie muszę mu zadać zadanie i na końcu żeby zweryfikować to i poprosić kogoś, kto jeszcze ten kod zrobi, review tego kodu. No i będziemy mogli to pójść na stage. Co nim można robić? Praktycznie naprawianie modułów od takich pracownych rzeczy jak widok był ukryty, moduł nie działa, bo był widok ukryty. To jest rzecz, którą trzeba sprawdzić. Import produktów. To jest bardzo fajny case, bo staje się Excel'a od klienta. Excel jest mega surowy. To jest baza jakaś produktów, które oni tam dostali od swojego dostawcy. To jest bardzo surowy plik.
+
+Damian Ratus (08:01): Ja tylko zobaczyłem, że potrzebuję nowy kod jako referencję produktu. No i cenę, bo nie wiedział, która to jest cena. MŚP Netto to jest sprzedaży, a zakupowa będzie taka. Czyli to w zakup wchodzi, a to we sprzedaż. No i taki plik przesyłam. On znalazł produkty, znalazł, że już są 425 wykonywanych kodów. 11 Już jest dodanych. Kolejny zaczął to ręcznie dodawać, do dodania 416. No i zawsze dostaje plan. Co robimy? Jedynka, założyć wszystkie 14 indeksów, czy najpierw grać jakąś grupę testową? No to poprosimy, żeby wgrał 10, czyli tak zwany dry run. No i 10 produktów wrzuca bezpośrednio do bazy. Potrafi zapisywać, te produkty istnieją w bazie. Możemy sobie taki produkt otworzyć. On po stworzeniu wygląda tak. To całkowicie klucz zrobiony.
+
+Damian Ratus (09:09): Jest jako użytkownik, jako właściciel, bo z jego konta korzystamy z jego klucza API. Ale dodał odnośnik, dodał kod kreskowy, dodał cenę MŚP i dodał koszt, który pobrał tam cenę dla oceny. Dalej, wspólne pola dla każdego rekordu i mamy potem punkty do potwierdzenia skąd ma cenę wziąć, ja mu doprecyzowałem skąd ma cenę wziąć. Pokażę ostateczny plan, 10 rekordów, weryfikowałem je, No i kolejne 10 produktów, pozostało 469 produktów, dodaj. I teraz tak, on nie importuje ten, tylko robi sobie batcha. Robi sobie batche po 50 produktów, weryfikuje czy jest ok, batch pierwszy przyszedł, batch drugi, trzeci, czwarty, piąty, szósty. Tu Antropik wywalił błąd, ale jak mu ponowiłem to... No i teraz tak, Dodałem mu pytanie, ile czasu powinienem klienta za to skasować.
+
+Damian Ratus (10:11): Jeżeli dostaliście taki plik, chciałby go przeanalizować, trzeba sprawdzić, czy to produkt jest w bazie, czy kategorie jeszcze. To jest coś bardzo fajnego, bo ja mu nie podałem kategorii produktów, ale on znalazł kategorię Ajax i z automatu te produkty wrzucił w kategorię Ajax. Ja mu nic nie wspomniałem o kategorii Ajax. Kategorię sam sobie dopasował. Zapytał tylko czy ma spróbować dopasować całą kategorię produktywną i tak spróbuje. Zapasował to po nazwie. Efekt tego jest taki, że na końcu zapytałem go ile czasu taki import zajmie dla doświadczonego eksperta. No i analiza to jest tam 20-30 minut, sprawdzenie jednostek, czyli poprawienie tego pliku, przygotowanie pliku CSV. No tu trochę poszalał z tym czasem. Test 15 minut, pełny import rekordów. Ogólnie zaimportowanie takiego pliku od 1,5 do 2,5 godziny. Z weryfikacją, z poprawieniem jednostek, może z wybraniem kategorii.
+
+Damian Ratus (11:15): To jest jeszcze ciekawe, jeżeli się pomyli. Mamy coś takiego, że np. Jednostki kupujemy. Produkt testowy. To nie ta baza, więc mogę go tu nie zdać. Produkt testowy. Sztuki. Ale może się zdarzyć, że produkt jest sprzedany i jest WZ zrobiony. Już nie idzie zmienić jednostki. Trzeba zarkiwizować go itd. On jest w stanie tu zmienić takie rzeczy, których normalnie nic nie zrobicie. Mam kilogramy i ten produkt jest na przykład już z WZ-ka do tego zrobiony. Tak poszło, nie ma. Jest śledzony w ogóle, więc zmiana jednostki na tym produkcie jest praktycznie niemożliwa. Zrobiłem jednostkę z kilogramem na sztuki. To jest produkt. I zrobiłem to z drugą strony. To jest ciekawe. Możecie odpalić sobie pięć takich okien i zająć się swoją pracą. On sobie analizuje. Potem wracacie.
+
+Adam Miernik (13:15): A to on po prostu robi to zmianę w bazie danych, tak?
+
+Damian Ratus (13:19): Tak. Wtedy. Tak. I teraz sytuacje takie, które się zdarzają. Które najczęściej klienci robią. Poprawa groszówek. Macie fakturę z KSEF-u. Jest zaokrąglanie po całości. O tu się zaczytuje, że na przykład po linii. I z tego faktura zejrzano groszówka. Tam może sprawdź wszystkie faktury, zobacz różnice groszowe, zaokrąglenia, popraw. Ktoś się pomylił, wprowadził zły produkt, zrobił PZ-kę, poszło, tak? Albo cenę zakupu. On jest w stanie to poziomo bazy jeszcze odkręcić. Zartygulować indeks, pierwszy wrócić nowe i na przykład drukarka fiskalna. To, co jest zmorą chyba każdego z nas, jeżeli chodzi o drukarkę fiskalną i stawki podatków, nie? Ktoś zmienił podatek tak jak tutaj i puścił paragon. Drukarka fiskalna zapamiętała sobie ten podatek.
+
+Damian Ratus (14:19): I tu jest taki sam case zrobiony, gdzie to klient tutaj zaczął, bo klienci też mogą sobie go korzystać. Zaczął wrzucać błędy. Był np. Że błąd drukarki fiskalnej, no i klucz go tutaj prowadzi krok po kroku. To jest czat akurat klienta. Sprawdził, nie mógł wydrukować Paragonu i tak dalej. W pewnym momencie mnie zaprosił do czatu, bo sobie nie poradził. Okazało się, że tu są gdzieś stawki pomylone. Zaraz znajdzie listę produktów. O, tu jest ktoś sprzedał na 8%. Drukarka sobie zapamiętała to, a przy kolejnym wydruku Paragonu to jest Nowitus. Wszyscy znaczą. Wiecie jak to wygląda. Zapamiętał podatek, no i co? Albo zmienić nazwę, albo zarchiwizować go. No i tu się zmiana nazwy nie pomaga, żeby zarchiwizować ten produkt.
+
+Damian Ratus (15:12): No i idąc tym krokiem on może ten produkt zarchiwizować, cały ruch magazynowy przenieść, przenieść dane magazynowe i znaleźć jeszcze inne produkty, bo tutaj idąc tym tropem dalej rozmawiamy, rozmawiamy. Tu klient doszedł do tego, że tych produktów jest więcej. Doszliśmy do listy, gdzie te produkty są zrobione. Mogę je hurtowo, na przykład wszystkie archiwizować. Tutaj mam. Historia druku pamięci piskalnej 8, 8, 8. Te produkty trzeba się nimi zająć, bo ktoś się pomylił i źle podatki zrobił. Zobaczymy jak tam moje ten. Jeszcze leci, jeszcze mierzy. Wydruki szablony, walka z szablonami. Tutaj też nie było wielkiej filozofii, bo klient zaznaczył co chce. Faktura zaliczkowa na dofinansowanie z Wojewódzkiego Funduszu Kierowiska. Zadanie wyglądało tak. Proszę usunąć niepotrzebnych tabelek z faktury zaliczkowej. I takie coś Kilian wysłał. Tylko tyle.
+
+Damian Ratus (16:33): Mniej więcej kontekstu nie robiłem do tego. Żeby to zniknęło z szablonu faktury zaliczkowej. On tutaj nie chce mieć opisu i tak dalej. Dokładnie przekreślił i ta tabelka ma zniknąć. Podsumowanie tam zamyka. I tyle. Tyle doklada w WC. Pan sobie zajmuje tym zadaniem, czyta, robi zawsze plan, wtykuje etiket, podpina zadanie, dedykuje obecnego szablonu na uzyskanie PDF-a. Co najważniejsze, tutaj jest jeszcze kontekst, że używa klienta WebInvoice, czyli to niestandardowy wydruk i zauważył jeszcze, że jest już jakiś moduł, który modyfikował ten wydruk. To są rzeczy, które ja mi całkowicie nie podałem. Sprawdził, jakie są moduły zainstalowane i jeszcze zobaczył, że jest jeszcze jedna nakładka na ten na ten szablon. I tutaj nie umiałem odczytywać załącznika, więc wyrzuciłem mu ten załącznik. Znaczy wyrzuciłem w komentarz później, że załącznik zostanie dla mnie pozatrudniony. No i co?
+
+Damian Ratus (17:37): Tutaj mnie pyta, co ma usunąć, jaką kolumnę ma usunąć, jedną podobną rzecz, no i znowu mam te opcje. Czy to ma być osobny przycisk drukuj faktury zaliczkową, czy automatycznie ma to się robić, gdy ktoś potwierdzi SO. My chcemy to zrobić jako dedykowany model, Przygotował patcha, jeżeli bym chciał to mogę od razu spatrzywać to w mojej module bez szybkiego fixa, po prostu z liniami kodu. No i tutaj dalej rozmawiamy na temat... Ja poprosiłem żeby był zadanie dla Iwara, do naszego kodeksa i on takie zadanie przygotował pod kodem 218. 218, Czyli Code Review i wdrożenie takiego szablonu. I tu już jest typowo zadanie techniczne, które trafiło do kodeksa. No i po kolei z testami. Tutaj jeszcze były jakieś poprawki, dlaczego tam nie było widoczne. Znowu zrobił poprawy ten moduł.
+
+Damian Ratus (18:40): I na końcu przetestował tutaj dla 15, 15 tam faktów zaliczkowych przetestował. Zrobienie takiego szablonu gdzie klient sobie wymyśla i tam dodaje tabelki i tym podobne rzeczy, to jest naprawdę kupę roboty. Tu był nawet jakiś błąd, który ja mu użyciłem, stricte błąd mu użyciłem, dlatego poprawił go. Zaraz przetnę poważny błąd, ale prosty, zapisuję kontekst. I napisz poprawkę dla kodeksa, żeby w komentarzu to zrobił. No i zaloguj na przykład 2 godziny pracy w tym wypadku, jeżeli chodzi o pracę z tym. Tu jeszcze było pytanie ile tokenów zjadło to zadanie, bo każde takie zapytanie zjada token od klucza. Ogólnie wyliczyliśmy, że proste zapytanie to jest koło dolara, czyli mniej więcej zjada tokenów za dolara, czyli sprawdź mi w bazie, edytuj, dodaj i tym podobne rzeczy.
+
+Damian Ratus (19:37): Bardziej zainwestowane zadanie, gdy tam jest już kod, to już te konie po prostu zjadą z każdym naszym zapytaniem. W międzyczasie skończył mi ten produkt testowy ID. Jednostka zmiany z kilograma na unit. Mam unicę tutaj. Kilogramy. Sztuki. Mimo, że jest ruch magazynowy zrobiony na tym produkcie. Patrzcie co się znowu zetce się stało. Sztuki są. Może robić taką magię do odkręcenia rzeczy niemożliwych. Nawet jak są ruchy magazynowe. To się bardzo sprawdza w przedmiokarkach PISCAN. Jak macie indeksy, które poszły ze złym VAT-em, to może to był łatwy sposób ten indeks archiwizować, zrobić taki sam, oczywiście z innym ID i cały ruch magazynowy odzwierciedlić, jaki był do tego indeks zrobiony. My to udostępniliśmy naszym klientom, tym którzy są jakby tak powiem na supportcie. Oni mają do tego dostęp z poziomu odu.
+
+Damian Ratus (20:43): Tu się pojawia taka magiczna ikonka. Taki zielony kwadrat. Teraz się loguje jakby przez sesję klienta, tak? Przez sesję klienta widzę co on tutaj robi. Widzę jakie chaty ma zorganizowane. No i najczęstsze problemy jakie klienci mają. Dlaczego nie mogę zrobić zwrotu towaru? Niewystarczająca ilość i tak dalej. No i odpowiedź jest prosta, bo ponieważ jest WZK zrobiona, zamówienie jest na tego kontrahenta, WZK jest zrobiona na tego kontrahenta. No sorry, tak się nie da. Korekty faktury. Zaczęłabym poprawić fakturę zakupu, różni się dwa grosze. On sobie znajduje tą fakturę, znajduje sobie pozycję, która różni się na dwa grosze i sugeruje jakąś propozycję korekty. Tak popraw. No i cały plan jest z tym związany. Sprawdź integrację z Outlookiem. Czyli proste zadanie. Zobacz czy wszystko działa.
+
+Damian Ratus (21:41): No i błąd dydykowania tylko archiwistami standardowo. Jak jakiś błąd wyskakuje, szablonu, mogą sobie poprawić. Teraz jeżeli dacie dostęp do klienta swojego, to on w każdym momencie może tutaj zaprosić sobie konsultanta. Wybrać sobie konsultanta. Ja wtedy otrzymuję powiadomienie na koronawirus na Slacku. I teraz ja widzę cały czat tego mojego klienta i mogę pisać albo do agenta, albo mogę pisać bezpośrednio z klientem. Czyli pomóc mu wyraźnie w tym temacie.
+
+Tomasz Perkiewicz (22:15): Kamian, a jak z odpowiedzialnością taką wiesz, no bo jednak dajecie dostęp do bazy, klient sobie może napisać takie prompty, która wszystko porozwala?
+
+Damian Ratus (22:25): Może, może, ale on zawsze ma plan, który akceptuje. Okej. I potem jak trzeba to naprawić, to.
+
+Tomasz Perkiewicz (22:31): Rozumiem kasuje Cię klienta, nie? A zdarzyło Wam się tak, wiesz, dość mocny jakiś fuck up ze strony klienta na zasadzie, że pisał sobie jakieś takie rzeczy, że wiesz.
+
+Damian Ratus (22:41): Wszystkie zmiany plot zapamiętuję.
+
+Sergey Morin (22:43): Tutaj trzeba powiedzieć, że klient ma dostęp taki, jak ma dostęp w podu przez FBI. Więc jeżeli na przykład z wodą na coś nie ma dostępu, to on tego nie zrobi.
+
+Damian Ratus (22:51): Tak, jeżeli będzie to z kloginy księgowej, ona ma dostęp tylko w obszarze księgowości, to ona nie zmieni żadnych pozycji magazynowych, bo klient powie, jakbym mu teraz na przykład powiedział, zmień mi hasło użytkownika jakiegoś tam, to on powie, najpierw sprawdzi, czy mam takie uprawnienia wody, jeżeli nie mam, powie, sorry, ale nie mogę ci tego zrobić, bo nie masz uprawnień. Kolejna rzecz, jeżeli robi jakieś zmiany, na przykład zmienia cen, to on zawsze zapisuje sobie w swoim buchworze, czyli nawet jak się pogubi i wszystkie ceny na 0 zapisze, to by mu powiedzieć przywróć mi ceny jakie były tam sprzed wczoraj. On to ma zapisane w każdą tą sesję, bo to jest logowana sesja. To nie jest tak, że nie da się odwrócić. Owszem, jak skasuje rekordy, to będzie wiedział jakie rekordy skasuje, no ale z bazy i wywali.
+
+Damian Ratus (23:37): Znowu, jak mu powiem przywróć te rekordy, no to ma te dane, żeby te rekordy na nowo stworzyć. Rozumiem.
+
+Grzegorz Tychawski (23:43): I na koniec to raportuje Dżiża Waszej.
+
+Damian Ratus (23:47): Dziże. Mamy też konektor z ODO zrobiony. I działa to już bardzo fajnie. Tylko próbuję sobie otworzyć ten konektor. Mam konektor z ODO zrobiony. Trzeba więcej wykładek sobie pootwierać. Będzie łatwiej. Może też raportować zadania w ODO. Pracujecie z ODO czy nie?
+
+Grzegorz Tychawski (24:15): Tak, my pracujemy z ODO.
+
+Damian Ratus (24:17): Dobra, no w projektach domyślam się, nie? Tak, oczywiście.
+
+Grzegorz Tychawski (24:20): W projektach w helpdesku.
+
+Damian Ratus (24:24): Ok. Ja tu zrobiłem sobie jakiś projekt. Poprosiłem, żeby mi zalogował audyt. Zalogował mi z... Tak, ale rozumiem, że.
+
+Grzegorz Tychawski (24:42): Automatycznie to co dostaniecie klientom jest bilingowane przez niego również, tak? Czy musisz przejrzeć to na koniec?
+
+Damian Ratus (24:50): Chodzi o klodmajaczy czasami, co nie będę dużo mówił. Robi takie astematy czasami, że musi człowiek do tego spojrzeć. Realnie trzeba podejść na koniec.
+
+Grzegorz Tychawski (25:01): Czyli dajesz to klientowi, a klient się zużywa, tokenuje i tak dalej, na koniec miesiąca dostaje.
+
+Damian Ratus (25:11): Mamy trzy modele do tej pracy. Jeszcze pokażę jak to działa. Ja poprosiłem jeszcze, żeby zrobił audyt, kustomizacje jakie są zrobione. Sprawdźcie jakie są kustomizacje zrobione. Na końcu poprosiłem go, że zapisz mi to w zadaniu Project Audit w bazie ODO. Tu mam podłączone integracje z ODO. Mogę wybrać, czy ja to chcę z GIRą pracować i z ODO. Jak mu powiedziałem, to on mi to zapisał wszystko tutaj do taska. Mogę jeszcze mu powiedzieć, czy może zapisywać, czy nie, bo to się konfiguruje na poziomie integracji. Tu mam integrację ODO Extra, podłączam sobie. Tu mam mieć Recorded Only, czyli całkowicie mi nie zapisuje nic w tasku, tylko czytuje te taski. I standardowo tu token podłączamy, podłączamy, podłączamy klucz. Teraz tak samo klucz kloda. Do każdego projektu może być klucz podłączony klodowe.
+
+Damian Ratus (26:11): Możecie sobie też dodawać konsultantów do danych projektów, dodawać sobie też użytkowników. W przypadku użytkowników jeszcze można wybrać czy on ma mieć dostęp do persony jakiegoś dewelopera. Wtedy można mieć pull requesty, może robić, może być komity, ma dostęp do repo i tym podobne rzeczy. No i środowiska ODO, tu też możecie dodać staging i tym podobne rzeczy. Jest to takie organo, jak powiem, odporne na jakieś tam większe rzeczy. GitHub repo dodatkowo. No i przy ODO Enterprise dajemy w ogóle dostęp do zapisywania repo. Teraz to co gdybyś pytasz o modele rozliczenia, tu jest różnie, bo zależnie jaki to jest klient, jest klient techniczny, jest klient nietechniczny. My pracujemy w trzech modelach i taki model Wam proponujemy, zresztą sami możecie wybrać, opłata za użytkowników, czyli możecie kasować klienta za to, że ma dostęp do tego.
+
+Damian Ratus (27:16): On się supportuje tam, robi sobie taski, tylko uwierzcie mi, że oni tak w pewnym momencie dochodzą do takiego fragmentu, że muszą zapytać kogoś technicznego, bo plot zaczyna im rozwiązywać problemy, ale w pewnym momencie mówi, dobra, ja więcej nie zrobię, potrzeba napisania modułu, albo zmiany w jakimś tam widoku, albo przebudowania funkcji. No bo pierwsze czaty z klientami to jest fajnie, tam popraw, popraw. Chciałbym, żebym się automatycznie wysłał mail o 20, nie wiem, z czerwonym ekranem i tak dalej. A klient powie, dobra, ale to już jest inkarencja w module. I on tak przyjdzie i zapyta was, co ma dalej zrobić albo poprosi o wycenę takiej customizacji. Takie maile otrzymujemy, ten klient sobie robi, coś robi, robi, robi. W tym momencie klient mu mówi, dobra, teraz muszę coś napisać albo coś zmienić w bazie.
+
+Damian Ratus (28:02): Nie wiedzą co odpisać, wracają do nas, nie? Możecie przez te tekany liczyć z klientem, czyli jakikolwiek, my na tekanach nie zarabiamy klubowych, więc albo klient sobie sam kupuje, albo my kupujemy, rozliczamy jeden do jeden. Czyli od zapytań dostaje klient dostęp do platformy i rozlicza tekany i rozliczanie wyróg czasu pracy, bo jeżeli Sorry, że tak.
+
+Grzegorz Tychawski (28:30): Już technicznie, ale musisz mieć osobny pakiet wykupiony dla każdego klienta, no bo skąd wiesz...
+
+Damian Ratus (28:37): Nie,.
+
+Sergey Morin (28:47): Nie, nie, to będzie w numerunku też, w tym bilniku całym.
+
+Damian Ratus (28:55): Ten bidding chyba jest w backlogu. Przy tym zadaniu powinno być pokazane ile tokenów to zjada i klient na swoim koncie ma te tokeny i podłącza swój klucz, doładowuje tam 100-200 dolarów i widzi ile mu to każde zadanie zjada.
+
+Grzegorz Tychawski (29:16): Jak swój podłączy to wtedy jest najlepiej.
+
+Damian Ratus (29:22): Tak jak swój podłączy.
+
+Sergey Morin (29:23): Wy na przykład możecie zdecydować, że chcecie zarabiać na tych tokenach, np. Sprzedałeś ich dwa razy drożej niż płacicie kodu i wtedy będziecie mieli swój billing, więc podłączacie swój klucz, ale u nas w Lumirangu już widzicie jaki rzadkownik ile używa tych tokenów i czerżujecie już te tokeny.
+
+Damian Ratus (29:42): Lumirang to jest nasza marka niepowiązana z obszarem. My to chcemy, żeby to nie było związane stricto z nami. Najlepszy model pracy, który teraz się wykorzystujemy, no to to jest rozliczenie wzrostu czasu pracy, czyli godzina pracy konsultanta, czyli owszem, import produktu zajmie 3 godziny, ale konsultant to realnie robi, nie wiem, pół godziny pracując z klodą, ale raportuje 3 godziny. Klienta kasuje 3 godziny, tam czy 5 godzin, nie? Ale w tym czasie możesz robić inne zadania. Tu doszło do takiego paradoksu, że raportowaliśmy na użytkownika więcej niż 24 godziny na dobę, gdzie Dzira powiedziała, ej, halo, jak możecie raportować więcej niż 24 godziny na dobę pracy konsultanta, skoro doba ma 24 godziny, nie? No bo konsultant raportował, robił 15 zadań, czy tam 10 zadań i w każdym raportował 2-3 godziny, nie? Nagle mu się dobowo robiło 24.
+
+Grzegorz Tychawski (30:39): Dzira dba o swój biznes, nie?
+
+Damian Ratus (30:41): No tak, czyli sprzedawanie godzin AI-owych. Tu realnie podchodząc do tego, trzeba powiedzieć, że okej, robimy to AI-em, normalnie by mi to zajęło 6 godzin, ale jak to zrobię AI-em, będzie kosztowało 3 godziny. Słuchajcie, większość klientów powie tak, chcę to zrobić AI-em, jak jestem sam, nie? Także konsultant przed nim pracuje 15-20 minut, bo musisz mu wprowadzić dane, zweryfikować te dane, ewentualnie przetestować, dać do poprawki, no i potem ewentualnie z klientem się spotkać, żeby mu pokazać to, co było zrobione, nie? 5 Okien otwartych, 5 czatów otwartych i tylko kontrolujesz, czy tu się skończyło, tam się skończyło, czy tam zalogowało i tak dalej.
+
+Grzegorz Tychawski (31:18): Dobra, to na tą chwilę chyba tyle, bo już przekroczyliśmy czas, więc zaraz będą uciekać ludzie. Jakieś szybkie pytania macie jeszcze?
+
+Damian Ratus (31:29): Ja byłem ostatnią osobą, która w filmie zaczęła tego konwersować. Ostatnią. A teraz jak mnie to zabrali na dwa dni, to chciałem się zwolnić. To zmienia w ogóle całkowicie podejście do ODO. Cała monotonia pracy związana z konfiguracją bazy. Mówisz mu, zaimportuj mi dzienniki, zaimportuj mi bazę kontaktów. Już nie trzeba się pieprzyć z tym głupim importem wodą. On ci mówi, że masz podwójne NIP, że masz produkty z tą samą nazwą, że masz kody takie same, że tu się ceny rozjeżdżają. To jest taka praca, którą trzeba zrobić, a tylko, że klient głasz obłączy, ma dwa grosze na fakturze i ty musisz wejść w tą bazę, szukać dokumentów powiązanych. Zadajesz mu tylko pytanie. Rozjechało mi się dwa grosze na fakturze, gdzie jest 150 pozycji. Sprawdź mi, która pozycja jest do dupy.
+
+Damian Ratus (32:12): I ci w dwie minuty daję odpowiedź. A ty w międzyczasie robisz trzy inne rzeczy, nie? No. A na końcu możesz jeszcze napisać mi... Zrób mi maila do klienta z informacją, co naprawiłem. To już jest takie jeszcze tlenistwo, nie?
+
+Adam Miernik (32:26): Znaczy, no na pewno ja widzę to tak, że gdzieś tam można by było spróbować z tego skorzystać. Tylko no duży problem na pewno jest w security, nie? Bo tutaj... Pytanie jakie ma ograniczenia? Przez MCP jak się łączymy no to on ma dostęp taki full tak do bazy danych i tak dalej.
+
+Damian Ratus (32:46): Zobacz sobie jak to jest zrobione.
+
+Adam Miernik (32:48): Więc on ma dostęp i do parametrów i do wszystkich kluczy. No wszystko sobie może wyciągnąć z bazy danych generalnie nie?
+
+Damian Ratus (32:56): No ale patrz korzystamy z tak. Masz warstwę brzegową pierwszą zaszyfrowaną. Potem każde z pojawiska ograniczone per temat tak. Dostęp jest oparty na rolach, więc jeżeli tam wrzucisz rolę administratora, to oczywiście miał będzie miał dostęp do wszystkiego. Jeżeli zrobisz konto w ODU, które będzie miało dostęp do pięciu modeli, to tylko w tym zakresie się Cloud będzie poruszał. Wiadomo szyfrowane są te połączenia, no i jak korzystamy z API Cloudowego, no to Cloud zapewnia również utrzymanie modeli.
+
+Adam Miernik (33:28): No i kwestia jest też tego, że klienci, bo tych klientów, dla których moglibyśmy to użyć, to ja mam widzenie może jednego takiego klienta, bo reszta to są albo medyczni, albo mocno inżynieryjni, albo wojskowi, więc żaden z nich raczej nie pozwoli wydaje mi się na to, AI mu bazę sobie przeskanował za pytaniem.
+
+Grzegorz Tychawski (34:02): Do samej.
+
+Damian Ratus (34:11): Waszej pracy, jeżeli chcecie sobie usprawnić waszą pracę, choćby nawet konfiguracyjną.
+
+Adam Miernik (34:20): Ja bardziej myślałem o tym, żeby to audytowo, może analitycznie ugryźć temat bardziej niż rzeczywiście jakoś tak dewelopersko, bo dewelopersko wiem, że tam klucz ma trochę problemów.
+
+Damian Ratus (34:40): Jeżeli zidentyfikuje Ci problem związany z danym modułem i wskazuje Ci miejsce, w którym masz poprawić kod, to odpowiadaj, że to już jest duża pomoc.
+
+Grzegorz Tychawski (34:49): Przygotuję plan działania i dobrze zrozumie opis.
+
+Adam Miernik (34:53): Najlepsze są w porównywaniu. Jak masz nową i starą wersję modułu i mu piszesz, co nie działa, to wtedy jest w stanie najlepiej to poprawić.
+
+Damian Ratus (35:05): Trilab Invoice'a naprawiałem do wersji 19, bo się rozpierdzielił totalnie po imporcie. W ogóle wizard się rozjechał. Totalnie. Tak wizard wyglądał i się jakiś zapis pojawiło. Kloce z tym poradził. Znalazł sobie moduł tego, znalazł wizarda. Nawet mi wypluł kod, który mam poprawić. To dodaj, to usuń.
+
+Grzegorz Tychawski (35:28): Czy coś jeszcze na teraz?
+
+Damian Ratus (35:32): Tak to wygląda. Może cenę chcesz płacić, jak my to chcemy sprzedawać. 3 Miesiące za darmo dla partnerów, to tylko dla partnerów, potem 600 zł za konsultantek. To jest na utrzymanie platformy i własnego kloda podpinać. Dla klient, klient ma 40 złotych, jeżeli byście chcieli własnego klienta tu podpiąć. To jest na waszym środowisku, na waszym kluczu, na własnej domenie, z własną historią czatu, całkowicie jakby odłączone od nas. Z tymi integracjami, tak jak mówię, wykonfigurujecie sobie własnego GitHuba, własne klucze ODO, własne klody, własnych konsultantów sobie dopinać, jak chce.
+
+Sergey Morin (36:22): No i Damianie, tutaj trzeba dodać, że tak naprawdę na tym nie zarabiamy i właśnie chcemy to udostępnić partnerom, bo widzimy, że rynek się zmienia, że te jaje wchodzą wszędzie i musimy razem myśleć o tym, jak w przyszłości będziemy zarabiali. A żeby razem o tym myśleć, musimy po prostu tym rzeczem się korzystać i próbować różne modele sprzedaży dla klientów. Bo za rok to już będzie inna industria. Chcemy razem na tym pracować, bo tak naprawdę ja nie wiem w jaką stronę idziemy. Próbujemy różne modele i zobaczymy co zadziała.
+
+Damian Ratus (36:55): Ale klienci sami używają AI i potrzebują Was w czatach dbd poprawki albo regulamentu w czatach.
+
+Adam Miernik (37:07): Zależy od klienta, ale tutaj my mamy dobry przykład chyba sprzed dwóch tygodni, gdzie klient sobie, czy tam trzech, gdzie klient sobie napisał w e-mailu cały moduł do websajta, czyli tak naprawdę strona internetowa, co tam się może wydarzyć. Tutaj Oskar mógłby się wypowiedzieć, ale bardzo naruszył ten moduł security. Gdzie klient już był gotowy wrzucać to na produkcję i gdyby nie review tak naprawdę, no to pozostawiłby możliwości jakiegoś injection i tak dalej. Więc AI jest okej, ale to nie jest tak, że tylko AI ci załatwi wszystko, bez GPU developera.
+
+Sergey Morin (37:46): Tak, ale wiesz co, jak u nas teraz wygląda, że klient ze Stanów do nas przychodzi, mówi, że już pracuje na tym o do tyle lat i chce napisać wszystko swoje. I chcę od was to zamówić, nie? Żeby to dla mnie napisać, ale nie chcę już płacić za licenzję VAT-u, nie? I mówię, że oczywiście rozumiem, że security, architektura i tak dalej to ma sens, ale i tak widzę, że mój syn może zrobić prostą aplikację za jedną godzinę, nie? Więc już nie chcę wam tyle płacić, jak to wcześniej było. Co na to odpowiadać?
+
+Tomasz Perkiewicz (38:15): Też to potwierdzam Adam, dlatego ja ciągle pytałem Adama o tą odpowiedzialność, bo to jest to, bo klient jakby na pewnym poziomie tego nie rozumie. Mówi dobra, ja sobie zrobiłem, dlaczego i ja się tu serdecznie zgadzam. Dlaczego ty chcesz za to 5 godzin, skoro to Ajawin zrobi w 15 minut, czy tam powiedzmy ja się zajmę czymś innym. I Adam, to jest taka perspektywa myślenia klienta, nie? Ja nie myślę o security. Jak wybuchnie, to potem będę się martwił, nie? Ale klient myśli i ja mogę myśleć o panie, nie?
+
+Damian Ratus (38:51): Niestety.
+
+Adam Miernik (38:52): Znaczy, no to pytanie jak jest w USA, jak jest w Europie, nie? W Europie nie ma myślenia, co będzie później. Bo jak złamiasz GDPR, to już miliony idą te kary, więc jakby to jest kwestia ryzyka klienta, ale to jak się będzie martwił później, to już raczej jego firma nie będzie istniała po prostu, bo zostanie taką karę za nim.
+
+Grzegorz Tychawski (39:11): Dobra, czy coś jeszcze? Pytania do Damiana?
+
+Damian Ratus (39:21): Damy Wam to na testy, jak chcecie. Przetestujcie sobie to. Dodacie sobie własne klody.
+
+Adam Miernik (39:26): Wiesz co Damian, ja mam pytanie. Można to jakoś zlimitować na przykład, żeby nie był w stanie klient wypuścić więcej, czy tam jakiś konsultant więcej requestów niż, żeby nie zjadł więcej tokenów niż?
+
+Sergey Morin (39:40): Na poziomie tokenów.
+
+Damian Ratus (39:43): Na poziomie tokenów. Wykład z konto, tam chyba 5 użytkowników trzeba dodać. W lodzie, robisz sobie użytkownika i to mu dajesz limit, nie wiem, 20 dolarów na przykład, nie?
+
+Adam Miernik (39:54): Znaczy chodzi per jakby konwersację, tak? Per czat na przykład, bo to... Przepuść lodowe. Chodzi o to, że jak masz dostęp do bazy, jak mu powiesz, żeby ci coś dużego zrobił, to on ci może bardzo dużo tokenów zjaśnia i może wolałbym, żeby był w stanie powiedzieć, hej, to zapytanie zjem i tam jestem już powiedzmy, nie wiem, w 1,4, a już zjadłem tyle tokenów, czy mam kontynuować, nie? Coś w tym stylu, bo no tutaj wiem, że po prostu przepalanie tych tokenów też jest dużym problemem, nie? Ogólnie w całym industrii IT.
+
+Damian Ratus (40:26): Pracujemy nad tym, żeby tu w debugu była informacja. O, tu jest. Widzicie? 257 Tysięcy tokenów zjadło. I tutaj pokazuje mi na co mi to zjadło. Tu jest zrobienie wizarda, więc zrobienie modułu, poprawienie wizarda, więc tu tych tokenów troszkę zjadło.
+
+Sergey Morin (40:45): Teraz to możemy, Damianie, robić właśnie dwa sposoby mamy. Pierwsze, to jak powiedziałeś, na poziomie Entropiq, ale to na użytkownikach i na cały miesiąc te limity i tak samo teraz robimy u nas, że na przykład jeżeli używa się swój klucz, to możemy na klienta zrobić limit na token, ale nie na sesję i właśnie dlatego udostępniamy te narzędzia do waszych partnerów. Jeżeli myślicie, że to ma sens zrobić na sesję, no to zrobimy to na sesję, to nie będzie aż tak duża zmiana. Więc możemy to rozwijać razem z Wami. Macie jakieś pomysły, próbujemy razem.
+
+Damian Ratus (41:18): Tutaj użytkownik jak zaczyna pracę, to mu jeszcze dajemy taki do zaakceptowania warunki współpracy. Pokaże jak będzie wyglądało. Że musi najpierw zaakceptować te warunki współpracy, żeby przejść jakby dalej. Może przy pierwszym tym jest.
+
+Sergey Morin (41:41): Ale mamy jeszcze te całe umowy w odu, nie, kiedy podpisuje order form.
+
+Damian Ratus (41:46): Widzicie, to jest serwis provider. I jest informacja, że to jest polityka i tutaj mamy informację. Żeby w ogóle ruszyć, musi napisać yes. My to zapisujemy i dopiero, że tak powiem, rusza z tym czatem. Tu możecie sobie generować własny tekst, który ten musi zaakceptować. Przeczytałem regulamin.
+
+Tomasz Perkiewicz (42:04): Nie mam problemu z klientami, którzy są przeciwko.
+
+Damian Ratus (42:06): Zgadzam się. Napisał pan yes, mam na czacie, zapisało się, proszę. To jest do edycji, to jest jakby takie szablon tego, nie? I co? Potwierdził, tak? Zapoznałem się z regulaminem. Tak wszędzie to chyba działa. Potwierdził i działa. Mamy to zanotowane. Potwierdził ofertę, w ofercie też mamy informację. Ma informację o tym. Klod go zapytał trzy razy, czy chce usunąć fakturę. Usunął fakturę. Cztery razy go zapytał. Zawsze plan, potem jeszcze potwierdzenie. Możecie w agencie to wpisać, bo tu możecie sobie też agenta swojego zrobić. Czyli powiedzmy, jak się ma zachowywać ten...
+
+Sergey Morin (42:50): Ja pokazywałem, że się jako konsultanta zaprosić do tego czatu, żeby razem... Tak, tak,.
+
+Damian Ratus (42:55): Ok. Tak, pokazywałem, nie? Ale tu mamy skille, one są skille też pomyślne. Konteksty, skille i czy on ma być bardziej analityczny i czy ma generować stories, czyli analizować transkrypcję, noty i tak dalej. Bo to jest to, co jest piękne z Greinem. Używamy Greina do nagrywania. On może na przykład transkrypcję ze spotkania zrobić i na końcu zrobić tasku. Czyli przeczyta spotkanie, zrobi transkrypcję i powie, dobrze, na spotkaniu było pięć tematów, klient poprosił o zrobienie szablonu, zrobienie tego i zrobi pięć tasków na podstawie rozmowy. Może czytać.
+
+Adam Miernik (43:36): To jest bardzo spoko.
+
+Damian Ratus (43:38): Jest duże spotkanie, dwie godziny trwa, klient wrzuca 10 tematów i potem nie wszystko ucieka. On tylko przypomni, to chciał, to chciał, to zmienić, tam to zmienić. Pod tym względem jest to. I za tryb jasny trzeba 400 wypłacić. Tryb ziemny w standardzie.
+
+Adam Miernik (43:58): Raczej tryb ciemny. Nie wiem czy ktoś używa trybu jasnego.
+
+Damian Ratus (44:05): Nie, tryb ciemny. Jakbym mógł to sprawdzić to czas mi zaloguje do tego. Zobaczę czy czas zaloguje. Dwie godziny pracy. Ciekawe czy doda. To wygląda. Jeśli mieliśmy zrobionego agenta, że on od razu symulował te czasy i mówił, że zadanie zajmuje 5-7 godzin, ale trochę waluzynowo, tak trzeba potem spojrzeć w kartę pracy i potwierdzić naprawdę. Klient zobaczy, że 8 godzin moduł grywaliście, to pewnie nie będzie zadowolony. Ogólnie cały kontekst i to, że on widzi co się w bazie dzieje, zna Trilab Invoice, zna Trilab XEV, wie jakie tam są pola dodane.
+
+Sergey Morin (45:13): Chciałem powiedzieć, że teraz robiłem właśnie adwertyzing i pomyślałem, że dla klientów, którzy nie chcą robić upgrade'a po dół, na 19-20, i chcą AI, no to będzie odpowiedź, nie? Że na przykład się nie chce robić fabulet, bo jest ciężki, ale chcemy już AI na rzęsie, to można im pokonać takie rzęsie.
+
+Damian Ratus (45:32): AI VOD-u. Słuchaj, to mamy AI VOD-u, tak? Pokaż mi S.O. Z ofertą, tak? No, czekaj, nie ten agent. Muszę drugi z agenta odpalić.
+
+Sergey Morin (45:51): Czy ja muszę uciekać?
+
+Damian Ratus (45:52): Bardzo dziękuję. Gdziekolwiek macie go skonfigurowanego, tylko ja i agenta w 19 to to jest...
+
+Grzegorz Tychawski (45:59): Ja jeszcze mam pytanie wewnętrzne. Czy to jest Fireflys, bo widzę, że nasz Fireflys nie wszedł, automata i jaj, tylko jakiś inny Piotr, czy to jest twój?
+
+Tomasz Perkiewicz (46:10): Nie, to jest chyba tego. Obsługa.
+
+Damian Ratus (46:14): Nie, ja mam gry. Nie, no jest automat chyba, tak?
+
+Grzegorz Tychawski (46:20): No właśnie nie, nie wszedł na spotkanie. Jest Firefly, AI, Notetaker, Automat.
+
+Damian Ratus (46:27): Ja mam Graina, mogę wam podesłać. Grain się nagrywa na pewno. Podsumowanie takie, że chyba nie trzeba się przed tym bronić, tylko to wykorzystywać, bo klienci tak będą tego szukać. Będzie klient, który by się zjechał za jajem, będzie wszystko robił za jajem i taki widzimy, ale będzie taki, który widzi tą wartość, że robię taski szybciej, który powrócę jaja i odpisuję mu jeszcze tego samego dnia. Więc głoszę błąd z fakturą i ma do godziny odpowiedź. Ja to wrzuciłem w czat, zarazem mu mówię, gdzie zrobię błąd. Mogę go zareportować tą godzinę, bo on widzi korzyść z tego, że te czasy są mniejsze i działam szybciej. Bo sama analiza zadań. Samoanaliza zadań, ale...
+

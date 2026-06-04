@@ -12,13 +12,15 @@ TeamEngine/
 .geminirules
 
 # ------------------------------------------------------------------------------
-# 2. Bazy Wiedzy i Decyzji (Kryptonim: LANCET, ADR)
-# Zgodnie z polityką /arch, wiedza operacyjna zostaje na dysku lokalnym
+# 2. Bazy Wiedzy i Decyzji (Kryptonim: LANCET, ADR, Conductor)
+# Zgodnie z polityką /arch, wiedza operacyjna, plany i architektura agentów zostają na dysku lokalnym
 # ------------------------------------------------------------------------------
 LANCET/
 ADR/
 docs/adr/
+docs/blueprint/
 architecture_decision_records/
+conductor/
 
 # ------------------------------------------------------------------------------
 # 3. Zmienne Środowiskowe i Sekrety
