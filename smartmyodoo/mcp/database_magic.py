@@ -1,6 +1,6 @@
 from shadow_mode import create_proposal
 
-def propose_magic_fix(fix_type: str, record_id: int, reason: str) -> dict:
+def propose_magic_fix(fix_type: str, record_id: int, reason: str, workspace_id: str = "default") -> dict:
     """
     Moduł 'Magii Bazodanowej' - pozwala agentowi przygotować skrypt naprawczy
     omijający standardowe zabezpieczenia Odoo (np. odwrócenie zamkniętej inwentaryzacji).
@@ -19,7 +19,8 @@ def propose_magic_fix(fix_type: str, record_id: int, reason: str) -> dict:
         model_name="N/A", # Zależne od skryptu
         record_ids=[record_id],
         values={"system_warning": "🚨 UWAGA: Ta akcja narusza standardowe zasady Odoo. Zostanie wykonana przez surowe zapytania SQL lub nadpisanie kontekstu."},
-        reason=reason
+        reason=reason,
+        workspace_id=workspace_id
     )
     
     return proposal

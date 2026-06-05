@@ -61,6 +61,34 @@ def test_domain_pass(mock_server_proxy, valid_env):
     
     mock_server_proxy.side_effect = [mock_common, mock_models]
     
+def test_workspace_isolation(monkeypatch):
+    monkeypatch.setenv("ODOO_URL", "http://global")
+    monkeypatch.setenv("PROJECT_HUB_WS1_ODOO_URL", "http://ws1")
+    monkeypatch.setenv("PROJECT_HUB_WS1_ODOO_DB", "ws1_db")
+    
+    # Domyślny fallback
+    client_default = odoo_client.OdooClient()
+    assert client_default.url == "http://global"
+    
+    # Konkretny workspace
+    client_ws1 = odoo_client.OdooClient("ws1")
+    assert client_ws1.url == "http://ws1"
+    assert client_ws1.db == "ws1_db"
+    
+    # Brak specyficznego - fallback
+    client_ws2 = odoo_client.OdooClient("ws2")
+    assert client_ws2.url == "http://global"
+
+@patch('xmlrpc.client.ServerProxy')
+def test_search_read_limit(mock_server_proxy, valid_env):
+    client = odoo_client.OdooClient()
+    mock_common = MagicMock()
+    mock_common.authenticate.return_value = 1
+    mock_models = MagicMock()
+    mock_models.execute_kw.return_value = []
+    
+    mock_server_proxy.side_effect = [mock_common, mock_models]
+    
     client.connect()
     domain = [("name", "=", "X")]
     client.search_read('res.partner', domain, fields=['id'], limit=5)
@@ -105,3 +133,57 @@ def test_auto_connect(mock_server_proxy, valid_env):
     
     client.search_read('res.partner', [])
     assert client.uid == 1
+
+@patch('xmlrpc.client.ServerProxy')
+def test_create_record(mock_server_proxy, valid_env):
+    client = odoo_client.OdooClient()
+    mock_common = MagicMock()
+    mock_common.authenticate.return_value = 1
+    mock_models = MagicMock()
+    mock_models.execute_kw.return_value = 42  # New record ID
+    mock_server_proxy.side_effect = [mock_common, mock_models]
+
+    client.connect()
+    new_id = client.create('res.partner', [{'name': 'New Partner'}])
+    
+    assert new_id == 42
+    mock_models.execute_kw.assert_called_with(
+        "test_db", 1, "admin",
+        "res.partner", "create", [[{'name': 'New Partner'}]], {}
+    )
+
+@patch('xmlrpc.client.ServerProxy')
+def test_write_record(mock_server_proxy, valid_env):
+    client = odoo_client.OdooClient()
+    mock_common = MagicMock()
+    mock_common.authenticate.return_value = 1
+    mock_models = MagicMock()
+    mock_models.execute_kw.return_value = True
+    mock_server_proxy.side_effect = [mock_common, mock_models]
+
+    client.connect()
+    result = client.write('res.partner', [42], {'name': 'Updated Partner'})
+    
+    assert result is True
+    mock_models.execute_kw.assert_called_with(
+        "test_db", 1, "admin",
+        "res.partner", "write", [[42], {'name': 'Updated Partner'}], {}
+    )
+
+@patch('xmlrpc.client.ServerProxy')
+def test_unlink_record(mock_server_proxy, valid_env):
+    client = odoo_client.OdooClient()
+    mock_common = MagicMock()
+    mock_common.authenticate.return_value = 1
+    mock_models = MagicMock()
+    mock_models.execute_kw.return_value = True
+    mock_server_proxy.side_effect = [mock_common, mock_models]
+
+    client.connect()
+    result = client.unlink('res.partner', [42])
+    
+    assert result is True
+    mock_models.execute_kw.assert_called_with(
+        "test_db", 1, "admin",
+        "res.partner", "unlink", [[42]], {}
+    )

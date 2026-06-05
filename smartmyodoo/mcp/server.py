@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 import os
 import sys
+import logging
 
 # Dodanie obecnego folderu do sys.path by móc importować lokalne pliki
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -8,6 +9,9 @@ from token_governor import governor
 from odoo_client import odoo
 import shadow_mode
 import database_magic
+
+# Konfiguracja loggera
+logger = logging.getLogger(__name__)
 
 # Inicjalizacja serwera MCP dla Odoo
 mcp = FastMCP("SmartMyOdoo-MCP")
@@ -32,18 +36,29 @@ def check_status() -> str:
     budget = governor.get_status()
     status += f"💰 Budżet sesji (Token Governor): wydano ${budget['spent_usd']} z dozwolonych ${budget['max_budget_usd']}\n"
     
+    try:
+        proposals = shadow_mode.load_proposals()
+        pending = len([p for p in proposals if p.get('status') == 'pending'])
+        approved = len([p for p in proposals if p.get('status') == 'approved'])
+        status += f"📝 Shadow Mode: {pending} oczekujących propozycji, {approved} gotowych do wykonania.\n"
+    except Exception as e:
+        logger.error("Błąd odczytu propozycji w check_status: %s", str(e))
+        status += f"📝 Shadow Mode: Błąd odczytu propozycji (szczegóły w logach)\n"
+    
     return status
 
 @mcp.tool()
-def read_odoo_schema(model_name: str) -> dict:
+def read_odoo_schema(model_name: str, workspace_id: str = "default") -> dict:
     """Pobierz definicje i typy kolumn w konkretnej tabeli Odoo (modelu), np. 'res.partner' lub 'account.move'."""
     try:
-        return odoo.get_model_fields(model_name)
+        target_odoo = get_odoo_client(workspace_id)
+        return target_odoo.get_model_fields(model_name)
     except Exception as e:
-        return {"error": str(e)}
+        logger.error("Błąd w read_odoo_schema dla %s: %s", model_name, str(e))
+        return {"error": "Wystąpił błąd podczas pobierania schematu Odoo. Szczegóły w logach systemowych."}
 
 @mcp.tool()
-def search_odoo_records(model_name: str, domain: str = "[]", fields: str = "[]", limit: int = 10) -> dict:
+def search_odoo_records(model_name: str, domain: str = "[]", fields: str = "[]", limit: int = 10, workspace_id: str = "default") -> dict:
     """
     Wyszukaj rekordy w Odoo. 
     Domain to stringifikowana lista list, np. "[['is_company', '=', True]]".
@@ -53,38 +68,104 @@ def search_odoo_records(model_name: str, domain: str = "[]", fields: str = "[]",
     try:
         domain_list = json.loads(domain) if domain else []
         fields_list = json.loads(fields) if fields else []
-        records = odoo.search_read(model_name, domain_list, fields_list, limit)
+        target_odoo = get_odoo_client(workspace_id)
+        records = target_odoo.search_read(model_name, domain_list, fields_list, limit)
         return {"records": records, "count": len(records)}
     except Exception as e:
-        return {"error": str(e)}
+        logger.error("Błąd w search_odoo_records dla %s: %s", model_name, str(e))
+        return {"error": "Wystąpił błąd podczas wyszukiwania rekordów. Szczegóły w logach systemowych."}
 
 @mcp.tool()
-def propose_odoo_update(model_name: str, record_id: int, values_json: str, reason: str) -> str:
+def create_odoo_record(model_name: str, values_json: str, reason: str, workspace_id: str = "default") -> str:
     """
-    Zaproponuj zmianę w Odoo (Shadow Mode). Agent nie ma praw do bezpośredniego zapisu (WRITE).
-    Musisz wywołać to narzędzie podając JSON ze zmianami. Użytkownik otrzyma to do akceptacji.
-    values_json musi być poprawnym stringiem JSON (np. '{"name": "Nowa Nazwa"}').
+    Tworzy nowy rekord w Odoo (Shadow Mode).
+    values_json musi być poprawnym JSONem słownika.
     """
     import json
     try:
         values = json.loads(values_json)
-        proposal = shadow_mode.create_proposal("update", model_name, [record_id], values, reason)
-        return f"✅ Propozycja zmiany zapisana pomyślnie. Czekamy na akceptację przez człowieka.\nID Propozycji: {proposal['id']}"
+        proposal = shadow_mode.create_proposal("create", model_name, [], values, reason, workspace_id=workspace_id)
+        return f"✅ Propozycja (CREATE) zapisana. ID: {proposal['id']}"
     except Exception as e:
-        return f"❌ Błąd zapisu propozycji: {str(e)}"
+        logger.error("Błąd w create_odoo_record dla %s: %s", model_name, str(e))
+        return "❌ Błąd zapisu propozycji. Szczegóły w logach systemowych."
 
 @mcp.tool()
-def propose_magic_fix(fix_type: str, record_id: int, reason: str) -> str:
+def update_odoo_record(model_name: str, record_id: int, values_json: str, reason: str, workspace_id: str = "default") -> str:
+    """
+    Aktualizuje rekord w Odoo (Shadow Mode).
+    values_json musi być poprawnym JSONem słownika.
+    """
+    import json
+    try:
+        values = json.loads(values_json)
+        proposal = shadow_mode.create_proposal("update", model_name, [record_id], values, reason, workspace_id=workspace_id)
+        return f"✅ Propozycja (UPDATE) zapisana. ID: {proposal['id']}"
+    except Exception as e:
+        logger.error("Błąd w update_odoo_record dla %s (ID %s): %s", model_name, record_id, str(e))
+        return "❌ Błąd zapisu propozycji. Szczegóły w logach systemowych."
+
+@mcp.tool()
+def delete_odoo_record(model_name: str, record_id: int, reason: str, workspace_id: str = "default") -> str:
+    """
+    Usuwa rekord z Odoo (Shadow Mode).
+    """
+    try:
+        proposal = shadow_mode.create_proposal("delete", model_name, [record_id], {}, reason, workspace_id=workspace_id)
+        return f"✅ Propozycja (DELETE) zapisana. ID: {proposal['id']}"
+    except Exception as e:
+        logger.error("Błąd w delete_odoo_record dla %s (ID %s): %s", model_name, record_id, str(e))
+        return "❌ Błąd zapisu propozycji. Szczegóły w logach systemowych."
+
+from odoo_client import odoo, get_odoo_client
+
+@mcp.tool()
+def execute_approved_proposals(workspace_id: str = "default") -> str:
+    """Wykonuje wszystkie zatwierdzone propozycje (status 'approved') w rzeczywistym systemie Odoo."""
+    proposals = shadow_mode.load_proposals(workspace_id=workspace_id)
+    approved = [p for p in proposals if p.get('status') == 'approved']
+    
+    if not approved:
+        return "Brak zatwierdzonych propozycji do wykonania."
+        
+    results = []
+    for prop in approved:
+        try:
+            target_odoo = get_odoo_client(prop.get('workspace_id', workspace_id))
+            if prop['action_type'] == 'create':
+                target_odoo.create(prop['model_name'], [prop['values']])
+            elif prop['action_type'] == 'update':
+                target_odoo.write(prop['model_name'], prop['record_ids'], prop['values'])
+            elif prop['action_type'] == 'delete':
+                target_odoo.unlink(prop['model_name'], prop['record_ids'])
+            
+            # Po wykonaniu mozna usunąć propozycję lub oznaczyć jako 'executed'
+            db = shadow_mode.SessionLocal()
+            db_prop = db.query(shadow_mode.Proposal).filter(shadow_mode.Proposal.id == prop['id']).first()
+            if db_prop:
+                db_prop.status = 'executed'
+                db.commit()
+            db.close()
+            results.append(f"Sukces: Propozycja {prop['id']}")
+        except Exception as e:
+            logger.error("Błąd podczas wywoływania propozycji %s: %s", prop['id'], str(e))
+            results.append(f"Błąd przy propozycji {prop['id']}: (szczegóły w logach)")
+            
+    return "\n".join(results)
+
+@mcp.tool()
+def propose_magic_fix(fix_type: str, record_id: int, reason: str, workspace_id: str = "default") -> str:
     """
     Zastosuj "Magię Bazodanową". Pozwala agentowi zażądać wykonania skryptu naprawczego,
     który omija normalne blokady Odoo (np. usunięcie zatwierdzonej faktury, zmiana jednostki miary produktu z historią).
     fix_type musi być jednym z: 'force_cancel_invoice', 'unlock_stock_move', 'change_uom_on_product'.
     """
     try:
-        proposal = database_magic.propose_magic_fix(fix_type, record_id, reason)
+        proposal = database_magic.propose_magic_fix(fix_type, record_id, reason, workspace_id=workspace_id)
         return f"🪄 Propozycja Magii Bazodanowej przygotowana. Oczekuje na weryfikację pracownika. ID Propozycji: {proposal['id']}"
     except Exception as e:
-        return f"❌ Błąd zapisu propozycji magicznej: {str(e)}"
+        logger.error("Błąd w propose_magic_fix dla typu %s (ID %s): %s", fix_type, record_id, str(e))
+        return "❌ Błąd zapisu propozycji magicznej. Szczegóły w logach systemowych."
 
 if __name__ == "__main__":
     # Uruchomienie serwera na standardowym wejściu/wyjściu (stdio) dla integracji z agentem

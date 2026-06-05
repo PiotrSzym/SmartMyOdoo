@@ -64,10 +64,16 @@ async def auth(data: schemas.AuthRequest):
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/api/secrets", response_model=Dict[str, Any])
-async def get_secrets(auth_data: Tuple[bytes, str, str] = Depends(require_auth)):
+async def get_secrets(workspace_id: Optional[str] = None, auth_data: Tuple[bytes, str, str] = Depends(require_auth)):
     vk, _, _ = auth_data
     try:
         data = vault.get_secrets(vk)
+        if workspace_id:
+            filtered_data = {
+                k: v for k, v in data.items() 
+                if isinstance(v, dict) and v.get("workspace_id", "default") == workspace_id
+            }
+            return filtered_data
         return data
     except vault.VaultDecryptionError as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -82,7 +88,8 @@ async def add_or_update_secret(key_name: str, secret_data: schemas.SecretCreateR
             "login": secret_data.login,
             "url": secret_data.url,
             "api_key": secret_data.api_key,
-            "expires": secret_data.expires
+            "expires": secret_data.expires,
+            "workspace_id": secret_data.workspace_id
         }
         vault.save_vault(vk, data)
         return schemas.SuccessResponse(success=True)

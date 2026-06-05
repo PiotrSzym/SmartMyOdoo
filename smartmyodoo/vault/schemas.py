@@ -19,6 +19,7 @@ class SecretCreateRequest(BaseModel):
     url: Optional[str] = ""
     api_key: Optional[str] = ""
     expires: Optional[str] = ""
+    workspace_id: Optional[str] = "default"
 
 class SecretResponse(BaseModel):
     password: str
@@ -26,6 +27,7 @@ class SecretResponse(BaseModel):
     url: str
     api_key: str
     expires: str
+    workspace_id: Optional[str] = "default"
     deleted_at: Optional[str] = None
 
 class ChangePinRequest(BaseModel):

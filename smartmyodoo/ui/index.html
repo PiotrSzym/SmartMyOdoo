@@ -25,12 +25,15 @@
             -webkit-text-fill-color: transparent;
         }
     </style>
+    <script src="js/store.js"></script>
+    <script src="js/components/sidebar.js" defer></script>
+    <script src="js/components/canvas.js" defer></script>
 </head>
-<body class="min-h-screen p-8 flex flex-col items-center">
+<body class="h-screen w-full bg-[#0f172a] text-slate-200 overflow-hidden">
 
     <!-- Ekran inicjalizacji -->
-    <div id="init-screen" class="w-full max-w-md mt-20 hidden">
-        <div class="glass-card p-8 text-center border-indigo-500/50">
+    <div id="init-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden z-50">
+        <div class="w-full max-w-md glass-card p-8 text-center border-indigo-500/50">
             <h1 class="text-3xl font-bold mb-4 text-gradient">Inicjalizacja Skarbca</h1>
             <p class="text-slate-400 text-sm mb-6">Wykryto pierwsze uruchomienie. Zabezpiecz swój nowy skarbiec.</p>
             <div class="space-y-4 text-left">
@@ -48,8 +51,8 @@
         </div>
     </div>
 
-    <div id="login-screen" class="w-full max-w-md mt-20 hidden">
-        <div class="glass-card p-8 text-center">
+    <div id="login-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden z-50">
+        <div class="w-full max-w-md glass-card p-8 text-center">
             <h1 class="text-3xl font-bold mb-6 text-gradient">SmartMyVault</h1>
             <p class="text-slate-400 text-sm mb-8">Wprowadź PIN lub Master Password aby odblokować.</p>
             <input type="password" id="auth-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white mb-4 focus:outline-none focus:border-indigo-500" placeholder="••••••••" onkeydown="if(event.key === 'Enter') login()">
@@ -58,7 +61,25 @@
         </div>
     </div>
 
-    <div id="vault-screen" class="w-full max-w-5xl hidden flex-col gap-6">
+    <!-- DASHBOARD HUB (3-zone) -->
+    <div id="dashboard-screen" class="w-full h-full hidden flex-row">
+        <!-- ZONA 1: Sidebar -->
+        <aside id="sidebar" class="w-64 border-r border-slate-800 bg-slate-900/50 flex flex-col relative z-20">
+            <!-- Wypełniane przez sidebar.js -->
+        </aside>
+
+        <!-- Prawa strona -->
+        <div class="flex-1 flex flex-col h-full overflow-hidden relative">
+            <!-- ZONA 2: Tab Bar -->
+            <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm">
+                <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
+                <button onclick="AppStore.setState({activeTab: 'settings'})" id="tab-settings" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">Ustawienia</button>
+            </nav>
+
+            <!-- ZONA 3: Main Canvas -->
+            <main id="main-canvas" class="flex-1 overflow-auto p-8 relative">
+                <!-- Tab: Vault -->
+                <div id="vault-screen" class="w-full max-w-5xl flex-col gap-6 mx-auto flex">
         <div class="flex justify-between items-center">
             <h1 class="text-4xl font-bold text-gradient">SmartMyVault</h1>
             <div class="flex gap-4 items-center">
@@ -98,7 +119,18 @@
 
         <div id="secrets-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Render secrets here -->
+            </div>
+
+                <!-- Tab: Ustawienia (Placholder) -->
+                <div id="settings-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
+                    <h1 class="text-4xl font-bold text-gradient mb-4">Ustawienia Przestrzeni</h1>
+                    <div class="glass-card p-6">
+                        <p class="text-slate-400">Konfiguracja dla wybranej przestrzeni roboczej pojawi się tutaj.</p>
+                    </div>
+                </div>
+            </main>
         </div>
+    </div>
     </div>
 
     <!-- Modals -->
@@ -201,8 +233,10 @@
                 const data = await res.json();
                 if(data.initialized) {
                     document.getElementById('login-screen').classList.remove('hidden');
+                    document.getElementById('login-screen').classList.add('flex');
                 } else {
                     document.getElementById('init-screen').classList.remove('hidden');
+                    document.getElementById('init-screen').classList.add('flex');
                 }
             } catch(e) {
                 console.error("Błąd połączenia z serwerem API.", e);
@@ -225,7 +259,9 @@
             });
             if(res.ok) {
                 document.getElementById('init-screen').classList.add('hidden');
+                document.getElementById('init-screen').classList.remove('flex');
                 document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('login-screen').classList.add('flex');
                 showToast("Skarbiec utworzony! Zaloguj się.");
             } else {
                 const err = await res.json();
@@ -245,8 +281,9 @@
                 const data = await res.json();
                 currentAuth = pwd;
                 document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('vault-screen').classList.remove('hidden');
-                document.getElementById('vault-screen').classList.add('flex');
+                document.getElementById('login-screen').classList.remove('flex');
+                document.getElementById('dashboard-screen').classList.remove('hidden');
+                document.getElementById('dashboard-screen').classList.add('flex');
                 
                 if(data.role === 'admin') {
                     document.getElementById('btn-change-pin').classList.remove('hidden');
@@ -267,13 +304,15 @@
             currentAuth = "";
             document.getElementById('auth-password').value = "";
             document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('vault-screen').classList.add('hidden');
-            document.getElementById('vault-screen').classList.remove('flex');
+            document.getElementById('login-screen').classList.add('flex');
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('flex');
             document.getElementById('btn-change-pin').classList.add('hidden');
         }
 
         async function loadSecrets() {
-            const res = await fetch(`/api/secrets?t=${Date.now()}`, { 
+            const currentWorkspace = AppStore.getState().workspaceId;
+            const res = await fetch(`/api/secrets?t=${Date.now()}&workspace_id=${currentWorkspace}`, { 
                 headers: {'Authorization': `Bearer ${currentAuth}`},
                 cache: 'no-store'
             });
@@ -447,7 +486,8 @@
                 login: document.getElementById('f-login').value,
                 api_key: document.getElementById('f-apikey').value,
                 url: document.getElementById('f-url').value,
-                expires: document.getElementById('f-expires').value
+                expires: document.getElementById('f-expires').value,
+                workspace_id: AppStore.getState().workspaceId
             };
             
             await fetch(`/api/secrets/${keyName}`, {

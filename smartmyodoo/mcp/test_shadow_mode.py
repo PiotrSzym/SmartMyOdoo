@@ -28,12 +28,16 @@ def test_status():
     assert proposal["status"] == "pending"
 
 def test_multi_persist():
-    create_proposal("update", "res.partner", [1], {"name": "Test1"})
-    create_proposal("update", "res.partner", [2], {"name": "Test2"})
-    proposals = load_proposals()
-    assert len(proposals) == 2
-    assert proposals[0]["record_ids"] == [1]
-    assert proposals[1]["record_ids"] == [2]
+    create_proposal("create", "res.partner", [], {"name": "P1"}, workspace_id="ws_1")
+    create_proposal("update", "res.partner", [1], {"name": "P2"}, workspace_id="ws_2")
+    
+    props1 = load_proposals(workspace_id="ws_1")
+    props2 = load_proposals(workspace_id="ws_2")
+    assert len(props1) == 1
+    assert len(props2) == 1
+    assert props1[0]["values"]["name"] == "P1"
+    assert props2[0]["values"]["name"] == "P2"
+    assert props2[0]["record_ids"] == [1]
 
 def test_cleanup():
     create_proposal("update", "res.partner", [1], {"name": "Test"})
@@ -44,3 +48,21 @@ def test_cleanup():
     db.commit()
     db.close()
     assert len(load_proposals()) == 0
+
+def test_accept_proposal():
+    prop = create_proposal("create", "res.partner", [], {"name": "Test Accept"})
+    assert prop["status"] == "pending"
+    
+    shadow_mode.accept_proposal(prop["id"])
+    proposals = load_proposals()
+    accepted = next(p for p in proposals if p["id"] == prop["id"])
+    assert accepted["status"] == "approved"
+
+def test_reject_proposal():
+    prop = create_proposal("create", "res.partner", [], {"name": "Test Reject"})
+    assert prop["status"] == "pending"
+    
+    shadow_mode.reject_proposal(prop["id"])
+    proposals = load_proposals()
+    rejected = next(p for p in proposals if p["id"] == prop["id"])
+    assert rejected["status"] == "rejected"

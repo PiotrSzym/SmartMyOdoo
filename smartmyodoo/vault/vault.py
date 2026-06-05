@@ -173,6 +173,7 @@ def add_secret(key_name: str) -> None:
         "password": secret_value,
         "login": "",
         "url": "",
+        "db": "",
         "api_key": "",
         "expires": ""
     }
@@ -232,6 +233,7 @@ def run_wrapped_command(cmd_args: List[str]) -> None:
             if obj.get("login"): env[f"{k}_LOGIN"] = str(obj["login"])
             if obj.get("api_key"): env[f"{k}_API_KEY"] = str(obj["api_key"])
             if obj.get("url"): env[f"{k}_URL"] = str(obj["url"])
+            if obj.get("db"): env[f"{k}_DB"] = str(obj["db"])
             env[k] = str(obj.get("password", ""))
         else:
             env[k] = str(obj)
