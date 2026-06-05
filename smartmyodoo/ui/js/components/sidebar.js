@@ -1,15 +1,11 @@
 // js/components/sidebar.js
 // Komponent odpowiedzialny za boczny pasek i listę przestrzeni roboczych (Workspaces)
+// HUB-S3: Ładowanie z API + przycisk "+ Nowa Przestrzeń" → modal
 
 class Sidebar {
     constructor() {
         this.container = document.getElementById('sidebar');
-        // Przykładowe dane przestrzeni - docelowo z API
-        this.workspaces = [
-            { id: 'default', name: 'Domyślna' },
-            { id: 'dev', name: 'Dev Env' },
-            { id: 'prod', name: 'Production' }
-        ];
+        this.workspaces = [];
 
         // Subskrypcja stanu
         AppStore.subscribe((newState, oldState) => {
@@ -18,6 +14,26 @@ class Sidebar {
             }
         });
 
+        // Załaduj z API (fallback na hardcoded jeśli API niedostępne)
+        this.loadFromAPI();
+    }
+
+    async loadFromAPI() {
+        try {
+            const res = await fetch('/api/workspaces');
+            if (res.ok) {
+                this.workspaces = await res.json();
+            } else {
+                throw new Error('API error');
+            }
+        } catch (e) {
+            console.warn('[Sidebar] Fallback na domyślne workspace:', e);
+            this.workspaces = [
+                { id: 'default', name: 'Domyślna' },
+                { id: 'dev', name: 'Dev Env' },
+                { id: 'prod', name: 'Production' }
+            ];
+        }
         this.render();
     }
 
@@ -59,7 +75,7 @@ class Sidebar {
                 </ul>
             </div>
             <div class="p-4 border-t border-slate-800">
-                <button class="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-400 transition-colors p-2 rounded hover:bg-white/5 border border-dashed border-slate-700 hover:border-indigo-500/50">
+                <button onclick="showWorkspaceModal()" class="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-indigo-400 transition-colors p-2 rounded hover:bg-white/5 border border-dashed border-slate-700 hover:border-indigo-500/50">
                     <span>+</span> Nowa Przestrzeń
                 </button>
             </div>

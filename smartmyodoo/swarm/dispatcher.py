@@ -1,9 +1,11 @@
-from typing import Dict, Any
+from typing import Any, Dict, Union
+
 import json
-from .models import IntentCategory, Persona, DispatchResult
+
+from .models import DispatchResult, IntentCategory, Persona
 
 # Wzorzec routingu (Task 1.2 & 1.3)
-ROUTING_TABLE = {
+ROUTING_TABLE: Dict[IntentCategory, Dict[str, Union[Persona, str]]] = {
     IntentCategory.A_CODE_GENERATION: {
         "persona": Persona.DEV,
         "model": "anthropic/claude-3.5-sonnet",
@@ -103,8 +105,8 @@ Zwróć TYLKO czysty JSON w następującym formacie:
         route = ROUTING_TABLE[category]
         return DispatchResult(
             category=category,
-            persona=route["persona"],
-            recommended_model=route["model"],
+            persona=Persona(route["persona"]),
+            recommended_model=str(route["model"]),
         )
 
     def forward_message(

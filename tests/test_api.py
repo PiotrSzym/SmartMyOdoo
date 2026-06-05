@@ -139,3 +139,181 @@ def test_api_init_missing_data(client, mocker):
 
     res2 = client.post("/api/init", json={"pin": "123", "master": "admin"})
     assert res2.status_code == 422  # Pydantic ValidationError
+
+
+# ── HUB-S2: Testy integracji Chat ↔ Dispatcher ─────────────────────────────
+
+
+def test_chat_classifies_code_intent(client):
+    """POST /api/chat z wiadomością kodową → category=A, persona=Developer"""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "napisz mi kod logowania",
+            "user_id": 1,
+            "session_id": "test-s1",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["category"] == "A"
+    assert data["persona"] == "Developer"
+    assert data["model"] is not None
+    assert data["action_type"] == "CHAT"
+
+
+def test_chat_classifies_db_intent(client):
+    """POST /api/chat z wiadomością bazodanową → category=B, persona=DBA"""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "pokaż tabelę klientów",
+            "user_id": 1,
+            "session_id": "test-s2",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["category"] == "B"
+    assert data["persona"] == "Database Administrator"
+
+
+def test_chat_classifies_general_intent(client):
+    """POST /api/chat z ogólną wiadomością → category=H, persona=Generic Assistant"""
+    res = client.post(
+        "/api/chat",
+        json={"message": "cześć co słychać", "user_id": 1, "session_id": "test-s3"},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["category"] == "H"
+    assert data["persona"] == "Generic Assistant"
+    assert "reply" in data
+
+
+# ── HUB-S3: Testy Proposals + Workspace ─────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def reset_stores():
+    """Czyści in-memory stores przed każdym testem S3"""
+    import smartmyodoo.api as api_module
+
+    api_module._proposals.clear()
+    yield
+    api_module._proposals.clear()
+
+
+def test_chat_generates_shadow_proposal(client):
+    """POST /api/chat z intencją DBA → generuje propozycję Shadow Mode"""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "zrób migrację tabeli partnerów",
+            "user_id": 1,
+            "session_id": "test-s4",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["action_type"] == "SHADOW_PROPOSAL"
+    assert data["category"] == "B"
+    assert data["proposal_data"] is not None
+    assert data["proposal_data"]["proposal_id"] is not None
+    assert data["proposal_data"]["model"] == "res.partner"
+    assert data["proposal_data"]["method"] == "CREATE"
+
+
+def test_proposals_crud(client):
+    """Pełny flow: chat generuje propozycję → GET lista → approve → sprawdź status"""
+    # 1. Generuj propozycję przez czat
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "pokaż bazę danych partnerów",
+            "user_id": 1,
+            "session_id": "test-p1",
+        },
+    )
+    proposal_id = res.json()["proposal_data"]["proposal_id"]
+
+    # 2. GET lista propozycji
+    res = client.get("/api/proposals")
+    assert res.status_code == 200
+    proposals = res.json()
+    assert len(proposals) == 1
+    assert proposals[0]["id"] == proposal_id
+    assert proposals[0]["status"] == "pending"
+
+    # 3. Approve
+    res = client.post(f"/api/proposals/{proposal_id}/approve")
+    assert res.status_code == 200
+    assert res.json()["status"] == "approved"
+
+    # 4. Sprawdź status po approve
+    res = client.get("/api/proposals")
+    assert res.json()[0]["status"] == "approved"
+
+
+def test_proposal_reject(client):
+    """Reject propozycji"""
+    res = client.post(
+        "/api/chat",
+        json={
+            "message": "zrób SQL na tabeli kontaktów",
+            "user_id": 1,
+            "session_id": "test-p2",
+        },
+    )
+    proposal_id = res.json()["proposal_data"]["proposal_id"]
+
+    res = client.post(f"/api/proposals/{proposal_id}/reject")
+    assert res.status_code == 200
+    assert res.json()["status"] == "rejected"
+
+
+def test_proposal_not_found(client):
+    """404 dla nieistniejącej propozycji"""
+    res = client.post("/api/proposals/nonexistent/approve")
+    assert res.status_code == 404
+
+
+def test_workspaces_list(client):
+    """GET /api/workspaces → domyślna lista 3 przestrzeni"""
+    res = client.get("/api/workspaces")
+    assert res.status_code == 200
+    workspaces = res.json()
+    assert len(workspaces) >= 3
+    ids = [w["id"] for w in workspaces]
+    assert "default" in ids
+    assert "dev" in ids
+    assert "prod" in ids
+
+
+def test_workspace_create(client):
+    """POST /api/workspaces → nowa przestrzeń"""
+    res = client.post(
+        "/api/workspaces",
+        json={
+            "id": "staging",
+            "name": "Staging Env",
+            "odoo_url": "http://localhost:8069",
+        },
+    )
+    assert res.status_code == 200
+    assert res.json()["id"] == "staging"
+
+    # Sprawdź czy jest na liście
+    res = client.get("/api/workspaces")
+    ids = [w["id"] for w in res.json()]
+    assert "staging" in ids
+
+
+def test_workspace_duplicate(client):
+    """POST /api/workspaces z istniejącym ID → 400"""
+    res = client.post(
+        "/api/workspaces",
+        json={"id": "default", "name": "Duplikat"},
+    )
+    assert res.status_code == 400
+    assert "already exists" in res.json()["detail"]

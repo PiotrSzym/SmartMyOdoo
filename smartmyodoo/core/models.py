@@ -3,6 +3,13 @@ from sqlalchemy.sql import func
 from .database import Base
 
 
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
     id = Column(Integer, primary_key=True, index=True)

@@ -4,9 +4,18 @@
 class Canvas {
     constructor() {
         this.tabVault = document.getElementById('tab-vault');
+        this.tabChat = document.getElementById('tab-chat');
         this.tabSettings = document.getElementById('tab-settings');
         this.screenVault = document.getElementById('vault-screen');
+        this.screenChat = document.getElementById('chat-screen');
         this.screenSettings = document.getElementById('settings-screen');
+
+        // Definicja zakładek: { buttonEl, screenEl }
+        this.tabs = [
+            { btn: this.tabVault, screen: this.screenVault, key: 'vault' },
+            { btn: this.tabChat, screen: this.screenChat, key: 'chat' },
+            { btn: this.tabSettings, screen: this.screenSettings, key: 'settings' },
+        ];
 
         // Subskrypcja stanu
         AppStore.subscribe((newState, oldState) => {
@@ -23,39 +32,26 @@ class Canvas {
     }
 
     updateTabs(activeTab) {
-        if (!this.tabVault || !this.tabSettings) return;
-
-        // Reset klas
         const activeClass = 'text-indigo-400 border-b-2 border-indigo-500';
         const inactiveClass = 'text-slate-400 hover:text-slate-200 border-b-2 border-transparent';
 
-        // Tab Vault
-        if (activeTab === 'vault') {
-            this.tabVault.className = `px-4 py-2 text-sm font-medium transition ${activeClass}`;
-            this.screenVault.classList.remove('hidden');
-            this.screenVault.classList.add('flex');
-        } else {
-            this.tabVault.className = `px-4 py-2 text-sm font-medium transition ${inactiveClass}`;
-            this.screenVault.classList.add('hidden');
-            this.screenVault.classList.remove('flex');
-        }
+        this.tabs.forEach(({ btn, screen, key }) => {
+            if (!btn || !screen) return;
 
-        // Tab Settings
-        if (activeTab === 'settings') {
-            this.tabSettings.className = `px-4 py-2 text-sm font-medium transition ${activeClass}`;
-            this.screenSettings.classList.remove('hidden');
-            this.screenSettings.classList.add('flex');
-        } else {
-            this.tabSettings.className = `px-4 py-2 text-sm font-medium transition ${inactiveClass}`;
-            this.screenSettings.classList.add('hidden');
-            this.screenSettings.classList.remove('flex');
-        }
+            if (key === activeTab) {
+                btn.className = `px-4 py-2 text-sm font-medium transition ${activeClass}`;
+                screen.classList.remove('hidden');
+                screen.classList.add('flex');
+            } else {
+                btn.className = `px-4 py-2 text-sm font-medium transition ${inactiveClass}`;
+                screen.classList.add('hidden');
+                screen.classList.remove('flex');
+            }
+        });
     }
 
     handleWorkspaceChange(workspaceId) {
         console.log(`[Canvas] Przestrzeń zmieniona na: ${workspaceId}. Przeładowuję sekrety...`);
-        // Jeśli Vault API obsługiwało by `?workspace_id=...`, tutaj moglibyśmy to przekazać
-        // W obecnej formie wywołujemy globalne loadSecrets, które w przyszłości zintegrujemy z backendem MCP.
         if (typeof loadSecrets === 'function') {
             loadSecrets();
         }

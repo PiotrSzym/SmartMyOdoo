@@ -56,3 +56,23 @@ class ChatResponse(BaseModel):
     reply: str
     action_type: str
     proposal_data: ChatProposalData | None = None
+    category: str | None = None
+    persona: str | None = None
+    model: str | None = None
+
+
+class Proposal(BaseModel):
+    id: str
+    workspace_id: str
+    odoo_model: str
+    method: str
+    values: dict[str, Any] = {}
+    reason: str = ""
+    status: str = "pending"  # pending | approved | rejected
+    created_at: str = ""
+
+
+class WorkspaceInfo(BaseModel):
+    id: str
+    name: str
+    odoo_url: str = ""

@@ -4,7 +4,7 @@
     "category": "Hidden",
     "summary": "OWL Chat Widget and Shadow Mode UI for AI Swarm",
     "depends": ["base", "web"],
-    "data": ["views/web_layout_inherit.xml", "views/form_view_inherit.xml"],
+    "data": ["views/web_layout_inherit.xml"],
     "assets": {
         "web.assets_backend": [
             "smart_chat/static/src/components/chat_widget/chat_widget.js",
