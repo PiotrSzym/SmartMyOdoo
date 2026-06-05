@@ -19,10 +19,10 @@
 
 | # | Zadanie | DoD (Definition of Done) | Status |
 |---|---------|--------------------------|--------|
-| 1.1 | Instalacja paczek (`presidio-analyzer`, `presidio-anonymizer`) w zależnościach | Zaktualizowany `requirements.txt` / `pyproject.toml` | [ ] |
-| 1.2 | 🔴 RED — Testy dla rozpoznawania PII (NIP, PESEL, polskie imiona) | Plik testowy zawiera failing tests | [ ] |
-| 1.3 | 🟢 GREEN — Implementacja `NipRecognizer` oraz `PeselRecognizer` | Custom recognizers napisane, testy przechodzą | [ ] |
-| 1.4 | **BRAMKA:** Weryfikacja silnika AnalyzerEngine | ✅ Analizator poprawnie identyfikuje encje z 95%+ pewnością | [ ] |
+| 1.1 | Instalacja paczek (`presidio-analyzer`, `presidio-anonymizer`) w zależnościach | Zaktualizowany `requirements.txt` / `pyproject.toml` | [x] |
+| 1.2 | 🔴 RED — Testy dla rozpoznawania PII (NIP, PESEL, polskie imiona) | Plik testowy zawiera failing tests | [x] |
+| 1.3 | 🟢 GREEN — Implementacja `NipRecognizer` oraz `PeselRecognizer` | Custom recognizers napisane, testy przechodzą | [x] |
+| 1.4 | **BRAMKA:** Weryfikacja silnika AnalyzerEngine | ✅ Analizator poprawnie identyfikuje encje z 95%+ pewnością | [x] |
 
 ---
 
@@ -32,10 +32,10 @@
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 2.1 | 🔴 RED — Testy cyklu anonymize -> deanonymize (roundtrip) | Failing tests dla cyklu tokenizacji i odwracania | [ ] |
-| 2.2 | 🟢 GREEN — Implementacja klasy `PiiMiddleware` (z in-memory mapping) | Roundtrip zachowuje mapę dla aktywnej sesji | [ ] |
-| 2.3 | Integracja z MCP (podpięcie przed i po logice narzędzi) | `FastMCP` używa middleware automatycznie dla requestów LLM | [ ] |
-| 2.4 | **BRAMKA:** Przełącznik per Workspace | ✅ Można wyłączyć/włączyć filtr z poziomu DB / configu | [ ] |
+| 2.1 | 🔴 RED — Testy cyklu anonymize -> deanonymize (roundtrip) | Failing tests dla cyklu tokenizacji i odwracania | [x] |
+| 2.2 | 🟢 GREEN — Implementacja klasy `PiiMiddleware` (z in-memory mapping) | Roundtrip zachowuje mapę dla aktywnej sesji | [x] |
+| 2.3 | Integracja z MCP (podpięcie przed i po logice narzędzi) | `FastMCP` używa middleware automatycznie dla requestów LLM | [x] |
+| 2.4 | **BRAMKA:** Przełącznik per Workspace | ✅ Można wyłączyć/włączyć filtr z poziomu DB / configu | [x] |
 
 ---
 
@@ -45,10 +45,10 @@
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 3.1 | Implementacja sanityzacji dla `AuditLog` (logujemy akcję, a nie PII) | `AuditLog` nigdy nie przetrzymuje danych typu `<NIP_1>` czy prawdziwego NIP | [ ] |
-| 3.2 | Integracja z testowym pipeline / mockowymi wywołaniami Odoo | Odoo otrzymuje prawdziwe dane, LLM otrzymuje zanonimizowane | [ ] |
-| 3.3 | Dokumentacja: jak dodawać nowe Recognizery | Zaktualizowany `README` / dokumentacja | [ ] |
-| 3.4 | **BRAMKA:** End-to-End Test (Agent -> MCP -> Odoo) | ✅ `pytest` całego modułu MCP PII przechodzi | [ ] |
+| 3.1 | Implementacja sanityzacji dla `AuditLog` (logujemy akcję, a nie PII) | `AuditLog` nigdy nie przetrzymuje danych typu `<NIP_1>` czy prawdziwego NIP | [x] |
+| 3.2 | Integracja z testowym pipeline / mockowymi wywołaniami Odoo | Odoo otrzymuje prawdziwe dane, LLM otrzymuje zanonimizowane | [x] |
+| 3.3 | Dokumentacja: jak dodawać nowe Recognizery | Zaktualizowany `README` / dokumentacja | [x] |
+| 3.4 | **BRAMKA:** End-to-End Test (Agent -> MCP -> Odoo) | ✅ `pytest` całego modułu MCP PII przechodzi | [x] |
 
 ---
 
@@ -56,8 +56,8 @@
 
 | # | Faza | /dev | /qa | /doc | Status |
 |---|--------|:----:|:---:|:----:|:------:|
-| 1 | Presidio Setup & Recognizers | ⬜ | ⬜ | ⬜ | 🔵 |
-| 2 | Anonymization Middleware | ⬜ | ⬜ | ⬜ | 🔵 |
-| 3 | Integracja i Audyt | ⬜ | ⬜ | ⬜ | 🔵 |
+| 1 | Presidio Setup & Recognizers | ✅ | ✅ | ✅ | ✅ |
+| 2 | Anonymization Middleware | ✅ | ✅ | ✅ | ✅ |
+| 3 | Integracja i Audyt | ✅ | ✅ | ✅ | ✅ |
 
-**Podsumowanie:** 0/3 ✅ Done | Blokujący: —
+**Podsumowanie:** 3/3 ✅ Done | Blokujący: BRAK | Całkowicie Zakończony!
