@@ -5,9 +5,9 @@ Ten dokument służy jako punkt odniesienia dla każdego agenta (Claude, GPT, Ge
 Został on zaprojektowany jako bezpieczna warstwa dostępu (Zero-Trust) zapobiegająca wyciekom kluczy do systemowych zmiennych środowiskowych, plików logów czy samej bazy wiedzy.
 
 ## 🔑 Kluczowe Wymagania (Nigdy nie łam tych zasad)
-1. **NIGDY nie proś użytkownika o wklejenie tokenu/sekretu w czat.** 
+1. **NIGDY nie proś użytkownika o wklejenie tokenu/sekretu w czat.**
 2. Jeśli potrzebujesz klucza API, powiedz użytkownikowi: *"Proszę dodaj swój klucz do skarbca poleceniem `python vault.py add NAZWA_KLUCZA`, a następnie autoryzuj mój skrypt przez `python vault.py run twoj_skrypt.py`"*.
-3. **Pamiętaj o architekturze Dual-Auth:** 
+3. **Pamiętaj o architekturze Dual-Auth:**
    - `PIN` jest przeznaczony dla zautomatyzowanych skryptów, poleceń konsolowych (CLI) i agentów.
    - `Master Password` przeznaczony jest tylko i wyłącznie do awaryjnego odzyskiwania dostępu oraz wprowadzania zmian administracyjnych (np. poprzez REST API).
 

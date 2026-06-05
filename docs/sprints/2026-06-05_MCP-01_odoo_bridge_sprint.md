@@ -36,7 +36,7 @@ Faza 2 (Shadow Mode) nie może się rozpocząć, dopóki Faza 1 (Rozbudowa klien
 Zadania wymagają tworzenia testów w pierwszej kolejności (TDD). Oznaczone w etapach jako RED i GREEN.
 
 #### Zasada 3: SCOPE ISOLATION 🔴
-Kluczowe pliki to izolowane komponenty: `smartmyodoo/core/odoo_client.py`, testy dla OdooClient oraz moduł Shadow Mode dla SQLite. 
+Kluczowe pliki to izolowane komponenty: `smartmyodoo/core/odoo_client.py`, testy dla OdooClient oraz moduł Shadow Mode dla SQLite.
 
 ---
 

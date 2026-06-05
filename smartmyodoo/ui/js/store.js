@@ -40,7 +40,7 @@ class Store {
     subscribe(listener) {
         this.listeners.push(listener);
         console.log(`[Store] Dodano nowego subskrybenta. Łącznie: ${this.listeners.length}`);
-        
+
         // Zwraca funkcję pozwalającą na usunięcie subskrypcji
         return () => {
             this.listeners = this.listeners.filter(l => l !== listener);

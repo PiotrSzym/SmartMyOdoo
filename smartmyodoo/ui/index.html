@@ -105,12 +105,12 @@
             <div class="relative w-64">
                 <input type="text" id="search-bar" onkeyup="filterSecrets()" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="Szukaj klucza...">
             </div>
-            
+
             <div class="flex gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-700">
                 <button onclick="setView('grid')" id="btn-view-grid" class="p-2 bg-indigo-600/30 text-indigo-300 rounded transition" title="Widok kafelków">🔲</button>
                 <button onclick="setView('list')" id="btn-view-list" class="p-2 text-slate-400 hover:text-slate-200 rounded transition" title="Widok listy">📄</button>
             </div>
-            
+
             <div class="flex gap-2">
                 <button onclick="toggleTrash()" id="btn-trash" class="border border-slate-600 hover:bg-slate-800 text-slate-300 py-2 px-4 rounded-lg transition">🗑️ Kosz</button>
                 <button onclick="showSecretModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition">+ Nowy Sekret</button>
@@ -183,13 +183,13 @@
         <div class="glass-card w-full max-w-2xl p-8 relative max-h-[85vh] overflow-y-auto">
             <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">✕</button>
             <h2 class="text-2xl font-bold mb-6 text-gradient">Architektura Bezpieczeństwa & Dokumentacja</h2>
-            
+
             <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
                 <div>
                     <h3 class="text-lg font-semibold text-white flex items-center gap-2">🤔 Jak i dlaczego to działa?</h3>
                     <p class="mt-2">Skarbiec opiera się na kryptografii wielowarstwowej z tzw. <b>Key Encrypting Key (KEK)</b>. Zamiast szyfrować dane bezpośrednio Twoim hasłem, system generuje losowy, super-silny klucz główny (Vault Key) algorytmem AES-128-CBC (Fernet). Następnie ten Vault Key jest w locie dwukrotnie kopiowany i szyfrowany osobno: raz przez Twój 4-cyfrowy <code>PIN</code> (w pliku <code>.pin_key</code>), a drugi raz przez długie <code>Master Password</code> (w pliku <code>.master_key</code>).</p>
                 </div>
-                
+
                 <div>
                     <h3 class="text-lg font-semibold text-emerald-400 flex items-center gap-2">✅ Co jest w pełni BEZPIECZNE?</h3>
                     <ul class="list-disc pl-5 mt-2 space-y-2">
@@ -284,7 +284,7 @@
                 document.getElementById('login-screen').classList.remove('flex');
                 document.getElementById('dashboard-screen').classList.remove('hidden');
                 document.getElementById('dashboard-screen').classList.add('flex');
-                
+
                 if(data.role === 'admin') {
                     document.getElementById('btn-change-pin').classList.remove('hidden');
                     // "jezli master jest wrowadzoney to zresetuj hasło" - otwieramy modal resetu PIN by default
@@ -292,7 +292,7 @@
                 } else {
                     document.getElementById('btn-change-pin').classList.add('hidden');
                 }
-                
+
                 document.getElementById('login-error').classList.add('hidden');
                 loadSecrets();
             } else {
@@ -312,7 +312,7 @@
 
         async function loadSecrets() {
             const currentWorkspace = AppStore.getState().workspaceId;
-            const res = await fetch(`/api/secrets?t=${Date.now()}&workspace_id=${currentWorkspace}`, { 
+            const res = await fetch(`/api/secrets?t=${Date.now()}&workspace_id=${currentWorkspace}`, {
                 headers: {'Authorization': `Bearer ${currentAuth}`},
                 cache: 'no-store'
             });
@@ -332,7 +332,7 @@
                 btnGrid.classList.replace('text-slate-400', 'text-indigo-300');
                 btnGrid.classList.replace('hover:text-slate-200', 'bg-indigo-600/30');
                 btnGrid.classList.add('bg-indigo-600/30');
-                
+
                 btnList.classList.replace('text-indigo-300', 'text-slate-400');
                 btnList.classList.remove('bg-indigo-600/30');
                 btnList.classList.add('hover:text-slate-200');
@@ -342,7 +342,7 @@
                 btnList.classList.replace('text-slate-400', 'text-indigo-300');
                 btnList.classList.replace('hover:text-slate-200', 'bg-indigo-600/30');
                 btnList.classList.add('bg-indigo-600/30');
-                
+
                 btnGrid.classList.replace('text-indigo-300', 'text-slate-400');
                 btnGrid.classList.remove('bg-indigo-600/30');
                 btnGrid.classList.add('hover:text-slate-200');
@@ -375,19 +375,19 @@
             const list = document.getElementById('secrets-list');
             list.innerHTML = "";
             const isGrid = currentView === 'grid';
-            
+
             Object.entries(secretsCache).forEach(([key, val]) => {
                 if(!key.toLowerCase().includes(term)) return;
-                
+
                 // Trash filter
                 const isDeleted = !!val.deleted_at;
                 if(showTrash && !isDeleted) return;
                 if(!showTrash && isDeleted) return;
-                
+
                 const card = document.createElement('div');
                 card.className = `glass-card p-5 relative group ${isGrid ? '' : 'flex flex-col md:flex-row md:items-center justify-between gap-4'}`;
                 if(isDeleted) card.classList.add('border-red-500/30', 'bg-red-900/10');
-                
+
                 let detailsHtml = `
                     <div class="space-y-1 text-sm ${isDeleted ? 'text-red-300/80' : 'text-slate-300'} mt-3">
                         ${val.login ? `<div class="flex items-center gap-2"><span class="text-slate-500">Log:</span> <span class="font-medium">${val.login}</span></div>` : ''}
@@ -414,7 +414,7 @@
                         </div>
                         ${detailsHtml}
                     </div>
-                    
+
                     <div class="flex ${isGrid ? 'w-full flex-col mt-4' : 'flex-shrink-0 items-center gap-4'}">
                         ${!isGrid ? `
                         <div class="flex gap-2">
@@ -480,7 +480,7 @@
         async function saveSecret() {
             const keyName = document.getElementById('f-name').value;
             if(!keyName) return;
-            
+
             const payload = {
                 password: document.getElementById('f-password').value,
                 login: document.getElementById('f-login').value,
@@ -489,7 +489,7 @@
                 expires: document.getElementById('f-expires').value,
                 workspace_id: AppStore.getState().workspaceId
             };
-            
+
             await fetch(`/api/secrets/${keyName}`, {
                 method: 'POST',
                 headers: {
@@ -498,7 +498,7 @@
                 },
                 body: JSON.stringify(payload)
             });
-            
+
             closeModals();
             loadSecrets();
         }
