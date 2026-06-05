@@ -36,13 +36,16 @@ class PiiMiddleware:
         results = self.analyzer.analyze(text=text, language="pl")
         results = sorted(results, key=lambda x: x.start)
 
-        mapping = {}
-        type_counters = {}
+        mapping: Dict[str, str] = {}
+        type_counters: Dict[str, int] = {}
 
         anonymized_text = ""
         last_end = 0
 
         for res in results:
+            if res.start < last_end:
+                continue
+
             entity_type = res.entity_type
             if entity_type not in type_counters:
                 type_counters[entity_type] = 1

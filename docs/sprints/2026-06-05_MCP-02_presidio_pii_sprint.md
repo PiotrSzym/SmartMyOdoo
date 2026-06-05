@@ -57,10 +57,10 @@ Mapa odwracania tokenów PII (Token → Original Value) znajduje się *wyłączn
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 1.1 | Aktualizacja zależności | Dodanie `presidio-analyzer` i `presidio-anonymizer` w `requirements.txt` / `pyproject.toml` | [ ] |
-| 1.2 | `test_recognizers.py` (RED) | Testy wymagające rozpoznania polskiego NIP, PESEL i polskiego imienia w ciągach tekstowych. | [ ] |
-| 1.3 | Custom Recognizers | Klasy `NipRecognizer` oraz `PeselRecognizer` oparte na RegEx, rozszerzające `EntityRecognizer` Presidio. | [ ] |
-| 1.4 | **BRAMKA:** Weryfikacja | ✅ `pytest tests/security/test_recognizers.py` przechodzi. | [ ] |
+| 1.1 | Aktualizacja zależności | Dodanie `presidio-analyzer` i `presidio-anonymizer` w `requirements.txt` / `pyproject.toml` | ✅ |
+| 1.2 | `test_recognizers.py` (RED) | Testy wymagające rozpoznania polskiego NIP, PESEL i polskiego imienia w ciągach tekstowych. | ✅ |
+| 1.3 | Custom Recognizers | Klasy `NipRecognizer` oraz `PeselRecognizer` oparte na RegEx, rozszerzające `EntityRecognizer` Presidio. | ✅ |
+| 1.4 | **BRAMKA:** Weryfikacja | ✅ `pytest tests/security/test_recognizers.py` przechodzi. | ✅ |
 
 ---
 
@@ -70,10 +70,10 @@ Mapa odwracania tokenów PII (Token → Original Value) znajduje się *wyłączn
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 2.1 | `test_middleware.py` (RED) | Test pełnego cyklu `anonymize` → `deanonymize`. | [ ] |
-| 2.2 | In-memory Mapper | Klasa rejestrująca `"<NIP_1>": "1234567890"` trzymająca stan na czas wywołania agenta. | [ ] |
-| 2.3 | Presidio Anonymizer Wrapper | Obudowa narzędzi Presidio w ujednolicony pipeline `PiiMiddleware`. | [ ] |
-| 2.4 | **BRAMKA:** Roundtrip Test | ✅ Zanonimizowany string zawsze powraca do oryginału bez wycieków. | [ ] |
+| 2.1 | `test_middleware.py` (RED) | Test pełnego cyklu `anonymize` → `deanonymize`. | ✅ |
+| 2.2 | In-memory Mapper | Klasa rejestrująca `"<NIP_1>": "1234567890"` trzymająca stan na czas wywołania agenta. | ✅ |
+| 2.3 | Presidio Anonymizer Wrapper | Obudowa narzędzi Presidio w ujednolicony pipeline `PiiMiddleware`. | ✅ |
+| 2.4 | **BRAMKA:** Roundtrip Test | ✅ Zanonimizowany string zawsze powraca do oryginału bez wycieków. | ✅ |
 
 ---
 
@@ -83,10 +83,10 @@ Mapa odwracania tokenów PII (Token → Original Value) znajduje się *wyłączn
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 3.1 | Podpięcie pod Swarm Pipeline | Tekst do LLM przepływa najpierw przez `pii_middleware.anonymize()`, a odpowiedź przez `deanonymize()`. | [ ] |
-| 3.2 | Flaga w Workspaces | Dodanie flagi bazodanowej do `Workspace` pozwalającej opcjonalnie włączyć/wyłączyć ten moduł (dla środowisk testowych). | [ ] |
-| 3.3 | Logowanie (Sanityzacja) | Upewnienie się, że `project_logger.py` loguje zawsze wartości **po** zanonimizowaniu. | [ ] |
-| 3.4 | **BRAMKA:** System Test | ✅ Wykonanie zapytania LLM w pełni przez Swarm Pipeline maskuje dane lokalnie. | [ ] |
+| 3.1 | Podpięcie pod Swarm Pipeline | Tekst do LLM przepływa najpierw przez `pii_middleware.anonymize()`, a odpowiedź przez `deanonymize()`. | ✅ |
+| 3.2 | Flaga w Workspaces | Dodanie flagi bazodanowej do `Workspace` pozwalającej opcjonalnie włączyć/wyłączyć ten moduł (dla środowisk testowych). | ✅ |
+| 3.3 | Logowanie (Sanityzacja) | Upewnienie się, że `project_logger.py` loguje zawsze wartości **po** zanonimizowaniu. | ✅ |
+| 3.4 | **BRAMKA:** System Test | ✅ Wykonanie zapytania LLM w pełni przez Swarm Pipeline maskuje dane lokalnie. | ✅ |
 
 ## Open Questions
 

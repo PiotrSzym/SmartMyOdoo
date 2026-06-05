@@ -18,7 +18,7 @@ sys.modules["odoo"] = odoo_mock
 sys.modules["odoo.http"] = http_mock
 
 # Po zmockowaniu możemy bezpiecznie importować kontroler
-from ..controllers.main import FirefliesWebhook
+from ..controllers.main import FirefliesWebhook  # noqa: E402
 
 
 class TestFirefliesWebhook(unittest.TestCase):

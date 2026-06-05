@@ -15,16 +15,16 @@ def test_sqlite_metadata_caching():
         content_v2 = "Hello World 2"
 
         # Na poczatku plik powinien byc zgloszony jako nowy
-        assert tracker.is_updated(filepath, content_v1) == True
+        assert tracker.is_updated(filepath, content_v1)
 
         # Zapisujemy
         tracker.update_record(filepath, content_v1)
 
         # Sprawdzamy ten sam content -> nie wymaga aktualizacji
-        assert tracker.is_updated(filepath, content_v1) == False
+        assert not tracker.is_updated(filepath, content_v1)
 
         # Sprawdzamy zmieniony content -> wymaga aktualizacji
-        assert tracker.is_updated(filepath, content_v2) == True
+        assert tracker.is_updated(filepath, content_v2)
 
 
 @patch("smartmyodoo.swarm.brain.rag_api.LanceDBClient")

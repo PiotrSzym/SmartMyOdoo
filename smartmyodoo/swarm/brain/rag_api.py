@@ -28,7 +28,7 @@ class SharedBrain:
 
         context = ""
         for i, res in enumerate(results):
-            context += f"\n--- Kontekst {i+1} (Źródło: {res.get('source')}) ---\n"
+            context += f"\n--- Kontekst {i + 1} (Źródło: {res.get('source')}) ---\n"
             context += res.get("text", "")
             context += "\n"
 
