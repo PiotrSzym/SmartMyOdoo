@@ -105,5 +105,49 @@ class TestVaultServer(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertTrue(json.loads(res.data)["success"])
 
+    def test_api_status(self):
+        res = self.app.get("/api/status")
+        self.assertEqual(res.status_code, 200)
+        self.assertTrue(json.loads(res.data)["initialized"])
+
+    def test_api_init_already_initialized(self):
+        res = self.app.post("/api/init", json={"pin": "1234", "master": "admin"})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("Already initialized", json.loads(res.data)["error"])
+
+    def test_api_init_missing_data(self):
+        # We need to test the condition where data is missing, we can temporarily bypass the exists check
+        import vault
+        with unittest.mock.patch('os.path.exists', return_value=False):
+            res = self.app.post("/api/init", json={"pin": "12"})
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("Wymagany PIN", json.loads(res.data)["error"])
+
+            res2 = self.app.post("/api/init", json={"pin": "123", "master": "admin"})
+            self.assertEqual(res2.status_code, 400)
+            self.assertIn("PIN musi mieć", json.loads(res2.data)["error"])
+
+    def test_api_auth(self):
+        # Valid user
+        res = self.app.post("/api/auth", json={"password": "1111"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(json.loads(res.data)["role"], "user")
+        
+        # Valid admin
+        res = self.app.post("/api/auth", json={"password": "master"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(json.loads(res.data)["role"], "admin")
+        
+        # Invalid
+        res = self.app.post("/api/auth", json={"password": "bad"})
+        self.assertEqual(res.status_code, 401)
+
+    def test_api_change_pin_missing_new_pin(self):
+        res = self.app.post("/api/change-pin", 
+                            json={},
+                            headers={"Authorization": "Bearer master"})
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("New PIN is required", json.loads(res.data)["error"])
+
 if __name__ == "__main__":
     unittest.main()

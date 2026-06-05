@@ -49,10 +49,10 @@ def search_odoo_records(model_name: str, domain: str = "[]", fields: str = "[]",
     Domain to stringifikowana lista list, np. "[['is_company', '=', True]]".
     Fields to stringifikowana lista kolumn, np. "['name', 'email']". Jeśli pusta, zwraca wszystkie.
     """
-    import ast
+    import json
     try:
-        domain_list = ast.literal_eval(domain) if domain else []
-        fields_list = ast.literal_eval(fields) if fields else []
+        domain_list = json.loads(domain) if domain else []
+        fields_list = json.loads(fields) if fields else []
         records = odoo.search_read(model_name, domain_list, fields_list, limit)
         return {"records": records, "count": len(records)}
     except Exception as e:

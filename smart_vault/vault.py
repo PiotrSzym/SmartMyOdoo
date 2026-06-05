@@ -236,10 +236,9 @@ def run_wrapped_command(cmd_args: List[str]) -> None:
         else:
             env[k] = str(obj)
         
-    cmd_str = " ".join(cmd_args)
     print("Uruchamiam proces z ukrytymi sekretami...")
     try:
-        result = subprocess.run(cmd_str, env=env, shell=True)
+        result = subprocess.run(cmd_args, env=env, shell=False)
         sys.exit(result.returncode)
     except Exception as e:
         print(f"Blad uruchamiania podprocesu: {e}")

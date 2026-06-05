@@ -141,6 +141,30 @@ class TestSmartMyVault(unittest.TestCase):
         vk_new = vault.get_vault_key_from_pin("2222", exit_on_fail=False)
         self.assertEqual(vk_old, vk_new)
 
+    @patch('getpass.getpass')
+    def test_3_day_auto_purge(self, mock_getpass):
+        import datetime
+        mock_getpass.side_effect = ["1111", "1111", "master", "master", "1111"]
+        vault.init_vault()
+        
+        vk = vault.get_vault_key_from_pin("1111", exit_on_fail=False)
+        
+        # Inject old deleted items directly
+        data = {
+            "OLD_DEL": {"password": "x", "deleted_at": (datetime.datetime.now() - datetime.timedelta(days=4)).isoformat()},
+            "NEW_DEL": {"password": "y", "deleted_at": (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()},
+            "ACTIVE": {"password": "z"}
+        }
+        vault.save_vault(vk, data)
+        
+        # get_secrets should purge OLD_DEL but keep NEW_DEL and ACTIVE
+        # Since get_secrets with vk doesn't prompt for password
+        purged_data = vault.get_secrets(vk)
+        
+        self.assertNotIn("OLD_DEL", purged_data)
+        self.assertIn("NEW_DEL", purged_data)
+        self.assertIn("ACTIVE", purged_data)
+
     def test_load_vault_bad_key(self):
         with open(vault.VAULT_DATA_FILE, "wb") as f:
             f.write(b"bad_data_that_is_not_encrypted")
