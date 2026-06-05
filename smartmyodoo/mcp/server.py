@@ -13,6 +13,46 @@ import database_magic
 # Konfiguracja loggera
 logger = logging.getLogger(__name__)
 
+class PiiAuditLogFilter(logging.Filter):
+    def filter(self, record):
+        try:
+            # Avoid infinite recursion or circular imports by checking if middleware is initialized
+            if pii_middleware_instance is not None and is_pii_enabled("default"):
+                middleware = get_pii_middleware()
+                if isinstance(record.msg, str):
+                    record.msg = middleware.anonymize(record.msg)
+                
+                if record.args:
+                    new_args = []
+                    for arg in record.args:
+                        if isinstance(arg, str):
+                            new_args.append(middleware.anonymize(arg))
+                        else:
+                            new_args.append(arg)
+                    record.args = tuple(new_args)
+        except Exception:
+            # If anonymization fails during logging, drop the message or log a safe error
+            record.msg = "[PII_SANITIZATION_FAILED] " + str(record.msg)
+            
+        return True
+
+logger.addFilter(PiiAuditLogFilter())
+
+# --- PII Middleware Setup ---
+from pii_middleware import PiiMiddleware
+pii_middleware_instance = None
+
+def get_pii_middleware() -> PiiMiddleware:
+    global pii_middleware_instance
+    if pii_middleware_instance is None:
+        pii_middleware_instance = PiiMiddleware()
+    return pii_middleware_instance
+
+def is_pii_enabled(workspace_id: str) -> bool:
+    env_var = f"PII_ENABLED_{workspace_id.upper()}"
+    return os.getenv(env_var, os.getenv("PII_ENABLED_DEFAULT", "True")).lower() in ("true", "1", "yes")
+# ----------------------------
+
 # Inicjalizacja serwera MCP dla Odoo
 mcp = FastMCP("SmartMyOdoo-MCP")
 
@@ -70,7 +110,13 @@ def search_odoo_records(model_name: str, domain: str = "[]", fields: str = "[]",
         fields_list = json.loads(fields) if fields else []
         target_odoo = get_odoo_client(workspace_id)
         records = target_odoo.search_read(model_name, domain_list, fields_list, limit)
-        return {"records": records, "count": len(records)}
+        
+        result_str = json.dumps({"records": records, "count": len(records)}, ensure_ascii=False)
+        
+        if is_pii_enabled(workspace_id):
+            result_str = get_pii_middleware().anonymize(result_str, workspace_id=workspace_id)
+            
+        return json.loads(result_str)
     except Exception as e:
         logger.error("Błąd w search_odoo_records dla %s: %s", model_name, str(e))
         return {"error": "Wystąpił błąd podczas wyszukiwania rekordów. Szczegóły w logach systemowych."}
@@ -83,6 +129,10 @@ def create_odoo_record(model_name: str, values_json: str, reason: str, workspace
     """
     import json
     try:
+        if is_pii_enabled(workspace_id):
+            values_json = get_pii_middleware().deanonymize(values_json, workspace_id=workspace_id)
+            reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
+            
         values = json.loads(values_json)
         proposal = shadow_mode.create_proposal("create", model_name, [], values, reason, workspace_id=workspace_id)
         return f"✅ Propozycja (CREATE) zapisana. ID: {proposal['id']}"
@@ -98,6 +148,10 @@ def update_odoo_record(model_name: str, record_id: int, values_json: str, reason
     """
     import json
     try:
+        if is_pii_enabled(workspace_id):
+            values_json = get_pii_middleware().deanonymize(values_json, workspace_id=workspace_id)
+            reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
+            
         values = json.loads(values_json)
         proposal = shadow_mode.create_proposal("update", model_name, [record_id], values, reason, workspace_id=workspace_id)
         return f"✅ Propozycja (UPDATE) zapisana. ID: {proposal['id']}"
@@ -111,6 +165,9 @@ def delete_odoo_record(model_name: str, record_id: int, reason: str, workspace_i
     Usuwa rekord z Odoo (Shadow Mode).
     """
     try:
+        if is_pii_enabled(workspace_id):
+            reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
+            
         proposal = shadow_mode.create_proposal("delete", model_name, [record_id], {}, reason, workspace_id=workspace_id)
         return f"✅ Propozycja (DELETE) zapisana. ID: {proposal['id']}"
     except Exception as e:
@@ -161,6 +218,9 @@ def propose_magic_fix(fix_type: str, record_id: int, reason: str, workspace_id: 
     fix_type musi być jednym z: 'force_cancel_invoice', 'unlock_stock_move', 'change_uom_on_product'.
     """
     try:
+        if is_pii_enabled(workspace_id):
+            reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
+            
         proposal = database_magic.propose_magic_fix(fix_type, record_id, reason, workspace_id=workspace_id)
         return f"🪄 Propozycja Magii Bazodanowej przygotowana. Oczekuje na weryfikację pracownika. ID Propozycji: {proposal['id']}"
     except Exception as e:

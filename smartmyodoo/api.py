@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
@@ -147,6 +148,9 @@ async def change_pin(req: schemas.ChangePinRequest, auth_data: Tuple[bytes, str,
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
+app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
+
 def start_server(port=8000):
     import uvicorn
     import webbrowser
@@ -161,10 +165,10 @@ def start_server(port=8000):
     
     def open_browser():
         time.sleep(1)
-        webbrowser.open(url + "/docs")
+        webbrowser.open(url + "/")
     threading.Thread(target=open_browser, daemon=True).start()
     
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
+    uvicorn.run("smartmyodoo.api:app", host="127.0.0.1", port=port, log_level="info")
 
 if __name__ == "__main__":
     start_server()
