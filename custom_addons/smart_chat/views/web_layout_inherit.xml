@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dodajemy nasz komponent OWL bezposrednio do systray lub na dole layoutu -->
+    <template id="web_layout_inherit" inherit_id="web.layout">
+        <xpath expr="//body" position="inside">
+            <div id="smart_chat_root"></div>
+        </xpath>
+    </template>
+</odoo>

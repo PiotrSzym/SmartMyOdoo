@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="smart_chat.ShadowBannerWidget" owl="1">
+        <div t-if="state.isVisible" class="shadow-banner-container" style="position: absolute; top: 0; left: 0; right: 0; z-index: 1000; padding: 15px; background-color: #e0f2fe; border-bottom: 2px solid #3b82f6; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <i class="fa fa-info-circle fa-2x text-primary" style="color: #3b82f6;"></i>
+                <div>
+                    <h4 style="margin: 0; color: #1e3a8a; font-weight: bold;">Shadow Mode (Oczekuje na akceptację)</h4>
+                    <span style="color: #1e40af;" t-esc="state.proposalText"></span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="background-color: #3b82f6; border-color: #3b82f6;" t-on-click="confirmAction">
+                    <i class="fa fa-check"></i> Potwierdź
+                </button>
+                <button class="btn btn-secondary" t-on-click="rejectAction">
+                    <i class="fa fa-times"></i> Odrzuć (Rollback)
+                </button>
+            </div>
+        </div>
+    </t>
+</templates>

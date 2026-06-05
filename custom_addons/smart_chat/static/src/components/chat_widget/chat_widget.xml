@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+    <t t-name="smart_chat.SmartChatWidget" owl="1">
+        <div class="smart-chat-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+            <div t-if="state.isOpen" class="smart-chat-window" style="width: 300px; height: 400px; background: white; border: 1px solid #ccc; border-radius: 8px; display: flex; flex-direction: column;">
+                <div class="smart-chat-header" style="background: #714B67; color: white; padding: 10px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between;">
+                    <span>SmartMyOdoo AI Swarm</span>
+                    <i class="fa fa-times" style="cursor: pointer;" t-on-click="toggleChat"></i>
+                </div>
+                <div class="smart-chat-body" style="flex: 1; padding: 10px; overflow-y: auto;">
+                    <t t-foreach="state.messages" t-as="msg" t-key="msg.id">
+                        <div t-esc="msg.text" />
+                    </t>
+                </div>
+                <div class="smart-chat-footer" style="padding: 10px; border-top: 1px solid #eee;">
+                    <input type="text" placeholder="Napisz do Agenta..." style="width: 100%; padding: 5px; box-sizing: border-box;" />
+                </div>
+            </div>
+
+            <div t-if="!state.isOpen" class="smart-chat-bubble" t-on-click="toggleChat" style="width: 60px; height: 60px; background: #714B67; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <i class="fa fa-comments fa-2x"></i>
+            </div>
+        </div>
+    </t>
+</templates>

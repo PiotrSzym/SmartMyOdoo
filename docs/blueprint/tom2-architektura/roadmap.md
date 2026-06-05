@@ -4,7 +4,7 @@
 - **TeamEngine v5.0:** Orkiestracja farmy agentów (Scout, Pol, Dev, QA, Arch).
 - **Conductor System:** Każde zadanie kodowania musi być otwierane jako Track/Epic.
 - **OdooE2E / TDD (The Iron Law):** Procedura Double-Loop TDD. Zakaz pisania kodu bez "oblanego" testu.
-- **Pre-Commit Iron Gate (QA-01):** ⏳ W Trakcie - Zabezpieczenie kodu (Ruff, Mypy, Bandit, pre-commit).
+- **Pre-Commit Iron Gate (QA-01):** ✅ Wdrożone - Zabezpieczenie kodu (Ruff, Mypy, Bandit, pre-commit).
 - **KSeF Readiness:** Gotowość technologiczna (pipeline `v7` z projektu `KSEF/`).
 - **OCA Guidelines:** Standard modułów Odoo (PEP8, Humble Object, Repository Pattern).
 - **Stack Technologiczny:** Zdefiniowany w `docs/blueprint/tom2-architektura/TECH_STACK.md`.

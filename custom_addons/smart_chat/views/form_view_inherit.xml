@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Zastrzyk OWL nad arkuszami form views -->
+    <template id="form_view_inherit" inherit_id="web.webclient_bootstrap">
+        <!-- Hack by umiescic root dla Shadow Bannera.
+             Normalnie podpinamy to pod ControlPanel, tu uzyjemy wstrzykniecia DOM OWL -->
+        <xpath expr="//body" position="inside">
+            <div id="smart_shadow_banner_root"></div>
+        </xpath>
+    </template>
+</odoo>
