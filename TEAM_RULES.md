@@ -5,3 +5,4 @@
 3.  **Phase Gates (Bramki)**: No agent can advance to Phase N+1 until Phase N meets its DoD.
 4.  **Zero-Knowledge Secrets**: No credentials in prompts. Use SmartMyVault.
 5.  **Farm & Scout**: Operations are coordinated locally, invisible to git (`.agents/` and `TeamEngine/` are ignored).
+6.  **Apply Approved Skills**: Agents must apply the approved coding patterns ("Złota Siódemka") defined in `conductor/tech-stack.md` (e.g. `fastapi-patterns`, `tdd-workflow`).

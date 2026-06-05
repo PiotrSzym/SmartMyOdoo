@@ -1,20 +1,33 @@
 import os
+from smartmyodoo.core.database import SessionLocal
+from smartmyodoo.core.models import TokenUsage
 
 class TokenGovernor:
     """
     Zarządca budżetu tokenów dla danej sesji Agenta.
-    Zabezpiecza przed wpadnięciem agenta w nieskończoną pętlę i nabiciem wysokiego rachunku.
+    Zapisuje użycie do bazy danych SQLite.
     """
     def __init__(self, max_budget_usd: float = 1.0):
         self.max_budget_usd = max_budget_usd
         self.current_spend = 0.0
         self.total_tokens = 0
         
-    def add_usage(self, tokens: int, cost_per_1k: float) -> None:
+    def add_usage(self, tokens: int, cost_per_1k: float, model: str = "unknown") -> None:
         """Dodaje użycie tokenów i aktualizuje koszt. Blokuje jeśli przekroczono budżet."""
         cost = (tokens / 1000.0) * cost_per_1k
         self.current_spend += cost
         self.total_tokens += tokens
+        
+        # Save to SQLite
+        db = SessionLocal()
+        try:
+            usage_log = TokenUsage(model=model, tokens_used=tokens, cost=cost)
+            db.add(usage_log)
+            db.commit()
+        except Exception:
+            pass # fallback to in-memory only if db fails
+        finally:
+            db.close()
         
         if self.current_spend > self.max_budget_usd:
             raise PermissionError(
