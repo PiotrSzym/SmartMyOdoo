@@ -32,7 +32,7 @@ class SQLiteMetadata:
             conn.close()
 
     def _compute_hash(self, text: str) -> str:
-        return hashlib.md5(text.encode("utf-8")).hexdigest()
+        return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     def is_updated(self, filepath: str, content: str) -> bool:
         """

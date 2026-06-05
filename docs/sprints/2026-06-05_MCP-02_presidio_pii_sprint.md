@@ -1,63 +1,97 @@
-# TeamEngine Sprint Artifact: MCP-02 (Faza 4: Presidio PII Middleware)
+# 🚀 Sprint: [MCP-02] Presidio PII Middleware
 
-**Sprint ID:** MCP-02
-**Track ID:** presidio-pii_20260604
-**Data utworzenia:** 2026-06-05
-**Typ:** Feature (Security / Privacy)
-
-## A. Zasady Bramkowe (TeamEngine Sequential Gates)
-
-1. **RED/GREEN/REFACTOR** – Żaden kod funkcyjny nie może powstać przed napisaniem testu, który obleje (RED).
-2. **Commit Gates** – Każda pod-faza (Zadania x.4) kończy się zatrzymaniem agenta i oczekiwaniem na zielone testy / weryfikację.
-3. **Audit Log Isolation** – Brak PII w plikach z logami to warunek konieczny przejścia całego sprintu.
-
-## B. Plan Egzekucji i Checklisty
-
-### B1. Faza 1: Presidio Setup + Custom Recognizers
-
-**Cel:** Instalacja Presidio i rozpoznawanie polskich typów danych PII (NIP, PESEL, Imiona).
-
-| # | Zadanie | DoD (Definition of Done) | Status |
-|---|---------|--------------------------|--------|
-| 1.1 | Instalacja paczek (`presidio-analyzer`, `presidio-anonymizer`) w zależnościach | Zaktualizowany `requirements.txt` / `pyproject.toml` | [x] |
-| 1.2 | 🔴 RED — Testy dla rozpoznawania PII (NIP, PESEL, polskie imiona) | Plik testowy zawiera failing tests | [x] |
-| 1.3 | 🟢 GREEN — Implementacja `NipRecognizer` oraz `PeselRecognizer` | Custom recognizers napisane, testy przechodzą | [x] |
-| 1.4 | **BRAMKA:** Weryfikacja silnika AnalyzerEngine | ✅ Analizator poprawnie identyfikuje encje z 95%+ pewnością | [x] |
+> **Architekt:** /arch | **Tryb:** Sequential
+> **Data:** 2026-06-05 | **Bazuje na:** Faza 4 (Conductor)
 
 ---
 
-### B2. Faza 2: Anonymization Middleware (Reversible Mapping)
+## 📋 Sekcja A — Business Discovery & Rules
 
-**Cel:** Middleware w FastMCP / serwerze, który w locie anonimizuje PII przed LLM i deanominizuje je z powrotem na oryginały.
+### Cel biznesowy
+Zgodność z RODO i standardami bezpieczeństwa przy pracy z agentami LLM. Musimy wdrożyć warstwę middleware (Microsoft Presidio), która automatycznie wychwytuje i podmienia (pseudonimizuje) dane osobowe (PII) z bazy Odoo, zanim trafią do zewnętrznego modelu językowego, a następnie przywraca te dane przy zwrotnej odpowiedzi.
+
+### Metryka sukcesu (DoD)
+Dla tekstu "Jan Kowalski (NIP 1234567890)" system wysyła do LLM "<PERSON_1> (NIP <NIP_1>)", a po odpowiedzi od LLM bezbłędnie podmienia tagi z powrotem na oryginalne dane, nie zostawiając PII w żadnych logach audytowych.
+
+### ⚖️ ZASADY SPRINTU — Podsumowanie dla Użytkownika
+
+#### Zasada 1: SEQUENTIAL GATE (Bramka Sekwencyjna) 🔴
+Każda faza kończy się bramką testową. Nie piszemy kodu dla Fazy 2, dopóki Faza 1 nie przejdzie testów PII.
+
+#### Zasada 2: TDD FIRST / VALIDATION 🟠
+Test Driven Development: najpierw piszemy `test_pii.py` jako RED (oblewające), następnie weryfikujemy, czy zaimplementowane rozpoznawacze (`PeselRecognizer`, `NipRecognizer`) poprawnie sprawiają, że test przechodzi na GREEN.
+
+#### Zasada 3: IN-MEMORY MAPPING 🔴
+Mapa odwracania tokenów PII (Token → Original Value) znajduje się *wyłącznie* w krótkotrwałej pamięci dla danej sesji u Agenta i nigdy nie jest zapisywana do SQLite ani przesyłana z logami FSM.
+
+---
+
+## 🧱 Sekcja B — Podział Zadań
+
+### Graf zależności między Fazami
+
+```
+┌──────────────────────────────────────┐
+│  FAZA 1: Presidio & Custom Detectors │
+│  [Instalacja i Recognizery PL]       │
+└──────────────┬───────────────────────┘
+               │ ✅ BRAMKA: Unit test NIP/PESEL przechodzi
+               ▼
+┌──────────────────────────────────────┐
+│  FAZA 2: Reversible Middleware       │
+│  [Anonimizacja i Deanonimizacja]     │
+└──────────────┬───────────────────────┘
+               │ ✅ BRAMKA: Test "Roundtrip" (Tekst->Token->Tekst)
+               ▼
+┌──────────────────────────────────────┐
+│  FAZA 3: Integracja z Agent Swarm    │
+│  [Podpięcie do potoku i logów]       │
+└──────────────────────────────────────┘
+```
+
+---
+
+### Sekcja B1 — FAZA 1: Presidio Setup & Recognizers
+
+> **📁 Scope:** `smartmyodoo/security/pii/`, `tests/security/`
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 2.1 | 🔴 RED — Testy cyklu anonymize -> deanonymize (roundtrip) | Failing tests dla cyklu tokenizacji i odwracania | [x] |
-| 2.2 | 🟢 GREEN — Implementacja klasy `PiiMiddleware` (z in-memory mapping) | Roundtrip zachowuje mapę dla aktywnej sesji | [x] |
-| 2.3 | Integracja z MCP (podpięcie przed i po logice narzędzi) | `FastMCP` używa middleware automatycznie dla requestów LLM | [x] |
-| 2.4 | **BRAMKA:** Przełącznik per Workspace | ✅ Można wyłączyć/włączyć filtr z poziomu DB / configu | [x] |
+| 1.1 | Aktualizacja zależności | Dodanie `presidio-analyzer` i `presidio-anonymizer` w `requirements.txt` / `pyproject.toml` | [ ] |
+| 1.2 | `test_recognizers.py` (RED) | Testy wymagające rozpoznania polskiego NIP, PESEL i polskiego imienia w ciągach tekstowych. | [ ] |
+| 1.3 | Custom Recognizers | Klasy `NipRecognizer` oraz `PeselRecognizer` oparte na RegEx, rozszerzające `EntityRecognizer` Presidio. | [ ] |
+| 1.4 | **BRAMKA:** Weryfikacja | ✅ `pytest tests/security/test_recognizers.py` przechodzi. | [ ] |
 
 ---
 
-### B3. Faza 3: Integracja i Audyt
+### Sekcja B2 — FAZA 2: Reversible Anonymization Middleware
 
-**Cel:** Gwarancja, że PII nigdy nie lądują w bazie (np. w logach audytowych czy propozycjach shadow mode).
+> **📁 Scope:** `smartmyodoo/security/pii/middleware.py`
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 3.1 | Implementacja sanityzacji dla `AuditLog` (logujemy akcję, a nie PII) | `AuditLog` nigdy nie przetrzymuje danych typu `<NIP_1>` czy prawdziwego NIP | [x] |
-| 3.2 | Integracja z testowym pipeline / mockowymi wywołaniami Odoo | Odoo otrzymuje prawdziwe dane, LLM otrzymuje zanonimizowane | [x] |
-| 3.3 | Dokumentacja: jak dodawać nowe Recognizery | Zaktualizowany `README` / dokumentacja | [x] |
-| 3.4 | **BRAMKA:** End-to-End Test (Agent -> MCP -> Odoo) | ✅ `pytest` całego modułu MCP PII przechodzi | [x] |
+| 2.1 | `test_middleware.py` (RED) | Test pełnego cyklu `anonymize` → `deanonymize`. | [ ] |
+| 2.2 | In-memory Mapper | Klasa rejestrująca `"<NIP_1>": "1234567890"` trzymająca stan na czas wywołania agenta. | [ ] |
+| 2.3 | Presidio Anonymizer Wrapper | Obudowa narzędzi Presidio w ujednolicony pipeline `PiiMiddleware`. | [ ] |
+| 2.4 | **BRAMKA:** Roundtrip Test | ✅ Zanonimizowany string zawsze powraca do oryginału bez wycieków. | [ ] |
 
 ---
 
-## C. Status Sprintu
+### Sekcja B3 — FAZA 3: Integracja z Agent Swarm
 
-| # | Faza | /dev | /qa | /doc | Status |
-|---|--------|:----:|:---:|:----:|:------:|
-| 1 | Presidio Setup & Recognizers | ✅ | ✅ | ✅ | ✅ |
-| 2 | Anonymization Middleware | ✅ | ✅ | ✅ | ✅ |
-| 3 | Integracja i Audyt | ✅ | ✅ | ✅ | ✅ |
+> **📁 Scope:** `smartmyodoo/swarm/pipeline.py`, `smartmyodoo/hub/`
 
-**Podsumowanie:** 3/3 ✅ Done | Blokujący: BRAK | Całkowicie Zakończony!
+| # | Zadanie | DoD | Status |
+|---|---------|-----|--------|
+| 3.1 | Podpięcie pod Swarm Pipeline | Tekst do LLM przepływa najpierw przez `pii_middleware.anonymize()`, a odpowiedź przez `deanonymize()`. | [ ] |
+| 3.2 | Flaga w Workspaces | Dodanie flagi bazodanowej do `Workspace` pozwalającej opcjonalnie włączyć/wyłączyć ten moduł (dla środowisk testowych). | [ ] |
+| 3.3 | Logowanie (Sanityzacja) | Upewnienie się, że `project_logger.py` loguje zawsze wartości **po** zanonimizowaniu. | [ ] |
+| 3.4 | **BRAMKA:** System Test | ✅ Wykonanie zapytania LLM w pełni przez Swarm Pipeline maskuje dane lokalnie. | [ ] |
+
+## Open Questions
+
+> [!IMPORTANT]
+> Czy w Fazie 1, oprócz NIP, PESEL i Imion, chcemy od razu dodać polskie rozpoznawacze dla Numerów Dowodu Osobistego, czy standardowy pakiet na początek nam wystarczy?
+
+> [!WARNING]
+> Czy w Fazie 3 flaga bezpieczeństwa (PII Enabled) powinna być **włączona domyślnie** dla każdej nowej przestrzeni roboczej w TeamEngine Hub? (Zalecane)

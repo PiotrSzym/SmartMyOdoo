@@ -15,10 +15,10 @@ tags: ["swarm", "odoo", "owl", "ui", "webhook", "best-practices"]
 
 ## 📈 PROGRESS BAR
 - [x] `/arch` — Przygotowanie ADR-005 z zachowaniem Odoo Best Practices (Izolacja OWL, Banery w Formularzach)
-- [ ] `/dev`  — Implementacja modułów Odoo (`smart_chat`, `fireflies_connector`, Odoo Projects logger)
-- [ ] `/qa`   — Testy Manualne / Odoo Test framework (Python)
-- [ ] `/doc`  — Zakończenie Walkthrough i ZAMKNIĘCIE Fazy 5
-- [ ] **Release Gate**
+- [x] `/dev`  — Implementacja modułów Odoo (`smart_chat`, `fireflies_connector`, Odoo Projects logger)
+- [x] `/qa`   — Testy Manualne / Odoo Test framework (Python)
+- [x] `/doc`  — Zakończenie Walkthrough i ZAMKNIĘCIE Fazy 5
+- [x] **Release Gate**
 
 ---
 

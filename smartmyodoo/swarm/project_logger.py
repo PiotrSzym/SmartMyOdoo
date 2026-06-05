@@ -16,7 +16,7 @@ class FSMProjectLogger:
         url="http://localhost:8069",
         db="LIVE_DB",
         user="admin",
-        password="password",
+        password=None,
     ):
         self.url = url
         self.db = db
@@ -28,6 +28,11 @@ class FSMProjectLogger:
         # Odczyt ze zmiennych srodowiskowych jesli istnieja
         self.url = os.getenv("ODOO_URL", self.url)
         self.password = os.getenv("ODOO_PASSWORD", self.password)
+
+        if not self.password:
+            raise ValueError(
+                "Brak zdefiniowanego hasła. Należy ustawić zmienną środowiskową ODOO_PASSWORD."
+            )
 
     def _connect(self):
         if not self.uid:

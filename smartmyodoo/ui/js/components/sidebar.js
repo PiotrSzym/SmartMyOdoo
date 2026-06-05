@@ -28,7 +28,7 @@ class Sidebar {
 
         let html = `
             <div class="p-6 border-b border-slate-800">
-                <h2 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">TeamEngine Hub</h2>
+                <h2 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">SmartMyOdoo Hub</h2>
                 <p class="text-xs text-slate-500 mt-1">Multi-Workspace Manager</p>
             </div>
             <div class="p-4 flex-1 overflow-y-auto">

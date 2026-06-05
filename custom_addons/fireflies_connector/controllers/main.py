@@ -20,9 +20,18 @@ class FirefliesWebhook(http.Controller):
         Omija mechanizm JSON-RPC. Wymaga weryfikacji nagłówka (Authorization).
         """
         try:
-            # Autoryzacja po tokenie w naglowku (Hardcoded dla przykladu, normalnie w odoo.conf lub ir.config_parameter)
+            # Pobranie oczekiwanego tokenu z ir.config_parameter z fallbackiem na hardcoded w razie braku konfiguracji
+            expected_token = (
+                request.env["ir.config_parameter"]
+                .sudo()
+                .get_param(
+                    "smart_my_odoo.fireflies_webhook_token",
+                    "SMART_MY_ODOO_SECURE_TOKEN",
+                )
+            )
+
             auth_header = request.httprequest.headers.get("Authorization")
-            if not auth_header or auth_header != "Bearer SMART_MY_ODOO_SECURE_TOKEN":
+            if not auth_header or auth_header != f"Bearer {expected_token}":
                 return Response(
                     json.dumps({"error": "Unauthorized"}),
                     status=401,
