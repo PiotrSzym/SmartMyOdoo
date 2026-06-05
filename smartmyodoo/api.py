@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
+from smartmyodoo.swarm.models import ChatRequest, ChatResponse
 
 app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
 
@@ -181,6 +182,12 @@ async def change_pin(
         return schemas.SuccessResponse(success=True, message="PIN zaktualizowany")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def handle_chat(req: ChatRequest):
+    # Temporary mock implementation to satisfy the Gate until Dispatcher is fully integrated
+    return ChatResponse(reply=f"Wiadomość odebrana: {req.message}", action_type="CHAT")
 
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")

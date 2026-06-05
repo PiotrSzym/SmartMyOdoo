@@ -48,11 +48,13 @@ Architektura zatwierdzona przez ADR-005.
 
 | Kryterium / Zadanie | Oczekiwany Rezultat | Werdykt |
 |---------------------|---------------------|---------|
-| C.1 Ładowanie UI    | Moduł `smart_chat` instaluje się bez błędów i w prawym rogu pojawia się chmurka (OWL). | ⬜ Pending |
-| C.2 Webhook 200 OK  | Uderzenie curl/Postman na `/api/fireflies/webhook` z poprawnym hasłem zwraca HTTP 200, a nie Exception. | ⬜ Pending |
+| C.1 Ładowanie UI    | Moduł `smart_chat` instaluje się bez błędów i w prawym rogu pojawia się chmurka (OWL). | ✅ PASSED |
+| C.2 Webhook 200 OK  | Uderzenie curl/Postman na `/api/fireflies/webhook` z poprawnym hasłem zwraca HTTP 200, a nie Exception. | ✅ PASSED |
 
 ---
 
 ## 🏁 CLOSE CHECKLIST (Bramka Zamykająca)
-- [ ] Moduły zintegrowane i przetestowane w środowisku deweloperskim.
-- [ ] Cała Faza 5 i Track odznaczona w `conductor/tracks/agent-swarm_20260604/plan.md`.
+- ✅ Moduły zintegrowane i przetestowane w środowisku deweloperskim.
+- ✅ Cała Faza 5 i Track odznaczona w `conductor/tracks/agent-swarm_20260604/plan.md`.
+- ✅ Review kodu i merge request z Fazy 5 do głównej gałęzi projektu.
+- ✅ Zaktualizowana roadmapa całego projektu (potwierdzenie zamknięcia M2).

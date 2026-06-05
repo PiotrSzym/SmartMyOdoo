@@ -73,14 +73,14 @@ Zmiany WYŁĄCZNIE w `smart_vault/`. Zero modyfikacji w reszcie workspace'u.
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 7.1 | Klasa `VaultDecryptionError(Exception)` | Nowy typ wyjątku zdefiniowany na górze pliku. | [ ] |
-| 7.2 | `load_vault()` → `raise VaultDecryptionError` zamiast `sys.exit(1)` | Funkcja NIGDY nie zabija procesu. CLI opakowuje to w try/except. | [ ] |
-| 7.3 | Zawęzić `except Exception` w `get_vault_key_from_pin/master` | Łapie tylko `cryptography.fernet.InvalidToken` i `ValueError`. | [ ] |
-| 7.4 | Nowa funkcja `update_pin(vk: bytes, new_pin: str) -> None` | Przeniesiona logika zmiany PINu z `vault_server.py`. | [ ] |
-| 7.5 | Nowa funkcja `_cli_auth() -> tuple[bytes, dict]` | Eliminuje duplikat `getpass → get_key → load_vault` z 5 komend CLI. | [ ] |
-| 7.6 | Refactor CLI commands → `_cli_auth()` | `add_secret`, `copy_secret`, `delete_secret`, `restore_secret`, `list_secrets` używają helpera. | [ ] |
-| 7.7 | Dodać pełne Type Hinty | Wszystkie publiczne funkcje mają `-> ReturnType`. | [ ] |
-| 7.8 | **BRAMKA:** Istniejące testy GREEN | ✅ `python -m unittest test_vault.py` → 8/8 OK. | [ ] |
+| 7.1 | Klasa `VaultDecryptionError(Exception)` | Nowy typ wyjątku zdefiniowany na górze pliku. | [x] |
+| 7.2 | `load_vault()` → `raise VaultDecryptionError` zamiast `sys.exit(1)` | Funkcja NIGDY nie zabija procesu. CLI opakowuje to w try/except. | [x] |
+| 7.3 | Zawęzić `except Exception` w `get_vault_key_from_pin/master` | Łapie tylko `cryptography.fernet.InvalidToken` i `ValueError`. | [x] |
+| 7.4 | Nowa funkcja `update_pin(vk: bytes, new_pin: str) -> None` | Przeniesiona logika zmiany PINu z `vault_server.py`. | [x] |
+| 7.5 | Nowa funkcja `_cli_auth() -> tuple[bytes, dict]` | Eliminuje duplikat `getpass → get_key → load_vault` z 5 komend CLI. | [x] |
+| 7.6 | Refactor CLI commands → `_cli_auth()` | `add_secret`, `copy_secret`, `delete_secret`, `restore_secret`, `list_secrets` używają helpera. | [x] |
+| 7.7 | Dodać pełne Type Hinty | Wszystkie publiczne funkcje mają `-> ReturnType`. | [x] |
+| 7.8 | **BRAMKA:** Istniejące testy GREEN | ✅ `python -m unittest test_vault.py` → 8/8 OK. | [x] |
 
 ---
 
@@ -91,11 +91,11 @@ Zmiany WYŁĄCZNIE w `smart_vault/`. Zero modyfikacji w reszcie workspace'u.
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 8.1 | Przenieść importy na górę pliku | Zero `import` wewnątrz ciał funkcji. PEP 8 compliance. | [ ] |
-| 8.2 | `/api/change-pin` → `vault.update_pin()` | Usunięte bezpośrednie wywołania `Fernet`, `os.urandom` z kodu HTTP. | [ ] |
-| 8.3 | Obsługa `VaultDecryptionError` | Endpointy CRUD łapią wyjątek i zwracają HTTP 500 zamiast `sys.exit`. | [ ] |
-| 8.4 | Type Hinty w `get_auth_key()` | `-> tuple[bytes | None, str | None]` | [ ] |
-| 8.5 | **BRAMKA:** API testy GREEN | ✅ `python -m unittest test_vault_server.py` → OK. | [ ] |
+| 8.1 | Przenieść importy na górę pliku | Zero `import` wewnątrz ciał funkcji. PEP 8 compliance. | [x] |
+| 8.2 | `/api/change-pin` → `vault.update_pin()` | Usunięte bezpośrednie wywołania `Fernet`, `os.urandom` z kodu HTTP. | [x] |
+| 8.3 | Obsługa `VaultDecryptionError` | Endpointy CRUD łapią wyjątek i zwracają HTTP 500 zamiast `sys.exit`. | [x] |
+| 8.4 | Type Hinty w `get_auth_key()` | `-> tuple[bytes | None, str | None]` | [x] |
+| 8.5 | **BRAMKA:** API testy GREEN | ✅ `python -m unittest test_vault_server.py` → OK. | [x] |
 
 ---
 
@@ -106,9 +106,9 @@ Zmiany WYŁĄCZNIE w `smart_vault/`. Zero modyfikacji w reszcie workspace'u.
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 9.1 | Usunąć `master_vault.enc` | Plik-sierota z Fazy 1 — nie referencjonowany w żadnym kodzie. | [ ] |
-| 9.2 | Usunąć `salt.cfg` | Plik-sierota — zastąpiony przez `pin_salt.cfg` + `master_salt.cfg`. | [ ] |
-| 9.3 | **BRAMKA:** Czysty listing | ✅ Brak plików nie-referencjonowanych w folderze. | [ ] |
+| 9.1 | Usunąć `master_vault.enc` | Plik-sierota z Fazy 1 — nie referencjonowany w żadnym kodzie. | [x] |
+| 9.2 | Usunąć `salt.cfg` | Plik-sierota — zastąpiony przez `pin_salt.cfg` + `master_salt.cfg`. | [x] |
+| 9.3 | **BRAMKA:** Czysty listing | ✅ Brak plików nie-referencjonowanych w folderze. | [x] |
 
 ---
 
@@ -119,11 +119,11 @@ Zmiany WYŁĄCZNIE w `smart_vault/`. Zero modyfikacji w reszcie workspace'u.
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 10.1 | Test `vault.update_pin()` | Nowy PIN deszyfruje ten sam Vault Key co stary. | [ ] |
-| 10.2 | Test `load_vault()` z błędnym kluczem | Rzuca `VaultDecryptionError`, NIE wywołuje `sys.exit`. | [ ] |
-| 10.3 | Test API: 401 Unauthorized | Zapytanie bez headera `Authorization` → 401. | [ ] |
-| 10.4 | Test API: 403 Change PIN non-admin | Zapytanie z PINem (rola `user`) na `/api/change-pin` → 403. | [ ] |
-| 10.5 | **BRAMKA:** Full Suite GREEN | ✅ `python -m unittest test_vault.py test_vault_server.py -v` → ALL OK. | [ ] |
+| 10.1 | Test `vault.update_pin()` | Nowy PIN deszyfruje ten sam Vault Key co stary. | [x] |
+| 10.2 | Test `load_vault()` z błędnym kluczem | Rzuca `VaultDecryptionError`, NIE wywołuje `sys.exit`. | [x] |
+| 10.3 | Test API: 401 Unauthorized | Zapytanie bez headera `Authorization` → 401. | [x] |
+| 10.4 | Test API: 403 Change PIN non-admin | Zapytanie z PINem (rola `user`) na `/api/change-pin` → 403. | [x] |
+| 10.5 | **BRAMKA:** Full Suite GREEN | ✅ `python -m unittest test_vault.py test_vault_server.py -v` → ALL OK. | [x] |
 
 ---
 

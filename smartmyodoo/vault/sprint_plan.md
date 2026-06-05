@@ -108,9 +108,9 @@ Wszystkie działania (Faza 1-3) będą prowadzone WYŁĄCZNIE w dedykowanym nowy
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 4.1 | Czyszczenie `.env` Odoo | Modyfikacja `odoo_empty_shell.yml` by bazował w 100% na środowisku OS. | [ ] |
-| 4.2 | Uruchomienie Dockera | Wykonanie `vault.py run -- docker-compose up -d`. | [ ] |
-| 4.3 | **BRAMKA:** Audyt logów | ✅ Logi i środowisko operacyjne Odoo startuje bez wystawiania haseł na wierzch. | [ ] |
+| 4.1 | Czyszczenie `.env` Odoo | Modyfikacja `odoo_empty_shell.yml` by bazował w 100% na środowisku OS. | [x] |
+| 4.2 | Uruchomienie Dockera | Wykonanie `vault.py run -- docker-compose up -d`. | [x] |
+| 4.3 | **BRAMKA:** Audyt logów | ✅ Logi i środowisko operacyjne Odoo startuje bez wystawiania haseł na wierzch. | [x] |
 
 ---
 

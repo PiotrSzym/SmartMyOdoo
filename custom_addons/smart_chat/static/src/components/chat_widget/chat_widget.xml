@@ -9,11 +9,17 @@
                 </div>
                 <div class="smart-chat-body" style="flex: 1; padding: 10px; overflow-y: auto;">
                     <t t-foreach="state.messages" t-as="msg" t-key="msg.id">
-                        <div t-esc="msg.text" />
+                        <div t-attf-style="margin-bottom: 5px; padding: 5px; border-radius: 5px; {{ msg.sender === 'user' ? 'background: #e1f5fe; text-align: right;' : 'background: #f1f8e9; text-align: left;' }}">
+                            <b t-esc="msg.sender === 'user' ? 'Ty: ' : 'Agent: '"/>
+                            <span t-esc="msg.text" />
+                        </div>
                     </t>
+                    <div t-if="state.isLoading" style="margin-bottom: 5px; padding: 5px; border-radius: 5px; background: #f1f8e9; text-align: left; font-style: italic; color: #888;">
+                        Agent myśli...
+                    </div>
                 </div>
                 <div class="smart-chat-footer" style="padding: 10px; border-top: 1px solid #eee;">
-                    <input type="text" placeholder="Napisz do Agenta..." style="width: 100%; padding: 5px; box-sizing: border-box;" />
+                    <input type="text" placeholder="Napisz do Agenta..." style="width: 100%; padding: 5px; box-sizing: border-box;" t-on-keydown="onKeydown" t-att-disabled="state.isLoading" />
                 </div>
             </div>
 

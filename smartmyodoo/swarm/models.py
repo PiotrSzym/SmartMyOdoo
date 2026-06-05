@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any
 from pydantic import BaseModel, Field
 
 
@@ -33,3 +34,25 @@ class DispatchResult(BaseModel):
         description="Zalecany model LLM do realizacji zadania"
     )
     confidence: float = Field(default=1.0, description="Pewność routera (0.0 - 1.0)")
+
+
+class ChatProposalData(BaseModel):
+    proposal_id: str
+    text: str
+    model: str
+    method: str
+    args: list[Any]
+
+
+class ChatRequest(BaseModel):
+    message: str
+    user_id: int
+    active_model: str | None = None
+    active_id: int | None = None
+    session_id: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    action_type: str
+    proposal_data: ChatProposalData | None = None
