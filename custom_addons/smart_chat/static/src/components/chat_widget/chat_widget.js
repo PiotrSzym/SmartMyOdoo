@@ -1,7 +1,6 @@
 /** @odoo-module **/
 import { Component, useState, mount } from "@odoo/owl";
 import rpc from 'web.rpc';
-import core from 'web.core';
 
 export class SmartChatWidget extends Component {
     setup() {
@@ -30,11 +29,17 @@ export class SmartChatWidget extends Component {
             this.state.isLoading = true;
 
             try {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const active_model = hashParams.get('model') || "";
+                const active_id = parseInt(hashParams.get('id'), 10) || 0;
+
                 const result = await rpc.query({
                     route: '/smart_chat/send',
                     params: {
                         message: text,
-                        session_id: "default_session"
+                        session_id: "default_session",
+                        active_model: active_model,
+                        active_id: active_id
                     }
                 });
 
@@ -59,10 +64,6 @@ export class SmartChatWidget extends Component {
 
 SmartChatWidget.template = "smart_chat.SmartChatWidget";
 
-// Montowanie do glownego layoutu po zaladowaniu (ES6 Module)
-core.bus.on('web_client_ready', null, () => {
-    const root = document.getElementById("smart_chat_root");
-    if (root) {
-        mount(SmartChatWidget, root);
-    }
-});
+import { registry } from "@web/core/registry";
+// Rejestracja w systray (górny pasek) lub innym odpowiednim miejscu w nowoczesnym Odoo
+registry.category("systray").add("smart_chat.SmartChatWidget", { Component: SmartChatWidget });

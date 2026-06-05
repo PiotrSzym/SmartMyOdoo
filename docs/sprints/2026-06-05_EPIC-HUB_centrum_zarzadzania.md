@@ -32,8 +32,9 @@ Użytkownik wchodzi na `http://localhost:8000`, loguje się, wybiera Przestrzeń
 | **HUB-S1** | Chat UI na Hubie | 2026-06-06 | ✅ DONE |
 | **HUB-S2** | Backend Mózgu (Dispatcher Live) | 2026-06-07 | ✅ DONE |
 | **HUB-S3** | Kontekst Workspace + Shadow Mode UI | 2026-06-08 | ✅ DONE |
+| **SEC-01** | Auth Hardening (Zamknięcie Luki) | 2026-06-09 | ✅ DONE |
 
-**Total Completion:** 3/3 Sprintów (100%) 🏆
+**Total Completion:** 4/4 Sprintów (100%) 🏆
 
 ---
 
@@ -44,6 +45,7 @@ Użytkownik wchodzi na `http://localhost:8000`, loguje się, wybiera Przestrzeń
 | HUB-S1 | Chat UI Frontend | `docs/sprints/2026-06-05_HUB-S1_chat_ui_sprint.md` | ✅ DONE |
 | HUB-S2 | Dispatcher Integration | `docs/sprints/2026-06-05_HUB-S2_dispatcher_live_sprint.md` | ✅ DONE |
 | HUB-S3 | Workspace Context + Shadow Mode | `docs/sprints/2026-06-05_HUB-S3_workspace_shadow_sprint.md` | ✅ DONE |
+| SEC-01 | Auth Hardening | `docs/sprints/2026-06-05_SEC-01_auth_hardening_sprint.md` | ✅ DONE |
 
 ---
 

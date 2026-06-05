@@ -27,6 +27,14 @@ def setup_analyzer() -> AnalyzerEngine:
     configuration = {
         "nlp_engine_name": "spacy",
         "models": [{"lang_code": "pl", "model_name": "pl_core_news_md"}],
+        "ner_model_configuration": {
+            "labels_to_ignore": [],
+            "model_to_presidio_entity_mapping": {
+                "persName": "PERSON",
+                "orgName": "ORGANIZATION",
+                "placeName": "LOCATION",
+            },
+        },
     }
     provider = NlpEngineProvider(nlp_configuration=configuration)
     nlp_engine = provider.create_engine()

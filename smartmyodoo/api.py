@@ -207,7 +207,10 @@ async def change_pin(
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def handle_chat(req: ChatRequest):
+async def handle_chat(
+    req: ChatRequest,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     result = dispatcher.classify_intent(req.message)
 
     # Shadow Mode: kategoria B (DBA) → automatyczna propozycja
@@ -215,7 +218,7 @@ async def handle_chat(req: ChatRequest):
         proposal_id = str(uuid.uuid4())[:8]
         proposal = Proposal(
             id=proposal_id,
-            workspace_id="default",
+            workspace_id=req.workspace_id,
             odoo_model="res.partner",
             method="CREATE",
             values={"name": "Z wiadomości: " + req.message[:50]},
@@ -254,7 +257,10 @@ async def handle_chat(req: ChatRequest):
 
 
 @app.get("/api/proposals")
-async def get_proposals(workspace_id: Optional[str] = None):
+async def get_proposals(
+    workspace_id: Optional[str] = None,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     proposals = list(_proposals.values())
     if workspace_id:
         proposals = [p for p in proposals if p.workspace_id == workspace_id]
@@ -262,7 +268,10 @@ async def get_proposals(workspace_id: Optional[str] = None):
 
 
 @app.post("/api/proposals/{proposal_id}/approve")
-async def approve_proposal(proposal_id: str):
+async def approve_proposal(
+    proposal_id: str,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     if proposal_id not in _proposals:
         raise HTTPException(status_code=404, detail="Proposal not found")
     _proposals[proposal_id].status = "approved"
@@ -270,7 +279,10 @@ async def approve_proposal(proposal_id: str):
 
 
 @app.post("/api/proposals/{proposal_id}/reject")
-async def reject_proposal(proposal_id: str):
+async def reject_proposal(
+    proposal_id: str,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     if proposal_id not in _proposals:
         raise HTTPException(status_code=404, detail="Proposal not found")
     _proposals[proposal_id].status = "rejected"
@@ -281,12 +293,17 @@ async def reject_proposal(proposal_id: str):
 
 
 @app.get("/api/workspaces")
-async def get_workspaces():
+async def get_workspaces(
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     return [w.model_dump() for w in _workspaces]
 
 
 @app.post("/api/workspaces")
-async def create_workspace(ws: WorkspaceInfo):
+async def create_workspace(
+    ws: WorkspaceInfo,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
     # Sprawdź duplikaty
     if any(w.id == ws.id for w in _workspaces):
         raise HTTPException(status_code=400, detail="Workspace ID already exists")

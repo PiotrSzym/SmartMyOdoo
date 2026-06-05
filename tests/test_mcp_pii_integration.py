@@ -27,7 +27,7 @@ def test_mcp_pii_integration_roundtrip(mock_create_proposal, mock_get_client):
     anonymized_vat = records[0]["vat"]
 
     assert "Jan" not in anonymized_name
-    assert "<persName" in anonymized_name
+    assert "<PERSON" in anonymized_name
 
     assert "1234563218" not in anonymized_vat
     assert "<NIP" in anonymized_vat
@@ -44,6 +44,6 @@ def test_mcp_pii_integration_roundtrip(mock_create_proposal, mock_get_client):
     assert "999" in response
 
     args, kwargs = mock_create_proposal.call_args
-    assert "Jan Kowalski" in kwargs["values"]["name"]
-    assert "1234563218" in kwargs["values"]["vat"]
-    assert "Jan Kowalski" in kwargs["reason"]
+    assert "Jan Kowalski" in args[3]["name"]
+    assert "1234563218" in args[3]["vat"]
+    assert "Jan Kowalski" in args[4]

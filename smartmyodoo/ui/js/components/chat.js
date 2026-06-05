@@ -294,15 +294,20 @@ class ChatPanel {
         this.render();
 
         try {
+            const token = window.AppStore.getState().authToken;
             const res = await fetch('/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     message: message,
                     user_id: 1,
                     active_model: null,
                     active_id: null,
                     session_id: this.sessionId,
+                    workspace_id: window.AppStore.getState().workspaceId,
                 })
             });
 
@@ -330,7 +335,11 @@ class ChatPanel {
 
     async handleProposalAction(proposalId, action) {
         try {
-            const res = await fetch(`/api/proposals/${proposalId}/${action}`, { method: 'POST' });
+            const token = window.AppStore.getState().authToken;
+            const res = await fetch(`/api/proposals/${proposalId}/${action}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             // Zaktualizuj status w historii wiadomości

@@ -20,7 +20,9 @@ class Sidebar {
 
     async loadFromAPI() {
         try {
-            const res = await fetch('/api/workspaces');
+            const token = window.AppStore.getState().authToken;
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+            const res = await fetch('/api/workspaces', { headers });
             if (res.ok) {
                 this.workspaces = await res.json();
             } else {

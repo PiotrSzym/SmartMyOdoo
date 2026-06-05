@@ -8,7 +8,8 @@ class Store {
     constructor() {
         this.state = {
             workspaceId: 'default', // Domyślna przestrzeń robocza
-            activeTab: 'vault'  // Domyślna zakładka
+            activeTab: 'vault',  // Domyślna zakładka
+            authToken: ''
         };
         this.listeners = [];
         console.log('[Store] Zainicjalizowano z domyślnym stanem:', this.state);

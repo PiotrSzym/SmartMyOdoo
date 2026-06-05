@@ -50,6 +50,7 @@ class ChatRequest(BaseModel):
     active_model: str | None = None
     active_id: int | None = None
     session_id: str
+    workspace_id: str = "default"
 
 
 class ChatResponse(BaseModel):

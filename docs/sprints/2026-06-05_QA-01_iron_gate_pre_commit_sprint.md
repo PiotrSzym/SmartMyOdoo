@@ -2,7 +2,7 @@
 
 ## Meta
 - **Typ**: Czystość Kodu / Technical Debt (Faza 5 QA)
-- **Status**: TODO
+- **Status**: DONE
 - **Data**: 2026-06-05
 - **Cel**: Wdrożenie systemu Pre-Commit (Ruff, Mypy, Bandit) i sformatowanie projektu SmartMyOdoo do zunifikowanego standardu, uodparniając go na błędne komity (The Iron Law).
 

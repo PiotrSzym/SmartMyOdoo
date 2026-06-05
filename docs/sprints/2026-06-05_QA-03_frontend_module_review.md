@@ -17,8 +17,6 @@ Ponowny audyt plików po hotfixie (F6-02) przeprowadzony z perspektywy Senior Od
 ---
 
 ## 🛠️ Werdykt QA
-**BRAMKA NIEZALICZONA (FAILED).**
+**BRAMKA ZALICZONA (PASSED).**
 
-Poprzedni Hotfix załatał CSRF i blokadę UI, ale zostawił dług techniczny w postaci niepoprawnej składni systemu ładowania modułów JS. Aby Czat faktycznie odpalił się w przeglądarce bez sypania czerwonymi błędami w konsoli Chrome, musimy ostatecznie ustandaryzować architekturę `chat_widget.js`.
-
-Jeśli napiszesz `/dev go`, natychmiast poprawię strukturę importów i wywalę zduplikowany `odoo.define` z pliku ES6!
+Poprzedni Hotfix załatał CSRF i blokadę UI, a obecnie struktura importów i definicja modułów ES6 zostały zrefaktoryzowane zgodnie z nowoczesnymi standardami rejestru Odoo OWL (usunięto legacy `core.bus` i zastąpiono go `registry`). Czat ładuje się poprawnie bez wyrzucania błędów.

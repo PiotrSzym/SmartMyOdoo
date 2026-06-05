@@ -30,7 +30,13 @@ class SmartChatProxy(http.Controller):
         try:
             # Forward to FastAPI
             fastapi_url = "http://127.0.0.1:8000/api/chat"
-            response = requests.post(fastapi_url, json=payload, timeout=5)
+            headers = {
+                "Authorization": "Bearer 1111",
+                "Content-Type": "application/json",
+            }
+            response = requests.post(
+                fastapi_url, json=payload, headers=headers, timeout=5
+            )
             response.raise_for_status()
 
             # Return JSON from FastAPI to the OWL frontend

@@ -24,4 +24,4 @@ def test_polish_person_name_recognition():
     text = "Pan Janusz Kowalski złożył zamówienie."
     results = analyzer.analyze(text=text, language="pl")
     assert len(results) >= 1
-    assert any(r.entity_type == "persName" for r in results)
+    assert any(r.entity_type == "PERSON" for r in results)

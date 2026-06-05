@@ -310,6 +310,7 @@
             if (res.ok) {
                 const data = await res.json();
                 currentAuth = pwd;
+                if (window.AppStore) window.AppStore.setState({ authToken: pwd });
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('login-screen').classList.remove('flex');
                 document.getElementById('dashboard-screen').classList.remove('hidden');
@@ -332,6 +333,7 @@
 
         function logout() {
             currentAuth = "";
+            if (window.AppStore) window.AppStore.setState({ authToken: '' });
             document.getElementById('auth-password').value = "";
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('login-screen').classList.add('flex');
@@ -624,7 +626,10 @@
             }
             const res = await fetch('/api/workspaces', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentAuth}`
+                },
                 body: JSON.stringify({ id, name, odoo_url })
             });
             if (res.ok) {

@@ -1,6 +1,7 @@
 # 🚀 Sprint: F6-01 Frontend-Backend Smart Chat Integration
 
 > **Architekt:** /arch | **Tryb:** Sequential
+> **Status:** DONE
 > **Data:** 2026-06-05 | **Bazuje na:** Faza 6 Implementation Plan
 
 ---
@@ -87,10 +88,10 @@ Pełna zgodność typowania (Pydantic po stronie FastAPI) i nazw kluczy z ustano
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 1.1 | Utworzenie modeli Pydantic | Klasy `ChatRequest` i `ChatResponse` zgodne z kontraktem. | [ ] |
-| 1.2 | Endpoint `POST /api/chat` w API | Deklaracja routingu w FastAPI, parsowanie Requesta. | [ ] |
-| 1.3 | Podpięcie pod `Dispatcher` | Przekazanie `message` do logiki silnika AgentSwarm. | [ ] |
-| 1.4 | **BRAMKA:** Weryfikacja API | ✅ `curl -X POST /api/chat` zwraca kod 200 | [ ] |
+| 1.1 | Utworzenie modeli Pydantic | Klasy `ChatRequest` i `ChatResponse` zgodne z kontraktem. | [x] |
+| 1.2 | Endpoint `POST /api/chat` w API | Deklaracja routingu w FastAPI, parsowanie Requesta. | [x] |
+| 1.3 | Podpięcie pod `Dispatcher` | Przekazanie `message` do logiki silnika AgentSwarm. | [x] |
+| 1.4 | **BRAMKA:** Weryfikacja API | ✅ `curl -X POST /api/chat` zwraca kod 200 | [x] |
 
 ---
 
@@ -100,11 +101,11 @@ Pełna zgodność typowania (Pydantic po stronie FastAPI) i nazw kluczy z ustano
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 2.1 | Utworzenie pakietu `controllers` | Dodano pliki `main.py` oraz `__init__.py`. | [ ] |
-| 2.2 | Inicjalizacja `@http.route` | Typ `json`, autoryzacja `user`. | [ ] |
-| 2.3 | Ekstrakcja `user_id` z Odoo | Pomyślne czytanie `request.env.user.id`. | [ ] |
-| 2.4 | HTTP Forwarding (Proxy) | Wysłanie `requests.post` pod adres FastAPI i obsługa błędów. | [ ] |
-| 2.5 | **BRAMKA:** Logika Proxy | ✅ Odoo przyjmuje call RPC i loguje sukces zapytania. | [ ] |
+| 2.1 | Utworzenie pakietu `controllers` | Dodano pliki `main.py` oraz `__init__.py`. | [x] |
+| 2.2 | Inicjalizacja `@http.route` | Typ `json`, autoryzacja `user`. | [x] |
+| 2.3 | Ekstrakcja `user_id` z Odoo | Pomyślne czytanie `request.env.user.id`. | [x] |
+| 2.4 | HTTP Forwarding (Proxy) | Wysłanie `requests.post` pod adres FastAPI i obsługa błędów. | [x] |
+| 2.5 | **BRAMKA:** Logika Proxy | ✅ Odoo przyjmuje call RPC i loguje sukces zapytania. | [x] |
 
 ---
 
@@ -114,11 +115,11 @@ Pełna zgodność typowania (Pydantic po stronie FastAPI) i nazw kluczy z ustano
 
 | # | Zadanie | DoD | Status |
 |---|---------|-----|--------|
-| 3.1 | Bindings na pliku `.xml` | Dopisane `t-on-keydown`, `t-ref` oraz guzik (opcjonalny). | [ ] |
-| 3.2 | Przechwycenie klawiatury | Metoda w JavaScript reaguje wyłącznie na `ev.key === "Enter"`. | [ ] |
-| 3.3 | Aktualizacja Stanu (UI) | Dopisanie wypowiedzi usera do `state.messages` od razu po wpisaniu. | [ ] |
-| 3.4 | Wywołanie `this.rpc()` | Skompletowanie JSONa i wysyłka asynchronicznie do Odoo. | [ ] |
-| 3.5 | **BRAMKA:** Pełny Cykl (E2E) | ✅ Odpowiedź wygenerowana przez FastAPI widoczna w chmurce Odoo. | [ ] |
+| 3.1 | Bindings na pliku `.xml` | Dopisane `t-on-keydown`, `t-ref` oraz guzik (opcjonalny). | [x] |
+| 3.2 | Przechwycenie klawiatury | Metoda w JavaScript reaguje wyłącznie na `ev.key === "Enter"`. | [x] |
+| 3.3 | Aktualizacja Stanu (UI) | Dopisanie wypowiedzi usera do `state.messages` od razu po wpisaniu. | [x] |
+| 3.4 | Wywołanie `this.rpc()` | Skompletowanie JSONa i wysyłka asynchronicznie do Odoo. | [x] |
+| 3.5 | **BRAMKA:** Pełny Cykl (E2E) | ✅ Odpowiedź wygenerowana przez FastAPI widoczna w chmurce Odoo. | [x] |
 
 ---
 
