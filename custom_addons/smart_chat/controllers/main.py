@@ -2,6 +2,7 @@ from odoo import http
 from odoo.http import request
 import requests  # type: ignore
 import logging
+import os
 
 _logger = logging.getLogger(__name__)
 
@@ -30,8 +31,9 @@ class SmartChatProxy(http.Controller):
         try:
             # Forward to FastAPI
             fastapi_url = "http://127.0.0.1:8000/api/chat"
+            token = os.environ.get("SMARTMYODOO_API_TOKEN", "")
             headers = {
-                "Authorization": "Bearer 1111",
+                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
             }
             response = requests.post(

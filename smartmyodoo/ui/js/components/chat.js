@@ -19,6 +19,10 @@ class ChatPanel {
                 // Przy każdym wejściu na zakładkę — upewnij się że jest wyrenderowane
                 setTimeout(() => this.scrollToBottom(), 50);
             }
+            if (newState.isAuthenticated && !oldState.isAuthenticated) {
+                const wsName = this.getWorkspaceName();
+                this.addMessage('agent', `Witaj w panelu SmartMyOdoo HUB! 🔒 Połączenie zabezpieczone. Aktywna przestrzeń: ${wsName}. W czym mogę pomóc?`);
+            }
         });
 
         this.render();
@@ -26,8 +30,11 @@ class ChatPanel {
 
     getWorkspaceName() {
         const id = AppStore.getState().workspaceId;
-        const names = { 'default': 'Domyślna', 'dev': 'Dev Env', 'prod': 'Production' };
-        return names[id] || id;
+        if (window.AppSidebar && window.AppSidebar.workspaces) {
+            const ws = window.AppSidebar.workspaces.find(w => w.id === id);
+            if (ws) return ws.name;
+        }
+        return id;
     }
 
     render() {

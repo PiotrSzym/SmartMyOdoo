@@ -33,8 +33,9 @@ Użytkownik wchodzi na `http://localhost:8000`, loguje się, wybiera Przestrzeń
 | **HUB-S2** | Backend Mózgu (Dispatcher Live) | 2026-06-07 | ✅ DONE |
 | **HUB-S3** | Kontekst Workspace + Shadow Mode UI | 2026-06-08 | ✅ DONE |
 | **SEC-01** | Auth Hardening (Zamknięcie Luki) | 2026-06-09 | ✅ DONE |
+| **UX-01** | GUI Lifecycle Revival (Naprawa Martwego UI) | 2026-06-10 | 🔄 IN PROGRESS |
 
-**Total Completion:** 4/4 Sprintów (100%) 🏆
+**Total Completion:** 4/5 Sprintów (80%)
 
 ---
 
@@ -46,6 +47,7 @@ Użytkownik wchodzi na `http://localhost:8000`, loguje się, wybiera Przestrzeń
 | HUB-S2 | Dispatcher Integration | `docs/sprints/2026-06-05_HUB-S2_dispatcher_live_sprint.md` | ✅ DONE |
 | HUB-S3 | Workspace Context + Shadow Mode | `docs/sprints/2026-06-05_HUB-S3_workspace_shadow_sprint.md` | ✅ DONE |
 | SEC-01 | Auth Hardening | `docs/sprints/2026-06-05_SEC-01_auth_hardening_sprint.md` | ✅ DONE |
+| UX-01 | GUI Lifecycle Revival | `docs/sprints/2026-06-05_UX-01_gui_lifecycle_revival_sprint.md` | 🔄 IN PROGRESS |
 
 ---
 

@@ -24,6 +24,20 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        /* Drag & Drop */
+        .ws-item { transition: transform 0.2s ease, opacity 0.2s ease; cursor: grab; }
+        .ws-item:active { cursor: grabbing; }
+        .ws-item.dragging { opacity: 0.4; transform: scale(0.95); border: 1px dashed #818cf8 !important; }
+        .ws-item.drag-over-top { border-top: 2px solid #818cf8 !important; }
+        .ws-item.drag-over-bottom { border-bottom: 2px solid #818cf8 !important; }
+        /* Delete button reveal on hover */
+        .ws-item .ws-delete-btn { opacity: 0; transition: opacity 0.15s ease; }
+        .ws-item:hover .ws-delete-btn { opacity: 1; }
+        /* Smart Delete Modal radio options */
+        .delete-option { cursor: pointer; padding: 10px 14px; border-radius: 8px; border: 1px solid transparent; transition: all 0.15s ease; }
+        .delete-option:hover { background: rgba(99, 102, 241, 0.08); }
+        .delete-option.selected { background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.4); }
+        .delete-option input[type="radio"] { accent-color: #818cf8; }
     </style>
     <script src="js/store.js"></script>
     <script src="js/components/sidebar.js" defer></script>
@@ -121,18 +135,41 @@
 
         <div id="secrets-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Render secrets here -->
-            </div>
+        </div>
+    </div>
 
                 <!-- Tab: Czat z Agentem AI -->
                 <div id="chat-screen" class="w-full h-full hidden flex-col">
                     <!-- Wypełniane przez chat.js -->
                 </div>
 
-                <!-- Tab: Ustawienia (Placeholder) -->
+                <!-- Tab: Ustawienia -->
                 <div id="settings-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
                     <h1 class="text-4xl font-bold text-gradient mb-4">Ustawienia Przestrzeni</h1>
                     <div class="glass-card p-6">
-                        <p class="text-slate-400">Konfiguracja dla wybranej przestrzeni roboczej pojawi się tutaj.</p>
+                        <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-1">Nazwa Workspace</label>
+                                <input type="text" id="settings-ws-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-1">ID (Readonly)</label>
+                                <input type="text" id="settings-ws-id" readonly class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-slate-500 cursor-not-allowed">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-1">URL Odoo</label>
+                                <input type="url" id="settings-ws-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. http://localhost:8069">
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-800">
+                                <button type="button" onclick="AppStore.setState({activeTab: 'secrets'})" class="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
+                                    <span>🔐</span> Zarządzaj poświadczeniami w Vault &rarr;
+                                </button>
+                            </div>
+
+                            <button type="submit" id="btn-save-settings" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition mt-4">Zapisz Ustawienia</button>
+                            <p id="settings-msg" class="text-sm mt-2 hidden"></p>
+                        </form>
                     </div>
                 </div>
             </main>
@@ -235,7 +272,75 @@
                     <label class="block text-xs text-slate-400 mb-1">URL Odoo (opcjonalne)</label>
                     <input type="text" id="ws-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="http://localhost:8069">
                 </div>
+
+                <div class="pt-2 border-t border-slate-700/50 mt-2">
+                    <button onclick="document.getElementById('ws-creds-container').classList.toggle('hidden')" class="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
+                        <span>🔐</span> Pokaż opcjonalne poświadczenia (Vault)
+                    </button>
+                    <div id="ws-creds-container" class="hidden mt-4 space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Login</label>
+                                <input type="text" id="ws-admin-login" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Hasło / Token</label>
+                                <input type="password" id="ws-admin-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">API Key</label>
+                                <input type="password" id="ws-admin-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Ważność</label>
+                                <input type="date" id="ws-admin-expires" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" style="color-scheme: dark;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <button onclick="saveWorkspace()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold mt-4">Utwórz Przestrzeń</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Smart Delete Workspace Modal -->
+    <div id="delete-ws-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-md p-6 relative">
+            <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 class="text-xl font-bold mb-2 text-red-400 flex items-center gap-2">🗑️ Usuwanie Przestrzeni</h2>
+            <p class="text-sm text-slate-400 mb-1">Przestrzeń: <strong id="del-ws-name" class="text-white"></strong></p>
+            <p class="text-sm text-slate-400 mb-5" id="del-ws-secrets-info">Ładowanie powiązanych sekretów...</p>
+
+            <div class="space-y-2 mb-6" id="del-ws-options">
+                <label class="delete-option flex items-center gap-3 selected" onclick="selectDeleteOption(this)">
+                    <input type="radio" name="del-mode" value="workspace_only" checked>
+                    <div>
+                        <div class="text-sm font-medium text-white">Usuń tylko przestrzeń</div>
+                        <div class="text-xs text-slate-400">Sekrety w Vault zostaną zachowane</div>
+                    </div>
+                </label>
+                <label class="delete-option flex items-center gap-3" onclick="selectDeleteOption(this)">
+                    <input type="radio" name="del-mode" value="workspace_and_vault">
+                    <div>
+                        <div class="text-sm font-medium text-white">Usuń przestrzeń + sekrety z Vault</div>
+                        <div class="text-xs text-slate-400">Pełne usunięcie (soft-delete w Vault)</div>
+                    </div>
+                </label>
+                <label class="delete-option flex items-center gap-3" onclick="selectDeleteOption(this)">
+                    <input type="radio" name="del-mode" value="secrets_only">
+                    <div>
+                        <div class="text-sm font-medium text-white">Usuń tylko sekrety z Vault</div>
+                        <div class="text-xs text-slate-400">Przestrzeń zostanie zachowana</div>
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeModals()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-lg text-sm font-medium transition">Anuluj</button>
+                <button onclick="confirmDeleteWorkspace()" class="flex-1 bg-red-600 hover:bg-red-500 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">🗑️ Potwierdź</button>
             </div>
         </div>
     </div>
@@ -246,7 +351,6 @@
     </div>
 
     <script>
-        let currentAuth = "";
         let secretsCache = {};
         let currentView = 'grid'; // 'grid' | 'list'
         let showTrash = false;
@@ -300,18 +404,26 @@
             }
         }
 
+        let isLoggingIn = false;
+
         async function login() {
+            if (isLoggingIn) return;
+            isLoggingIn = true;
+
             const pwd = document.getElementById('auth-password').value;
-            const res = await fetch('/api/auth', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({password: pwd})
-            });
-            if (res.ok) {
-                const data = await res.json();
-                currentAuth = pwd;
-                if (window.AppStore) window.AppStore.setState({ authToken: pwd });
-                document.getElementById('login-screen').classList.add('hidden');
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: pwd})
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (window.AppStore) window.AppStore.setState({ authToken: pwd, isAuthenticated: true });
+
+                    if (window.AppSidebar) window.AppSidebar.loadFromAPI();
+
+                    document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('login-screen').classList.remove('flex');
                 document.getElementById('dashboard-screen').classList.remove('hidden');
                 document.getElementById('dashboard-screen').classList.add('flex');
@@ -326,14 +438,16 @@
 
                 document.getElementById('login-error').classList.add('hidden');
                 loadSecrets();
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
+                } else {
+                    document.getElementById('login-error').classList.remove('hidden');
+                }
+            } finally {
+                isLoggingIn = false;
             }
         }
 
         function logout() {
-            currentAuth = "";
-            if (window.AppStore) window.AppStore.setState({ authToken: '' });
+            if (window.AppStore) window.AppStore.setState({ authToken: '', isAuthenticated: false });
             document.getElementById('auth-password').value = "";
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('login-screen').classList.add('flex');
@@ -345,7 +459,7 @@
         async function loadSecrets() {
             const currentWorkspace = AppStore.getState().workspaceId;
             const res = await fetch(`/api/secrets?t=${Date.now()}&workspace_id=${currentWorkspace}`, {
-                headers: {'Authorization': `Bearer ${currentAuth}`},
+                headers: {'Authorization': `Bearer ${AppStore.getState().authToken}`},
                 cache: 'no-store'
             });
             if(res.ok) {
@@ -526,7 +640,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentAuth}`
+                    'Authorization': `Bearer ${AppStore.getState().authToken}`
                 },
                 body: JSON.stringify(payload)
             });
@@ -539,7 +653,7 @@
             if(confirm(`Czy na pewno usunąć '${keyName}' do Kosza? Zniknie on ze skryptów CLI.`)) {
                 await fetch(`/api/secrets/${keyName}`, {
                     method: 'DELETE',
-                    headers: {'Authorization': `Bearer ${currentAuth}`}
+                    headers: {'Authorization': `Bearer ${AppStore.getState().authToken}`}
                 });
                 loadSecrets();
             }
@@ -548,7 +662,7 @@
         async function restoreSecret(keyName) {
             await fetch(`/api/secrets/${keyName}/restore`, {
                 method: 'POST',
-                headers: {'Authorization': `Bearer ${currentAuth}`}
+                headers: {'Authorization': `Bearer ${AppStore.getState().authToken}`}
             });
             showToast("Sekret przywrócony!");
             loadSecrets();
@@ -558,7 +672,7 @@
             if(confirm(`UWAGA: Czy na pewno TRWALE usunąć '${keyName}'? Ta operacja jest nieodwracalna!`)) {
                 await fetch(`/api/secrets/${keyName}/permanent`, {
                     method: 'DELETE',
-                    headers: {'Authorization': `Bearer ${currentAuth}`}
+                    headers: {'Authorization': `Bearer ${AppStore.getState().authToken}`}
                 });
                 loadSecrets();
             }
@@ -580,7 +694,7 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentAuth}`
+                    'Authorization': `Bearer ${AppStore.getState().authToken}`
                 },
                 body: JSON.stringify({new_pin: pin})
             });
@@ -606,12 +720,19 @@
             document.getElementById('docs-modal').classList.remove('flex');
             document.getElementById('workspace-modal').classList.add('hidden');
             document.getElementById('workspace-modal').classList.remove('flex');
+            document.getElementById('delete-ws-modal').classList.add('hidden');
+            document.getElementById('delete-ws-modal').classList.remove('flex');
         }
 
         function showWorkspaceModal() {
             document.getElementById('ws-id').value = '';
             document.getElementById('ws-name').value = '';
             document.getElementById('ws-url').value = '';
+            document.getElementById('ws-admin-login').value = '';
+            document.getElementById('ws-admin-password').value = '';
+            document.getElementById('ws-admin-apikey').value = '';
+            document.getElementById('ws-admin-expires').value = '';
+            document.getElementById('ws-creds-container').classList.add('hidden');
             document.getElementById('workspace-modal').classList.remove('hidden');
             document.getElementById('workspace-modal').classList.add('flex');
         }
@@ -620,6 +741,11 @@
             const id = document.getElementById('ws-id').value.trim();
             const name = document.getElementById('ws-name').value.trim();
             const odoo_url = document.getElementById('ws-url').value.trim();
+            const admin_login = document.getElementById('ws-admin-login').value.trim();
+            const admin_password = document.getElementById('ws-admin-password').value.trim();
+            const admin_api_key = document.getElementById('ws-admin-apikey').value.trim();
+            const admin_expires = document.getElementById('ws-admin-expires').value.trim();
+
             if (!id || !name) {
                 alert('ID i Nazwa są wymagane.');
                 return;
@@ -628,14 +754,31 @@
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${currentAuth}`
+                    'Authorization': `Bearer ${AppStore.getState().authToken}`
                 },
-                body: JSON.stringify({ id, name, odoo_url })
+                body: JSON.stringify({
+                    id,
+                    name,
+                    odoo_url,
+                    admin_login: admin_login || null,
+                    admin_password: admin_password || null,
+                    admin_api_key: admin_api_key || null,
+                    admin_expires: admin_expires || null
+                })
             });
             if (res.ok) {
+                const data = await res.json();
                 closeModals();
-                showToast('Przestrzeń utworzona!');
+                if (admin_password && data.vault_saved) {
+                    showToast('Przestrzeń utworzona! 🔐 Poświadczenia zapisane w Vault.');
+                } else if (admin_password && !data.vault_saved) {
+                    showToast('⚠️ Przestrzeń utworzona, ale zapis do Vault się nie powiódł!');
+                } else {
+                    showToast('Przestrzeń utworzona!');
+                }
+                AppStore.setState({ workspaceId: id });
                 if (window.AppSidebar) window.AppSidebar.loadFromAPI();
+                loadSecrets();
             } else {
                 const err = await res.json();
                 alert(err.detail || 'Błąd tworzenia przestrzeni.');
@@ -652,6 +795,154 @@
                 setTimeout(() => toast.classList.add('hidden'), 300);
             }, 3000);
         }
+
+        // --- Smart Delete Workspace ---
+        let _deleteWsId = null;
+
+        async function showDeleteWorkspaceModal(wsId, wsName) {
+            _deleteWsId = wsId;
+            document.getElementById('del-ws-name').innerText = wsName;
+            document.getElementById('del-ws-secrets-info').innerText = 'Ładowanie powiązanych sekretów...';
+
+            // Reset radio
+            document.querySelectorAll('#del-ws-options .delete-option').forEach((el, i) => {
+                el.classList.toggle('selected', i === 0);
+            });
+            document.querySelector('input[name="del-mode"][value="workspace_only"]').checked = true;
+
+            document.getElementById('delete-ws-modal').classList.remove('hidden');
+            document.getElementById('delete-ws-modal').classList.add('flex');
+
+            // Count linked secrets
+            try {
+                const token = window.AppStore.getState().authToken;
+                const res = await fetch(`/api/secrets?workspace_id=${wsId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const secrets = await res.json();
+                    const count = Object.keys(secrets).length;
+                    document.getElementById('del-ws-secrets-info').innerText =
+                        count > 0
+                            ? `Znaleziono ${count} powiązanych sekretów w Vault.`
+                            : 'Brak powiązanych sekretów w Vault.';
+                }
+            } catch (e) {
+                document.getElementById('del-ws-secrets-info').innerText = 'Nie udało się sprawdzić sekretów.';
+            }
+        }
+
+        function selectDeleteOption(el) {
+            document.querySelectorAll('#del-ws-options .delete-option').forEach(opt => opt.classList.remove('selected'));
+            el.classList.add('selected');
+            el.querySelector('input[type="radio"]').checked = true;
+        }
+
+        async function confirmDeleteWorkspace() {
+            if (!_deleteWsId) return;
+            const mode = document.querySelector('input[name="del-mode"]:checked').value;
+            const token = window.AppStore.getState().authToken;
+            const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+
+            try {
+                if (mode === 'secrets_only') {
+                    // Only delete secrets, keep workspace
+                    const res = await fetch(`/api/secrets/by-workspace/${_deleteWsId}`, {
+                        method: 'DELETE', headers
+                    });
+                    const data = await res.json();
+                    closeModals();
+                    showToast(`🗑️ Usunięto ${data.secrets_removed} sekretów z Vault.`);
+                    loadSecrets();
+                } else {
+                    // Delete workspace (with or without vault cascade)
+                    const cascade = mode === 'workspace_and_vault';
+                    const res = await fetch(`/api/workspaces/${_deleteWsId}?cascade_vault=${cascade}`, {
+                        method: 'DELETE', headers
+                    });
+                    const data = await res.json();
+                    closeModals();
+
+                    if (cascade && data.secrets_removed > 0) {
+                        showToast(`🗑️ Przestrzeń usunięta + ${data.secrets_removed} sekretów z Vault.`);
+                    } else {
+                        showToast('🗑️ Przestrzeń usunięta.');
+                    }
+
+                    // Switch to first available workspace
+                    if (window.AppStore.getState().workspaceId === _deleteWsId) {
+                        window.AppStore.setState({ workspaceId: 'default' });
+                    }
+                    if (window.AppSidebar) window.AppSidebar.loadFromAPI();
+                    loadSecrets();
+                }
+            } catch (e) {
+                alert('Błąd usuwania: ' + e.message);
+            }
+            _deleteWsId = null;
+        }
+
+        // --- Ustawienia Przestrzeni ---
+        async function saveSettings(e) {
+            e.preventDefault();
+            const id = document.getElementById('settings-ws-id').value;
+            const name = document.getElementById('settings-ws-name').value;
+            const url = document.getElementById('settings-ws-url').value;
+            const msgEl = document.getElementById('settings-msg');
+
+            const token = window.AppStore ? window.AppStore.getState().authToken : "";
+
+            try {
+                const res = await fetch(`/api/workspaces/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name, odoo_url: url })
+                });
+
+                if (res.ok) {
+                    showToast('Ustawienia zapisane');
+                    msgEl.textContent = 'Zapisano pomyślnie.';
+                    msgEl.className = 'text-sm mt-2 text-green-400 block';
+                    if (window.AppSidebar) window.AppSidebar.loadFromAPI();
+                } else {
+                    const err = await res.json();
+                    msgEl.textContent = err.detail || 'Błąd zapisu.';
+                    msgEl.className = 'text-sm mt-2 text-red-400 block';
+                }
+            } catch (err) {
+                msgEl.textContent = 'Błąd połączenia.';
+                msgEl.className = 'text-sm mt-2 text-red-400 block';
+            }
+        }
+
+        function populateSettingsForm() {
+            if (!window.AppStore || !window.AppSidebar) return;
+            const wsId = window.AppStore.getState().workspaceId;
+            const ws = window.AppSidebar.workspaces.find(w => w.id === wsId);
+            if (ws) {
+                document.getElementById('settings-ws-id').value = ws.id;
+                document.getElementById('settings-ws-name').value = ws.name;
+                document.getElementById('settings-ws-url').value = ws.odoo_url || '';
+                document.getElementById('settings-msg').classList.add('hidden');
+            }
+        }
+
+        // Hook w Canvas albo Globalnie
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.AppStore) {
+                window.AppStore.subscribe((newState, oldState) => {
+                    if (newState.activeTab === 'settings' && oldState.activeTab !== 'settings') {
+                        populateSettingsForm();
+                    }
+                    if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'settings') {
+                        populateSettingsForm();
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

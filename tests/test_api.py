@@ -205,11 +205,20 @@ def test_chat_classifies_general_intent(client, auth_headers):
 @pytest.fixture(autouse=True)
 def reset_stores():
     """Czyści in-memory stores przed każdym testem S3"""
-    import smartmyodoo.api as api_module
+    from smartmyodoo.core.database import SessionLocal
+    from smartmyodoo.core.models import Proposal, Workspace
 
-    api_module._proposals.clear()
+    db = SessionLocal()
+    db.query(Proposal).delete()
+    db.query(Workspace).delete()
+    db.commit()
+    db.close()
     yield
-    api_module._proposals.clear()
+    db = SessionLocal()
+    db.query(Proposal).delete()
+    db.query(Workspace).delete()
+    db.commit()
+    db.close()
 
 
 def test_chat_generates_shadow_proposal(client, auth_headers):
@@ -234,10 +243,14 @@ def test_chat_generates_shadow_proposal(client, auth_headers):
     assert data["proposal_data"]["method"] == "CREATE"
 
     # Sprawdzamy czy backend właściwie podpiął workspace
-    import smartmyodoo.api as api_module
+    from smartmyodoo.core.database import SessionLocal
+    from smartmyodoo.core.models import Proposal
 
     p_id = data["proposal_data"]["proposal_id"]
-    assert api_module._proposals[p_id].workspace_id == "staging"
+    db = SessionLocal()
+    db_prop = db.query(Proposal).filter(Proposal.id == p_id).first()
+    assert db_prop.workspace_id == "staging"
+    db.close()
 
 
 def test_proposals_crud(client, auth_headers):
@@ -330,6 +343,11 @@ def test_workspace_create(client, auth_headers):
 
 def test_workspace_duplicate(client, auth_headers):
     """POST /api/workspaces z istniejącym ID → 400"""
+    client.post(
+        "/api/workspaces",
+        json={"id": "default", "name": "Pierwszy"},
+        headers=auth_headers,
+    )
     res = client.post(
         "/api/workspaces",
         json={"id": "default", "name": "Duplikat"},
@@ -361,3 +379,178 @@ def test_workspaces_requires_auth(client):
     assert res.status_code == 401
     res = client.post("/api/workspaces", json={"id": "x", "name": "x"})
     assert res.status_code == 401
+    res = client.put("/api/workspaces/x", json={"name": "y"})
+    assert res.status_code == 401
+
+
+# ── UX-03: Workspace Onboarding with Vault ────────────────────────────────────
+
+
+def test_workspace_onboarding_no_creds_still_works(client, auth_headers):
+    """POST /api/workspaces bez poświadczeń działa normalnie"""
+    res = client.post(
+        "/api/workspaces",
+        json={"id": "nocreds", "name": "No Creds", "odoo_url": "http://test"},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["vault_saved"] is False
+
+
+def test_workspace_onboarding_creates_vault_secret(client, auth_headers):
+    """POST /api/workspaces z poświadczeniami tworzy wpis w Vault"""
+    res = client.post(
+        "/api/workspaces",
+        json={
+            "id": "withcreds",
+            "name": "With Creds",
+            "odoo_url": "http://withcreds",
+            "admin_login": "admin",
+            "admin_password": "supersecretpassword",
+            "admin_api_key": "myapikey",
+            "admin_expires": "2030-01-01",
+        },
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["vault_saved"] is True
+
+    # Verify in vault
+    vault_res = client.get("/api/secrets", headers=auth_headers)
+    assert vault_res.status_code == 200
+    secrets = vault_res.json()
+    assert "withcreds_ODOO" in secrets
+    assert secrets["withcreds_ODOO"]["login"] == "admin"
+    assert secrets["withcreds_ODOO"]["workspace_id"] == "withcreds"
+
+
+def test_workspace_settings_hides_credentials(client, auth_headers):
+    """GET /api/workspaces nie zwraca poświadczeń, tylko metadane"""
+    res = client.get("/api/workspaces", headers=auth_headers)
+    assert res.status_code == 200
+    wks = res.json()
+    for w in wks:
+        assert "admin_password" not in w
+        assert "password" not in w
+
+
+# ── UX-04: Workspace Management Tests ──────────────────────────────
+
+
+def test_workspace_delete_no_cascade(client, auth_headers):
+    """DELETE /api/workspaces/{id} bez kaskady Vault"""
+    # Create
+    client.post(
+        "/api/workspaces",
+        json={
+            "id": "to-delete",
+            "name": "ToDelete",
+            "odoo_url": "http://td",
+            "admin_login": "admin",
+            "admin_password": "secret123",
+        },
+        headers=auth_headers,
+    )
+    # Delete without cascade
+    res = client.delete(
+        "/api/workspaces/to-delete?cascade_vault=false", headers=auth_headers
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["secrets_removed"] == 0
+
+    # Verify workspace is gone
+    wks = client.get("/api/workspaces", headers=auth_headers).json()
+    ws_ids = [w["id"] for w in wks]
+    assert "to-delete" not in ws_ids
+
+    # Secret should still exist
+    secrets = client.get("/api/secrets", headers=auth_headers).json()
+    assert "to-delete_ODOO" in secrets
+
+
+def test_workspace_delete_with_cascade(client, auth_headers):
+    """DELETE /api/workspaces/{id}?cascade_vault=true soft-deletuje sekrety"""
+    # Create
+    client.post(
+        "/api/workspaces",
+        json={
+            "id": "cascade-del",
+            "name": "CascadeDel",
+            "odoo_url": "http://cd",
+            "admin_login": "admin",
+            "admin_password": "secret456",
+        },
+        headers=auth_headers,
+    )
+    # Delete with cascade
+    res = client.delete(
+        "/api/workspaces/cascade-del?cascade_vault=true", headers=auth_headers
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["secrets_removed"] >= 1
+
+    # Secret should have deleted_at
+    all_secrets = client.get("/api/secrets", headers=auth_headers).json()
+    if "cascade-del_ODOO" in all_secrets:
+        assert "deleted_at" in all_secrets["cascade-del_ODOO"]
+
+
+def test_workspace_reorder(client, auth_headers):
+    """PUT /api/workspaces/reorder zmienia position"""
+    # Ensure we have defaults
+    wks = client.get("/api/workspaces", headers=auth_headers).json()
+    ws_ids = [w["id"] for w in wks]
+
+    if len(ws_ids) >= 2:
+        # Reverse order
+        reversed_order = list(reversed(ws_ids))
+        res = client.put(
+            "/api/workspaces/reorder",
+            json={"order": reversed_order},
+            headers=auth_headers,
+        )
+        assert res.status_code == 200
+
+        # Verify order persists
+        wks2 = client.get("/api/workspaces", headers=auth_headers).json()
+        new_ids = [w["id"] for w in wks2]
+        assert new_ids == reversed_order
+
+
+def test_delete_secrets_by_workspace(client, auth_headers):
+    """DELETE /api/secrets/by-workspace/{ws_id} soft-deletuje powiązane sekrety"""
+    # Create workspace with secret
+    client.post(
+        "/api/workspaces",
+        json={
+            "id": "sec-del",
+            "name": "SecDel",
+            "odoo_url": "http://sd",
+            "admin_login": "admin",
+            "admin_password": "pass789",
+        },
+        headers=auth_headers,
+    )
+    # Delete secrets only
+    res = client.delete("/api/secrets/by-workspace/sec-del", headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["secrets_removed"] >= 1
+
+    # Workspace should still exist
+    wks = client.get("/api/workspaces", headers=auth_headers).json()
+    ws_ids = [w["id"] for w in wks]
+    assert "sec-del" in ws_ids
+
+
+def test_delete_nonexistent_workspace(client, auth_headers):
+    """DELETE /api/workspaces/{id} zwraca 404 na nieistniejący workspace"""
+    res = client.delete("/api/workspaces/nonexistent-ws-xyz", headers=auth_headers)
+    assert res.status_code == 404

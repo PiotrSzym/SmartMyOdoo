@@ -46,7 +46,7 @@ def test_database_pragma_foreign_keys(db_session):
 
 def test_crud_proposals(db_session):
     # Create
-    new_proposal = Proposal(status="draft", plan_json='{"task": "test"}')
+    new_proposal = Proposal(id="test_id", status="draft", values='{"task": "test"}')
     db_session.add(new_proposal)
     db_session.commit()
     db_session.refresh(new_proposal)
@@ -57,7 +57,7 @@ def test_crud_proposals(db_session):
     # Read
     fetched = db_session.query(Proposal).filter(Proposal.id == new_proposal.id).first()
     assert fetched is not None
-    assert fetched.plan_json == '{"task": "test"}'
+    assert fetched.values == '{"task": "test"}'
 
     # Update
     fetched.status = "approved"

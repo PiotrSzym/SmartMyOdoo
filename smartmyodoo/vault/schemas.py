@@ -17,6 +17,16 @@ class AuthResponse(BaseModel):
     error: Optional[str] = None
 
 
+class WorkspaceCreateRequest(BaseModel):
+    id: str
+    name: str
+    odoo_url: Optional[str] = ""
+    admin_login: Optional[str] = None
+    admin_password: Optional[str] = None
+    admin_api_key: Optional[str] = None
+    admin_expires: Optional[str] = None
+
+
 class SecretCreateRequest(BaseModel):
     password: str
     login: Optional[str] = ""

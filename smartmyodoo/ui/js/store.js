@@ -9,7 +9,8 @@ class Store {
         this.state = {
             workspaceId: 'default', // Domyślna przestrzeń robocza
             activeTab: 'vault',  // Domyślna zakładka
-            authToken: ''
+            authToken: '',
+            isAuthenticated: false
         };
         this.listeners = [];
         console.log('[Store] Zainicjalizowano z domyślnym stanem:', this.state);

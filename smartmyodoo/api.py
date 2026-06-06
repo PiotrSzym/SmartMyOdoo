@@ -1,11 +1,18 @@
 import os
 import datetime
 import uuid
-from typing import Dict, Any, List, Tuple, Optional
+import json
+from typing import Dict, Any, Tuple, Optional
 from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
+
+from smartmyodoo.core.database import get_db, engine
+from smartmyodoo.core import models as db_models
+
+db_models.Base.metadata.create_all(bind=engine)
 
 from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
@@ -13,8 +20,6 @@ from smartmyodoo.swarm.models import (
     ChatRequest,
     ChatResponse,
     ChatProposalData,
-    Proposal,
-    WorkspaceInfo,
     IntentCategory,
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
@@ -36,13 +41,7 @@ security = HTTPBearer()
 _llm = llm_client.create_client(api_key=os.environ.get("OPENROUTER_KEY"))
 dispatcher = Dispatcher(llm_client=_llm)
 
-# In-memory stores (HUB-S3)
-_proposals: Dict[str, Proposal] = {}
-_workspaces: List[WorkspaceInfo] = [
-    WorkspaceInfo(id="default", name="Domyślna"),
-    WorkspaceInfo(id="dev", name="Dev Env"),
-    WorkspaceInfo(id="prod", name="Production"),
-]
+# Zastąpiono _proposals i _workspaces użyciem bazy danych.
 
 
 def get_auth_key(pwd: str) -> Tuple[Optional[bytes], Optional[str]]:
@@ -210,23 +209,30 @@ async def change_pin(
 async def handle_chat(
     req: ChatRequest,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
     result = dispatcher.classify_intent(req.message)
 
     # Shadow Mode: kategoria B (DBA) → automatyczna propozycja
     if result.category == IntentCategory.B_DATABASE_ADMIN:
         proposal_id = str(uuid.uuid4())[:8]
-        proposal = Proposal(
+
+        # Odoo values and reason
+        values = {"name": "Z wiadomości: " + req.message[:50]}
+        reason = f"Dispatcher wykrył intencję bazodanową: {req.message[:80]}"
+
+        # Zapis do BD
+        db_prop = db_models.Proposal(
             id=proposal_id,
             workspace_id=req.workspace_id,
             odoo_model="res.partner",
             method="CREATE",
-            values={"name": "Z wiadomości: " + req.message[:50]},
-            reason=f"Dispatcher wykrył intencję bazodanową: {req.message[:80]}",
+            values=json.dumps(values),
+            reason=reason,
             status="pending",
-            created_at=datetime.datetime.now().isoformat(),
         )
-        _proposals[proposal_id] = proposal
+        db.add(db_prop)
+        db.commit()
 
         return ChatResponse(
             reply="[🗄️ DBA] Wygenerowano propozycję Shadow Mode dla operacji na bazie danych.",
@@ -236,14 +242,27 @@ async def handle_chat(
             model=result.recommended_model,
             proposal_data=ChatProposalData(
                 proposal_id=proposal_id,
-                text=proposal.reason,
-                model=proposal.odoo_model,
-                method=proposal.method,
-                args=list(proposal.values.values()),
+                text=reason,
+                model="res.partner",
+                method="CREATE",
+                args=list(values.values()),
             ),
         )
 
-    reply_text = f"[{result.persona.value}] Zklasyfikowano jako kategoria {result.category.value}. Wiadomość: {req.message}"
+    PERSONA_REPLIES = {
+        "A": "[💻 Developer] Rozumiem — chcesz napisać lub poprawić kod. Przygotowuję rozwiązanie...",
+        "B": "[🗄️ DBA] Wykryłem operację bazodanową. Tworzę propozycję Shadow Mode...",
+        "C": "[🧪 QA] Przygotowuję testy i walidację dla Twojego żądania...",
+        "D": "[📝 Docs] Generuję dokumentację na podstawie Twojego opisu...",
+        "E": "[🔍 Scout] Rozpoczynam research — przeszukuję bazę wiedzy...",
+        "F": "[🏗️ Architect] Analizuję architekturę systemu pod kątem Twojego pytania...",
+        "G": "[📊 PM] Aktualizuję status projektu i organizuję zadania...",
+        "H": "[🤖 Asystent] {message_echo}",
+    }
+
+    reply_template = PERSONA_REPLIES.get(result.category.value, PERSONA_REPLIES["H"])
+    reply_text = reply_template.format(message_echo=req.message)
+
     return ChatResponse(
         reply=reply_text,
         action_type="CHAT",
@@ -260,21 +279,45 @@ async def handle_chat(
 async def get_proposals(
     workspace_id: Optional[str] = None,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
-    proposals = list(_proposals.values())
+    query = db.query(db_models.Proposal)
     if workspace_id:
-        proposals = [p for p in proposals if p.workspace_id == workspace_id]
-    return [p.model_dump() for p in proposals]
+        query = query.filter(db_models.Proposal.workspace_id == workspace_id)
+    proposals = query.all()
+
+    res = []
+    for p in proposals:
+        res.append(
+            {
+                "id": p.id,
+                "workspace_id": p.workspace_id,
+                "odoo_model": p.odoo_model,
+                "method": p.method,
+                "values": json.loads(p.values) if p.values else {},
+                "reason": p.reason,
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else "",
+            }
+        )
+    return res
 
 
 @app.post("/api/proposals/{proposal_id}/approve")
 async def approve_proposal(
     proposal_id: str,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
-    if proposal_id not in _proposals:
+    prop = (
+        db.query(db_models.Proposal)
+        .filter(db_models.Proposal.id == proposal_id)
+        .first()
+    )
+    if not prop:
         raise HTTPException(status_code=404, detail="Proposal not found")
-    _proposals[proposal_id].status = "approved"
+    prop.status = "approved"
+    db.commit()
     return {"success": True, "status": "approved"}
 
 
@@ -282,10 +325,17 @@ async def approve_proposal(
 async def reject_proposal(
     proposal_id: str,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
-    if proposal_id not in _proposals:
+    prop = (
+        db.query(db_models.Proposal)
+        .filter(db_models.Proposal.id == proposal_id)
+        .first()
+    )
+    if not prop:
         raise HTTPException(status_code=404, detail="Proposal not found")
-    _proposals[proposal_id].status = "rejected"
+    prop.status = "rejected"
+    db.commit()
     return {"success": True, "status": "rejected"}
 
 
@@ -295,20 +345,157 @@ async def reject_proposal(
 @app.get("/api/workspaces")
 async def get_workspaces(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
 ):
-    return [w.model_dump() for w in _workspaces]
+    wks = db.query(db_models.Workspace).order_by(db_models.Workspace.position).all()
+    if not wks:
+        # Defaults if empty
+        default_wks = [
+            db_models.Workspace(id="default", name="Domyślna", position=0),
+            db_models.Workspace(id="dev", name="Dev Env", position=1),
+            db_models.Workspace(id="prod", name="Production", position=2),
+        ]
+        db.add_all(default_wks)
+        db.commit()
+        wks = db.query(db_models.Workspace).order_by(db_models.Workspace.position).all()
+
+    return [
+        {"id": w.id, "name": w.name, "odoo_url": w.odoo_url, "position": w.position}
+        for w in wks
+    ]
 
 
 @app.post("/api/workspaces")
 async def create_workspace(
-    ws: WorkspaceInfo,
+    ws: schemas.WorkspaceCreateRequest,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    existing = (
+        db.query(db_models.Workspace).filter(db_models.Workspace.id == ws.id).first()
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="Workspace ID already exists")
+    max_pos = db.query(db_models.Workspace).count()
+    new_ws = db_models.Workspace(
+        id=ws.id, name=ws.name, odoo_url=ws.odoo_url, position=max_pos
+    )
+    db.add(new_ws)
+    db.commit()
+
+    vault_saved = False
+    if ws.admin_password:
+        vk, _, _ = auth_data
+        try:
+            vault_data = vault.load_vault(vk)
+            secret_key = f"{ws.id}_ODOO"
+            vault_data[secret_key] = {
+                "password": ws.admin_password,
+                "login": ws.admin_login or "",
+                "api_key": ws.admin_api_key or "",
+                "url": ws.odoo_url or "",
+                "workspace_id": ws.id,
+                "expires": ws.admin_expires or "",
+            }
+            vault.save_vault(vk, vault_data)
+            vault_saved = True
+        except vault.VaultDecryptionError as e:
+            import logging
+
+            logging.warning(f"Vault write failed for workspace {ws.id}: {e}")
+
+    return {"success": True, "id": ws.id, "vault_saved": vault_saved}
+
+
+@app.put("/api/workspaces/reorder")
+async def reorder_workspaces(
+    body: dict,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    order = body.get("order", [])
+    if not order:
+        raise HTTPException(status_code=400, detail="Empty order list")
+
+    for idx, ws_id in enumerate(order):
+        ws = (
+            db.query(db_models.Workspace)
+            .filter(db_models.Workspace.id == ws_id)
+            .first()
+        )
+        if ws:
+            ws.position = idx
+    db.commit()
+    return {"success": True}
+
+
+@app.put("/api/workspaces/{ws_id}")
+async def update_workspace(
+    ws_id: str,
+    update_data: dict,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    ws.name = update_data.get("name", ws.name)
+    ws.odoo_url = update_data.get("odoo_url", ws.odoo_url)
+    db.commit()
+    return {"success": True}
+
+
+@app.delete("/api/workspaces/{ws_id}")
+async def delete_workspace(
+    ws_id: str,
+    cascade_vault: bool = False,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    secrets_removed = 0
+    if cascade_vault:
+        vk, _, _ = auth_data
+        try:
+            vault_data = vault.load_vault(vk)
+            for key, val in list(vault_data.items()):
+                if isinstance(val, dict) and val.get("workspace_id") == ws_id:
+                    vault_data[key]["deleted_at"] = datetime.datetime.now().isoformat()
+                    secrets_removed += 1
+            if secrets_removed > 0:
+                vault.save_vault(vk, vault_data)
+        except vault.VaultDecryptionError as e:
+            import logging
+
+            logging.warning(f"Vault cascade failed for workspace {ws_id}: {e}")
+
+    db.delete(ws)
+    db.commit()
+    return {"success": True, "secrets_removed": secrets_removed}
+
+
+@app.delete("/api/secrets/by-workspace/{ws_id}")
+async def delete_secrets_by_workspace(
+    ws_id: str,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
 ):
-    # Sprawdź duplikaty
-    if any(w.id == ws.id for w in _workspaces):
-        raise HTTPException(status_code=400, detail="Workspace ID already exists")
-    _workspaces.append(ws)
-    return {"success": True, "id": ws.id}
+    vk, _, _ = auth_data
+    try:
+        vault_data = vault.load_vault(vk)
+        removed = 0
+        for key, val in list(vault_data.items()):
+            if isinstance(val, dict) and val.get("workspace_id") == ws_id:
+                vault_data[key]["deleted_at"] = datetime.datetime.now().isoformat()
+                removed += 1
+        if removed > 0:
+            vault.save_vault(vk, vault_data)
+        return {"success": True, "secrets_removed": removed}
+    except vault.VaultDecryptionError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
