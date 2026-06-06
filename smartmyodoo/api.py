@@ -127,6 +127,7 @@ async def add_or_update_secret(
             "password": secret_data.password,
             "login": secret_data.login,
             "url": secret_data.url,
+            "db": secret_data.db,
             "api_key": secret_data.api_key,
             "expires": secret_data.expires,
             "workspace_id": secret_data.workspace_id,
@@ -213,45 +214,9 @@ async def handle_chat(
 ):
     result = dispatcher.classify_intent(req.message)
 
-    # Shadow Mode: kategoria B (DBA) → automatyczna propozycja
-    if result.category == IntentCategory.B_DATABASE_ADMIN:
-        proposal_id = str(uuid.uuid4())[:8]
-
-        # Odoo values and reason
-        values = {"name": "Z wiadomości: " + req.message[:50]}
-        reason = f"Dispatcher wykrył intencję bazodanową: {req.message[:80]}"
-
-        # Zapis do BD
-        db_prop = db_models.Proposal(
-            id=proposal_id,
-            workspace_id=req.workspace_id,
-            odoo_model="res.partner",
-            method="CREATE",
-            values=json.dumps(values),
-            reason=reason,
-            status="pending",
-        )
-        db.add(db_prop)
-        db.commit()
-
-        return ChatResponse(
-            reply="[🗄️ DBA] Wygenerowano propozycję Shadow Mode dla operacji na bazie danych.",
-            action_type="SHADOW_PROPOSAL",
-            category=result.category.value,
-            persona=result.persona.value,
-            model=result.recommended_model,
-            proposal_data=ChatProposalData(
-                proposal_id=proposal_id,
-                text=reason,
-                model="res.partner",
-                method="CREATE",
-                args=list(values.values()),
-            ),
-        )
-
     PERSONA_REPLIES = {
         "A": "[💻 Developer] Rozumiem — chcesz napisać lub poprawić kod. Przygotowuję rozwiązanie...",
-        "B": "[🗄️ DBA] Wykryłem operację bazodanową. Tworzę propozycję Shadow Mode...",
+        "B": "[🗄️ DBA] Przyjęto zapytanie. Analizuję polecenie i przygotowuję akcję na bazie Odoo...",
         "C": "[🧪 QA] Przygotowuję testy i walidację dla Twojego żądania...",
         "D": "[📝 Docs] Generuję dokumentację na podstawie Twojego opisu...",
         "E": "[🔍 Scout] Rozpoczynam research — przeszukuję bazę wiedzy...",

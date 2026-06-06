@@ -31,6 +31,7 @@ class SecretCreateRequest(BaseModel):
     password: str
     login: Optional[str] = ""
     url: Optional[str] = ""
+    db: Optional[str] = ""
     api_key: Optional[str] = ""
     expires: Optional[str] = ""
     workspace_id: Optional[str] = "default"
@@ -40,6 +41,7 @@ class SecretResponse(BaseModel):
     password: str
     login: str
     url: str
+    db: Optional[str] = ""
     api_key: str
     expires: str
     workspace_id: Optional[str] = "default"

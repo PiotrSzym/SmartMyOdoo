@@ -201,9 +201,15 @@
                         <input type="password" id="f-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">URL Bazy/Serwisu (Opcjonalne)</label>
-                    <input type="text" id="f-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">URL Bazy/Serwisu (Opcjonalne)</label>
+                        <input type="text" id="f-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Dokładna Nazwa Bazy (Opcjonalne)</label>
+                        <input type="text" id="f-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="np. ps-myodoo-test-main">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Data Ważności (Opcjonalne)</label>
@@ -538,6 +544,7 @@
                     <div class="space-y-1 text-sm ${isDeleted ? 'text-red-300/80' : 'text-slate-300'} mt-3">
                         ${val.login ? `<div class="flex items-center gap-2"><span class="text-slate-500">Log:</span> <span class="font-medium">${val.login}</span></div>` : ''}
                         ${val.url ? `<div class="flex items-center gap-2 truncate" title="${val.url}"><span class="text-slate-500">URL:</span> <span class="truncate">${val.url}</span></div>` : ''}
+                        ${val.db ? `<div class="flex items-center gap-2 truncate" title="${val.db}"><span class="text-slate-500">Baza:</span> <span class="truncate">${val.db}</span></div>` : ''}
                         ${val.expires ? `<div class="flex items-center gap-2 text-yellow-500/80"><span class="text-slate-500">Exp:</span> <span>${val.expires}</span></div>` : ''}
                         ${isDeleted ? `<div class="flex items-center gap-2 text-red-400 mt-2 text-xs uppercase font-bold tracking-widest">🗑️ Usunięto: ${val.deleted_at.substring(0,10)}</div>` : ''}
                     </div>
@@ -604,6 +611,7 @@
             document.getElementById('f-login').value = "";
             document.getElementById('f-apikey').value = "";
             document.getElementById('f-url').value = "";
+            document.getElementById('f-db').value = "";
             document.getElementById('f-expires').value = "";
             document.getElementById('secret-modal').classList.remove('hidden');
             document.getElementById('secret-modal').classList.add('flex');
@@ -618,6 +626,7 @@
             document.getElementById('f-login').value = data.login || "";
             document.getElementById('f-apikey').value = data.api_key || "";
             document.getElementById('f-url').value = data.url || "";
+            document.getElementById('f-db').value = data.db || "";
             document.getElementById('f-expires').value = data.expires || "";
             document.getElementById('secret-modal').classList.remove('hidden');
             document.getElementById('secret-modal').classList.add('flex');
@@ -632,6 +641,7 @@
                 login: document.getElementById('f-login').value,
                 api_key: document.getElementById('f-apikey').value,
                 url: document.getElementById('f-url').value,
+                db: document.getElementById('f-db').value,
                 expires: document.getElementById('f-expires').value,
                 workspace_id: AppStore.getState().workspaceId
             };
