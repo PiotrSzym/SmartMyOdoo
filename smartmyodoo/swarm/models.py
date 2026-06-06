@@ -49,8 +49,12 @@ class DispatchResult(BaseModel):
     category: IntentCategory = Field(
         description="Zidentyfikowana kategoria intencji (A-H)"
     )
-    persona: Persona | None = Field(default=None, description="Persona przypisana do obsługi zadania")
-    skill_name: SkillName | None = Field(default=None, description="Konkretny skill z registry przypisany do zadania")
+    persona: Persona | None = Field(
+        default=None, description="Persona przypisana do obsługi zadania"
+    )
+    skill_name: SkillName | None = Field(
+        default=None, description="Konkretny skill z registry przypisany do zadania"
+    )
     recommended_model: str = Field(
         description="Zalecany model LLM do realizacji zadania"
     )

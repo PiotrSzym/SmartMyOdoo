@@ -8,5 +8,5 @@ skill = SkillConfig(
     red_flags=["no_drop_table", "no_truncate"],
     requires_human_override=True,
     requires_shadow_mode=True,
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

@@ -47,7 +47,9 @@ class DecisionEngine:
         if env_info:
             env_str = f"Odoo {env_info.odoo_version}, Edycja: {env_info.edition.capitalize()}, Hosting: {env_info.hosting_type.capitalize()}"
 
-        prompt = ADP_SYSTEM_PROMPT.format(persona=persona, intent=intent, environment=env_str)
+        prompt = ADP_SYSTEM_PROMPT.format(
+            persona=persona, intent=intent, environment=env_str
+        )
 
         try:
             response = self.llm_client.chat(prompt)
@@ -59,13 +61,13 @@ class DecisionEngine:
 
     def _mock_adp(self, persona: str, intent: str, env_info=None) -> Dict[str, Any]:
         """Zwraca atrapę decyzji do celów testowych/fallbackowych."""
-        
+
         env_str = "Brak danych"
         odoo_v = "Odoo 18"
         if env_info:
             env_str = f"Odoo {env_info.odoo_version}, Edycja: {env_info.edition.capitalize()}, Hosting: {env_info.hosting_type.capitalize()}"
             odoo_v = f"Odoo {env_info.odoo_version}"
-            
+
         return {
             "1_Historia": "Brak",
             "2_Kontekst": f"Otrzymano zadanie dla {persona}. Środowisko: {env_str}",

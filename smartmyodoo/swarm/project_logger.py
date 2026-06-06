@@ -1,4 +1,4 @@
-import xmlrpc.client
+import xmlrpc.client  # nosec B411
 import logging
 import os
 

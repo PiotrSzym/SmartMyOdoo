@@ -1,5 +1,6 @@
 from smartmyodoo.swarm.models import EnvironmentInfo
 
+
 class EnvironmentRecon:
     """Klasa odpowiedzialna za automatyczne rozpoznawanie środowiska Odoo (wersja, hosting, edycja)."""
 
@@ -21,9 +22,7 @@ class EnvironmentRecon:
         """Rozpoznaje edycję (Community/Enterprise) weryfikując licencję modułu 'base_setup'."""
         try:
             records = self.client.search_read(
-                "ir.module.module", 
-                [("name", "=", "base_setup")], 
-                ["license"]
+                "ir.module.module", [("name", "=", "base_setup")], ["license"]
             )
             if records and records[0].get("license") == "OEEL-1":
                 return "enterprise"
@@ -38,16 +37,15 @@ class EnvironmentRecon:
             odoo_version = version_info.get("server_version", "unknown")
             hosting = self.classify_hosting(getattr(self.client, "url", ""))
             edition = self.detect_edition()
+            import typing
+
             return EnvironmentInfo(
                 odoo_version=odoo_version,
-                edition=edition,
-                hosting_type=hosting
+                edition=typing.cast(typing.Any, edition),
+                hosting_type=typing.cast(typing.Any, hosting),
             )
         except Exception:
             # Graceful fail
             return EnvironmentInfo(
-                odoo_version="unknown",
-                edition="unknown",
-                hosting_type="unknown"
+                odoo_version="unknown", edition="unknown", hosting_type="unknown"
             )
-

@@ -2,6 +2,7 @@ from typing import List
 from pydantic import BaseModel, Field
 from smartmyodoo.swarm.models import SkillName
 
+
 class SkillConfig(BaseModel):
     name: SkillName
     system_prompt: str = Field(min_length=1)

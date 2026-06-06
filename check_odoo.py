@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from smartmyodoo.vault.vault import get_vault_key_from_pin, get_secrets
 from smartmyodoo.mcp.odoo_client import OdooClient
 
+
 def test_odoo():
     pin = "1111"
     print("Otwieranie Vaulta PIN-em...")
@@ -27,7 +28,7 @@ def test_odoo():
     if not secrets:
         print("Vault nie zwrócił żadnych sekretów.")
         return
-    
+
     # Kopiujemy sekrety do środowiska, żeby OdooClient je znalazł
     for k, obj in secrets.items():
         if isinstance(obj, dict):
@@ -61,21 +62,25 @@ def test_odoo():
             if not db and url:
                 # Odoo SaaS fallback:
                 import urllib.parse
+
                 parsed = urllib.parse.urlparse(url)
                 if parsed.netloc:
                     db = parsed.netloc.split(".")[0]
-            
-            username = os.environ.get(f"{base}_USERNAME") or os.environ.get(f"{base}_LOGIN")
+
+            username = os.environ.get(f"{base}_USERNAME") or os.environ.get(
+                f"{base}_LOGIN"
+            )
             password = os.environ.get(f"{base}_PASSWORD")
             print(f"Znaleziono bazę: {base} ({url}, User: {username})")
             if url and url.startswith("http") and username and password:
                 break
-    
+
     if not (url and username and password):
         print("Nie znaleziono kompletnych danych logowania Odoo w Vaulcie!")
         return
 
-    import xmlrpc.client
+    import xmlrpc.client  # nosec B411
+
     # Próbujemy wylistować bazy jeśli się da
     try:
         db_proxy = xmlrpc.client.ServerProxy(f"{url.rstrip('/')}/xmlrpc/db")
@@ -89,32 +94,32 @@ def test_odoo():
 
     if not db_candidates:
         import urllib.parse
+
         parsed = urllib.parse.urlparse(url)
         host = parsed.netloc
         db_candidates = [
-            host,                     # np. ps-myodoo-test-knowlage-piotr.odoo.com
-            host.split(".")[0],       # np. ps-myodoo-test-knowlage-piotr
+            host,  # np. ps-myodoo-test-knowlage-piotr.odoo.com
+            host.split(".")[0],  # np. ps-myodoo-test-knowlage-piotr
             host.replace("-", "_"),
-            host.split(".")[0].replace("-", "_")
+            host.split(".")[0].replace("-", "_"),
         ]
 
     print("\nInicjalizacja OdooClient... Próbuję dopasować nazwę bazy:")
-    
+
     client = None
     candidate = "ps-myodoo-test-knowlage-piotr"
     print(f"  -> Próbuję bazę: {candidate} z nowym hasłem")
     os.environ["ODOO_URL"] = url
     os.environ["ODOO_DB"] = candidate
     os.environ["ODOO_USERNAME"] = username
-    os.environ["ODOO_PASSWORD"] = "1234"
-    
-    import xmlrpc.client
+    os.environ["ODOO_PASSWORD"] = "1234"  # nosec B105
+
+    import xmlrpc.client  # nosec B411
+
     common = xmlrpc.client.ServerProxy("{}/xmlrpc/2/common".format(url))
     print("Odoo Server Version:", common.version())
 
-    for db_cand in [
-        "ps-myodoo-test-knowlage-piotr-main-32905703"
-    ]:
+    for db_cand in ["ps-myodoo-test-knowlage-piotr-main-32905703"]:
         print(f"\n  -> Próbuję bazę: {db_cand} z nowym hasłem")
         os.environ["ODOO_DB"] = db_cand
         c = OdooClient(workspace_id="default")
@@ -122,19 +127,21 @@ def test_odoo():
             c.connect()
             print(f"  [!] SUKCES! Zalogowano do bazy: {db_cand}")
             client = c
-            
+
             # Pobieranie kontaktów
             partners = c.search_read("res.partner", [], ["name"], limit=1000)
             print(f"\n✅ ZNALAZŁEM KONTAKTY W BAZIE! Liczba kontaktów: {len(partners)}")
-            
+
             break
         except Exception as e:
             print(f"  Błąd: {e}")
-    
+
     if not client:
-        print("\nNie udało się zalogować przy użyciu żadnej z przewidywanych nazw baz :(")
+        print(
+            "\nNie udało się zalogować przy użyciu żadnej z przewidywanych nazw baz :("
+        )
         return
-    
+
     try:
         print("Nawiązywanie połączenia z Odoo...")
         client.connect()
@@ -145,16 +152,21 @@ def test_odoo():
 
     print("\nPobieranie kontaktów (res.partner)...")
     try:
-        records = client.search_read("res.partner", [], ["name", "email", "phone"], limit=5)
+        records = client.search_read(
+            "res.partner", [], ["name", "email", "phone"], limit=5
+        )
         count = len(records)
         print(f"\nUdało się! Pobrane rekordy (znaleziono {count}):")
         for idx, rec in enumerate(records):
-            print(f"{idx+1}. {rec.get('name')} (Email: {rec.get('email')}, Tel: {rec.get('phone')})")
-        
+            print(
+                f"{idx+1}. {rec.get('name')} (Email: {rec.get('email')}, Tel: {rec.get('phone')})"
+            )
+
         # Jeśli api pozwala policzyć total (niestety OdooClient xmlrpc domyślnie search_read tylko zwraca listę)
         # można wywołać 'search_count' ale nasza klasa go nie wspiera. Wystarczy liczba pobranych na probe.
     except Exception as e:
         print(f"Błąd podczas odczytu danych: {e}")
+
 
 if __name__ == "__main__":
     test_odoo()

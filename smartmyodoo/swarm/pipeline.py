@@ -29,7 +29,12 @@ class ExecutionPipeline:
     zawierająca mechanizm Scratchpad DB i rollback.
     """
 
-    def __init__(self, db_manager: OdooDBManager, decision_engine: DecisionEngine, recon_engine: Optional[EnvironmentRecon] = None):
+    def __init__(
+        self,
+        db_manager: OdooDBManager,
+        decision_engine: DecisionEngine,
+        recon_engine: Optional[EnvironmentRecon] = None,
+    ):
         self.state = PipelineState.AUTH
         self.db_manager = db_manager
         self.decision_engine = decision_engine
@@ -91,15 +96,13 @@ class ExecutionPipeline:
         )
         if not success:
             raise PipelineError("Nie udało się utworzyć Scratchpad DB")
-            
+
         # Recon Odoo Environment
         if self.recon_engine:
             self.env_info = self.recon_engine.detect_version()
         else:
             self.env_info = EnvironmentInfo(
-                odoo_version="unknown",
-                edition="unknown",
-                hosting_type="unknown"
+                odoo_version="unknown", edition="unknown", hosting_type="unknown"
             )
         logger.info(f"RECON EnvironmentInfo: {self.env_info}")
 

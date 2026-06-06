@@ -6,5 +6,5 @@ skill = SkillConfig(
     system_prompt="Tracebacki bottom-up, rozróżniaj logi aplikacji vs deployment",
     allowed_tools=["rag"],
     red_flags=[],
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

@@ -6,5 +6,5 @@ skill = SkillConfig(
     system_prompt="Staging Isolation, Feature Branches, version bump in __manifest__",
     allowed_tools=["rag"],
     red_flags=["no_force_push_production", "no_dns_change"],
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

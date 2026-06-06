@@ -1,6 +1,5 @@
 import os
 import datetime
-import uuid
 import json
 from typing import Dict, Any, Tuple, Optional
 from fastapi import FastAPI, Depends, HTTPException, Security
@@ -12,18 +11,16 @@ from sqlalchemy.orm import Session
 from smartmyodoo.core.database import get_db, engine
 from smartmyodoo.core import models as db_models
 
-db_models.Base.metadata.create_all(bind=engine)
-
 from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
 from smartmyodoo.swarm.models import (
     ChatRequest,
     ChatResponse,
-    ChatProposalData,
-    IntentCategory,
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
 from smartmyodoo.swarm import llm_client
+
+db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
 
@@ -232,7 +229,7 @@ async def handle_chat(
         reply=reply_text,
         action_type="CHAT",
         category=result.category.value,
-        persona=result.persona.value,
+        persona=result.persona.value if result.persona else "H",
         model=result.recommended_model,
     )
 
@@ -259,7 +256,7 @@ async def get_proposals(
                 "workspace_id": p.workspace_id,
                 "odoo_model": p.odoo_model,
                 "method": p.method,
-                "values": json.loads(p.values) if p.values else {},
+                "values": json.loads(str(p.values)) if p.values else {},
                 "reason": p.reason,
                 "status": p.status,
                 "created_at": p.created_at.isoformat() if p.created_at else "",
@@ -281,7 +278,7 @@ async def approve_proposal(
     )
     if not prop:
         raise HTTPException(status_code=404, detail="Proposal not found")
-    prop.status = "approved"
+    prop.status = "approved"  # type: ignore
     db.commit()
     return {"success": True, "status": "approved"}
 
@@ -299,7 +296,7 @@ async def reject_proposal(
     )
     if not prop:
         raise HTTPException(status_code=404, detail="Proposal not found")
-    prop.status = "rejected"
+    prop.status = "rejected"  # type: ignore
     db.commit()
     return {"success": True, "status": "rejected"}
 
@@ -389,7 +386,7 @@ async def reorder_workspaces(
             .first()
         )
         if ws:
-            ws.position = idx
+            ws.position = idx  # type: ignore
     db.commit()
     return {"success": True}
 

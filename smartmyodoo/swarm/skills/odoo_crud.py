@@ -7,5 +7,5 @@ skill = SkillConfig(
     allowed_tools=["xmlrpc", "shadow_mode"],
     red_flags=["no_delete_posted_invoice"],
     requires_shadow_mode=True,
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

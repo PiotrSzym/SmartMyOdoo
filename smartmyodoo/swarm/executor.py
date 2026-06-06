@@ -3,9 +3,12 @@ from typing import Dict, Any, Optional
 
 from smartmyodoo.swarm.skills.skill_config import SkillConfig
 
+
 class RedFlagViolation(Exception):
     """Raised when a user intent matches a configured red flag for a skill."""
+
     pass
+
 
 class SkillExecutor:
     def __init__(self, llm_client: Optional[Any] = None):

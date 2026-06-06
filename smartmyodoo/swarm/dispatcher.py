@@ -109,10 +109,14 @@ Zwróć TYLKO czysty JSON w następującym formacie:
             elif any(k in msg_lower for k in ["baz", "sql", "tabel", "db", "migracj"]):
                 category = IntentCategory.B_DATABASE_ADMIN
                 skill_name = SkillName.ODOO_CRUD
-            elif any(k in msg_lower for k in ["zmienił", "kto", "kiedy", "audit", "history"]):
+            elif any(
+                k in msg_lower for k in ["zmienił", "kto", "kiedy", "audit", "history"]
+            ):
                 category = IntentCategory.E_RESEARCH
                 skill_name = SkillName.ODOO_AUDIT_HISTORY
-            elif any(k in msg_lower for k in ["security", "pii", "audyt", "bezpieczeństw"]):
+            elif any(
+                k in msg_lower for k in ["security", "pii", "audyt", "bezpieczeństw"]
+            ):
                 category = IntentCategory.C_TESTING_QA
                 skill_name = SkillName.SECURITY_AUDIT
             elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
@@ -141,8 +145,12 @@ Zwróć TYLKO czysty JSON w następującym formacie:
         return {
             "original_message": message,
             "category": dispatch_result.category.value,
-            "target_persona": dispatch_result.persona.value if dispatch_result.persona else None,
-            "target_skill": dispatch_result.skill_name.value if dispatch_result.skill_name else None,
+            "target_persona": dispatch_result.persona.value
+            if dispatch_result.persona
+            else None,
+            "target_skill": dispatch_result.skill_name.value
+            if dispatch_result.skill_name
+            else None,
             "recommended_model": dispatch_result.recommended_model,
             "status": "routed",
         }

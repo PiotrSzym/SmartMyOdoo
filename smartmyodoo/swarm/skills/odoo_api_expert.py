@@ -6,5 +6,5 @@ skill = SkillConfig(
     system_prompt="API Keys zamiast hasła admina, nigdy auth='public' dla partnerów",
     allowed_tools=["xmlrpc", "rag"],
     red_flags=["no_auth_public_partners", "no_plaintext_password"],
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

@@ -7,5 +7,5 @@ skill = SkillConfig(
     allowed_tools=["pii_middleware", "xmlrpc_read"],
     red_flags=[],
     read_only=True,
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

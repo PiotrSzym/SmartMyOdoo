@@ -7,5 +7,5 @@ skill = SkillConfig(
     allowed_tools=["xmlrpc", "shadow_mode", "scaffold"],
     red_flags=["no_core_mod", "no_uninstall_base_module"],
     requires_shadow_mode=True,
-    recommended_model="claude-3-5-sonnet"
+    recommended_model="claude-3-5-sonnet",
 )

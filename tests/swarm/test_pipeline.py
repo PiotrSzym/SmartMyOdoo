@@ -26,18 +26,16 @@ def mock_decision_engine():
 def mock_recon():
     recon = Mock(spec=EnvironmentRecon)
     recon.detect_version.return_value = EnvironmentInfo(
-        odoo_version="18.0",
-        edition="enterprise",
-        hosting_type="odoo_sh"
+        odoo_version="18.0", edition="enterprise", hosting_type="odoo_sh"
     )
     return recon
 
 
 def test_pipeline_happy_path(mock_db_manager, mock_decision_engine, mock_recon):
     pipeline = ExecutionPipeline(
-        db_manager=mock_db_manager, 
+        db_manager=mock_db_manager,
         decision_engine=mock_decision_engine,
-        recon_engine=mock_recon
+        recon_engine=mock_recon,
     )
 
     pipeline.run("napisz modul", "Developer", "prod_db")
@@ -56,20 +54,20 @@ def test_pipeline_happy_path(mock_db_manager, mock_decision_engine, mock_recon):
 
     # Sprawdzenie czy ADP zostal wywolany z env_info
     mock_decision_engine.evaluate.assert_called_once_with(
-        "Developer", 
-        "napisz modul",
-        pipeline.env_info
+        "Developer", "napisz modul", pipeline.env_info
     )
 
 
-def test_pipeline_rollback_on_recon_failure(mock_db_manager, mock_decision_engine, mock_recon):
+def test_pipeline_rollback_on_recon_failure(
+    mock_db_manager, mock_decision_engine, mock_recon
+):
     # Symulacja bledu Odoo DB (nie mozna sklonowac)
     mock_db_manager.duplicate_database.return_value = False
 
     pipeline = ExecutionPipeline(
-        db_manager=mock_db_manager, 
+        db_manager=mock_db_manager,
         decision_engine=mock_decision_engine,
-        recon_engine=mock_recon
+        recon_engine=mock_recon,
     )
 
     pipeline.run("napisz modul", "Developer", "prod_db")
@@ -82,11 +80,13 @@ def test_pipeline_rollback_on_recon_failure(mock_db_manager, mock_decision_engin
     mock_db_manager.drop_database.assert_called_once_with("prod_db_agent_scratchpad")
 
 
-def test_pipeline_rollback_on_actuation_error(mock_db_manager, mock_decision_engine, mock_recon):
+def test_pipeline_rollback_on_actuation_error(
+    mock_db_manager, mock_decision_engine, mock_recon
+):
     pipeline = ExecutionPipeline(
-        db_manager=mock_db_manager, 
+        db_manager=mock_db_manager,
         decision_engine=mock_decision_engine,
-        recon_engine=mock_recon
+        recon_engine=mock_recon,
     )
 
     # Nadpisujemy _execute_actuation aby wyrzucal blad
@@ -106,9 +106,7 @@ def test_pipeline_rollback_on_actuation_error(mock_db_manager, mock_decision_eng
 def test_adp_system_prompt():
     engine = DecisionEngine()
     env_info = EnvironmentInfo(
-        odoo_version="18.0",
-        edition="enterprise",
-        hosting_type="odoo_sh"
+        odoo_version="18.0", edition="enterprise", hosting_type="odoo_sh"
     )
     result = engine.evaluate("Developer", "Stworz model", env_info)
 
