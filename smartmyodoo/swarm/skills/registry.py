@@ -8,6 +8,11 @@ from .odoo_etl_manager import skill as odoo_etl_manager_skill
 from .financial_audit import skill as financial_audit_skill
 from .odoo_audit_history import skill as odoo_audit_history_skill
 from .security_audit import skill as security_audit_skill
+from .odoo_developer import skill as odoo_developer_skill
+from .odoo_devops_github import skill as odoo_devops_github_skill
+from .odoo_sh_logs import skill as odoo_sh_logs_skill
+from .odoo_api_expert import skill as odoo_api_expert_skill
+from .magic_fix import skill as magic_fix_skill
 
 SKILL_REGISTRY: Dict[SkillName, SkillConfig] = {
     odoo_business_analyst_skill.name: odoo_business_analyst_skill,
@@ -16,4 +21,9 @@ SKILL_REGISTRY: Dict[SkillName, SkillConfig] = {
     financial_audit_skill.name: financial_audit_skill,
     odoo_audit_history_skill.name: odoo_audit_history_skill,
     security_audit_skill.name: security_audit_skill,
+    odoo_developer_skill.name: odoo_developer_skill,
+    odoo_devops_github_skill.name: odoo_devops_github_skill,
+    odoo_sh_logs_skill.name: odoo_sh_logs_skill,
+    odoo_api_expert_skill.name: odoo_api_expert_skill,
+    magic_fix_skill.name: magic_fix_skill,
 }

@@ -10,7 +10,7 @@ Twoim zadaniem jest przeprowadzenie rygorystycznego 8-krokowego protokołu decyz
 
 KROKI ADP:
 1. Historia: Co robiłeś poprzednio? (Jeśli nic, wpisz 'Brak')
-2. Kontekst: Gdzie obecnie się znajdujesz i jaki jest Twój stan wiedzy?
+2. Kontekst: Gdzie obecnie się znajdujesz i jaki jest Twój stan wiedzy? Środowisko: {environment}
 3. Wersja Odoo: Dla jakiej wersji Odoo przygotowujesz rozwiązanie?
 4. Practices: Jakie Golden Rules z dokumentacji musisz zastosować?
 5. Analiza: Rozłóż intencję użytkownika na czynniki pierwsze.
@@ -34,16 +34,20 @@ class DecisionEngine:
     def __init__(self, llm_client=None):
         self.llm_client = llm_client
 
-    def evaluate(self, persona: str, intent: str) -> Dict[str, Any]:
+    def evaluate(self, persona: str, intent: str, env_info=None) -> Dict[str, Any]:
         """
         Ocenia intencję użytkownika używając 8-krokowego ADP.
         Zwraca wygenerowany przez LLM plan w formacie dict.
         """
         if not self.llm_client:
             logger.warning("Brak llm_client. Używam mockowego ADP.")
-            return self._mock_adp(persona, intent)
+            return self._mock_adp(persona, intent, env_info)
 
-        prompt = ADP_SYSTEM_PROMPT.format(persona=persona, intent=intent)
+        env_str = "Brak danych"
+        if env_info:
+            env_str = f"Odoo {env_info.odoo_version}, Edycja: {env_info.edition.capitalize()}, Hosting: {env_info.hosting_type.capitalize()}"
+
+        prompt = ADP_SYSTEM_PROMPT.format(persona=persona, intent=intent, environment=env_str)
 
         try:
             response = self.llm_client.chat(prompt)
@@ -53,12 +57,19 @@ class DecisionEngine:
             logger.error(f"Błąd podczas ewaluacji ADP: {str(e)}")
             return self._mock_adp(persona, intent)
 
-    def _mock_adp(self, persona: str, intent: str) -> Dict[str, Any]:
+    def _mock_adp(self, persona: str, intent: str, env_info=None) -> Dict[str, Any]:
         """Zwraca atrapę decyzji do celów testowych/fallbackowych."""
+        
+        env_str = "Brak danych"
+        odoo_v = "Odoo 18"
+        if env_info:
+            env_str = f"Odoo {env_info.odoo_version}, Edycja: {env_info.edition.capitalize()}, Hosting: {env_info.hosting_type.capitalize()}"
+            odoo_v = f"Odoo {env_info.odoo_version}"
+            
         return {
             "1_Historia": "Brak",
-            "2_Kontekst": f"Otrzymano zadanie dla {persona}",
-            "3_Wersja": "Odoo 18",
+            "2_Kontekst": f"Otrzymano zadanie dla {persona}. Środowisko: {env_str}",
+            "3_Wersja": odoo_v,
             "4_Practices": "TDD, brak bezpośrednich modyfikacji bazy",
             "5_Analiza": intent,
             "6_Trudnosc": 3,

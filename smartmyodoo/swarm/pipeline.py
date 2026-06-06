@@ -1,8 +1,10 @@
 from enum import Enum, auto
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .adp import DecisionEngine
 from .db_manager import OdooDBManager
+from .recon import EnvironmentRecon
+from .models import EnvironmentInfo
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +29,17 @@ class ExecutionPipeline:
     zawierająca mechanizm Scratchpad DB i rollback.
     """
 
-    def __init__(self, db_manager: OdooDBManager, decision_engine: DecisionEngine):
+    def __init__(self, db_manager: OdooDBManager, decision_engine: DecisionEngine, recon_engine: Optional[EnvironmentRecon] = None):
         self.state = PipelineState.AUTH
         self.db_manager = db_manager
         self.decision_engine = decision_engine
+        self.recon_engine = recon_engine
 
         # Kontekst wykonania
         self.original_db: str = ""
         self.scratchpad_db: str = ""
         self.adp_plan: Dict[str, Any] = {}
+        self.env_info: Optional[EnvironmentInfo] = None
 
     def run(self, intent: str, persona: str, original_db: str):
         """Uruchamia pełen cykl FSM dla danego zadania."""
@@ -87,11 +91,22 @@ class ExecutionPipeline:
         )
         if not success:
             raise PipelineError("Nie udało się utworzyć Scratchpad DB")
+            
+        # Recon Odoo Environment
+        if self.recon_engine:
+            self.env_info = self.recon_engine.detect_version()
+        else:
+            self.env_info = EnvironmentInfo(
+                odoo_version="unknown",
+                edition="unknown",
+                hosting_type="unknown"
+            )
+        logger.info(f"RECON EnvironmentInfo: {self.env_info}")
 
     def _execute_cognitive(self, intent: str, persona: str):
         # Wywołanie DecisionEngine
         logger.info("COGNITIVE: Uruchamianie protokołu ADP")
-        self.adp_plan = self.decision_engine.evaluate(persona, intent)
+        self.adp_plan = self.decision_engine.evaluate(persona, intent, self.env_info)
         if "8_Plan" not in self.adp_plan:
             logger.warning(
                 "Brak klucza 8_Plan w wyniku ADP, format może być niespójny."

@@ -94,9 +94,10 @@
 ## Faza 5: Agent Swarm & Ekosystem Narzędzi (w tym Odoo)
 **Cel:** Dispatcher (router), specjalistyczne persony, Shadow Mode z akceptacją w Odoo oraz pełna integracja z zewnętrznym ekosystemem (Fireflies, Zarządzanie Projektami).
 - **Agent Decision Protocol (ADP):** Wdrożenie 8-krokowego potoku decyzyjnego (Historia → Kontekst → Wersja Odoo → Best Practices → Analiza → Trudność → Research → Prezentacja Planu).
-- **Execution Pipeline (FSM):** Implementacja twardej, 5-fazowej maszyny stanów (Vault Auth → Reconnaissance → Cognitive → Actuation → Teardown & Sync) z transakcyjnym systemem zrzutów `pg_dump` dla trybu `LIVE_DB`.
+- **Execution Pipeline (FSM):** Implementacja twardej, 5-fazowej maszyny stanów (Vault Auth → Reconnaissance → Cognitive → Actuation → Teardown & Sync) ze wstrzykiwaniem technologii z `EnvironmentRecon` prosto do kontekstu decyzyjnego ADP, wspierana transakcyjnym systemem zrzutów `pg_dump` dla trybu `LIVE_DB`.
 - **Global Knowledge Sync (Shared Brain):** Mechanizm rozproszonej pamięci (lokalny SQLite + zdalne repozytorium GitHub) wzmocniony o **Knowledge Seeding** (scraping Stack Overflow i Odoo Forums).
-- **Dispatcher:** Klasyfikacja intencji (kategorie A-H) → wybór modelu LLM → przypisanie persony, z wykorzystaniem Llama 3.1 8B jako routera.
+- **Dispatcher & SkillExecutor:** Scentralizowany routing oparty na `SkillName` (zamiast starego modelu Person). Obejmuje 11 wyizolowanych specjalizacji (np. `ODOO_BUSINESS_ANALYST`, `ODOO_DEVELOPER`, `MAGIC_FIX`) zarządzanych przez `SKILL_REGISTRY`. Zabezpieczony rygorystycznym silnikiem **Red Flag Engine** blokującym niszczycielskie zapytania na poziomie regex przed odpytaniem LLM-a.
+- **SkillConfig (Pydantic):** Wymuszanie rygorystycznych barier (np. odcinanie potężnych narzędzi takich jak `shadow_mode` dla agentów z flagą `read_only=True` oraz wymuszanie `requires_human_override`).
 - Wzorzec `forward_message` (eliminacja problemu "głuchego telefonu").
 - **Fireflies AI Connector:** Integracja odpowiedzialna za transkrypcję i analizę spotkań (boty obecne na callach), oraz automatyczne zamienianie notatek na tikety.
   - *Szczegóły:* Posiada 4-krokowy kaskadowy algorytm dopasowywania (Email -> Domena -> Partner -> Słowo kluczowe) oraz stabilizację webhooków REST omijającą JSON-RPC Odoo.
