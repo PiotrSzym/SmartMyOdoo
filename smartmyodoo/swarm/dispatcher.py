@@ -1,41 +1,49 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 import json
 
-from .models import DispatchResult, IntentCategory, Persona
+from .models import DispatchResult, IntentCategory, Persona, SkillName
 
 # Wzorzec routingu (Task 1.2 & 1.3)
-ROUTING_TABLE: Dict[IntentCategory, Dict[str, Union[Persona, str]]] = {
+ROUTING_TABLE: Dict[IntentCategory, Dict[str, Any]] = {
     IntentCategory.A_CODE_GENERATION: {
         "persona": Persona.DEV,
+        "skill_name": SkillName.ODOO_DEVELOPER,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.B_DATABASE_ADMIN: {
         "persona": Persona.DBA,
+        "skill_name": SkillName.ODOO_CRUD,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.C_TESTING_QA: {
         "persona": Persona.QA,
+        "skill_name": SkillName.MAGIC_FIX,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.D_DOCUMENTATION: {
         "persona": Persona.DOCS,
+        "skill_name": SkillName.ODOO_BUSINESS_ANALYST,
         "model": "meta-llama/llama-3.1-8b-instruct",
     },
     IntentCategory.E_RESEARCH: {
         "persona": Persona.SCOUT,
+        "skill_name": None,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.F_ARCHITECTURE: {
         "persona": Persona.ARCH,
+        "skill_name": SkillName.ODOO_API_EXPERT,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.G_PROJECT_MANAGEMENT: {
         "persona": Persona.PM,
+        "skill_name": SkillName.ODOO_BUSINESS_ANALYST,
         "model": "meta-llama/llama-3.1-8b-instruct",
     },
     IntentCategory.H_GENERAL_CHAT: {
         "persona": Persona.GENERIC,
+        "skill_name": None,
         "model": "meta-llama/llama-3.1-8b-instruct",
     },
 }
@@ -79,6 +87,7 @@ Zwróć TYLKO czysty JSON w następującym formacie:
         Klasyfikuje intencję na podstawie wiadomości i zwraca obiekt DispatchResult.
         Jeśli llm_client nie jest dostarczony, używa prostego klasyfikatora na bazie heurystyk (fallback).
         """
+        skill_name = None
         if self.llm_client:
             # W produkcji odpytujemy Llamę 3.1 8B (local inference lub OpenRouter)
             response_text = self.llm_client.chat(self._build_prompt(message))
@@ -93,19 +102,32 @@ Zwróć TYLKO czysty JSON w następującym formacie:
             msg_lower = message.lower()
             if any(k in msg_lower for k in ["kod", "napisz", "bug", "fix", "code"]):
                 category = IntentCategory.A_CODE_GENERATION
+                skill_name = SkillName.ODOO_DEVELOPER
+            elif any(k in msg_lower for k in ["import", "etl", "mass", "5000"]):
+                category = IntentCategory.B_DATABASE_ADMIN
+                skill_name = SkillName.ODOO_ETL_MANAGER
             elif any(k in msg_lower for k in ["baz", "sql", "tabel", "db", "migracj"]):
                 category = IntentCategory.B_DATABASE_ADMIN
+                skill_name = SkillName.ODOO_CRUD
+            elif any(k in msg_lower for k in ["zmienił", "kto", "kiedy", "audit", "history"]):
+                category = IntentCategory.E_RESEARCH
+                skill_name = SkillName.ODOO_AUDIT_HISTORY
+            elif any(k in msg_lower for k in ["security", "pii", "audyt", "bezpieczeństw"]):
+                category = IntentCategory.C_TESTING_QA
+                skill_name = SkillName.SECURITY_AUDIT
             elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
                 category = IntentCategory.C_TESTING_QA
             elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):
                 category = IntentCategory.F_ARCHITECTURE
+                skill_name = SkillName.ODOO_API_EXPERT
             else:
                 category = IntentCategory.H_GENERAL_CHAT
 
         route = ROUTING_TABLE[category]
         return DispatchResult(
             category=category,
-            persona=Persona(route["persona"]),
+            persona=Persona(route["persona"]) if route.get("persona") else None,
+            skill_name=skill_name or route.get("skill_name"),
             recommended_model=str(route["model"]),
         )
 
@@ -119,7 +141,8 @@ Zwróć TYLKO czysty JSON w następującym formacie:
         return {
             "original_message": message,
             "category": dispatch_result.category.value,
-            "target_persona": dispatch_result.persona.value,
+            "target_persona": dispatch_result.persona.value if dispatch_result.persona else None,
+            "target_skill": dispatch_result.skill_name.value if dispatch_result.skill_name else None,
             "recommended_model": dispatch_result.recommended_model,
             "status": "routed",
         }

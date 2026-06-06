@@ -1,0 +1,11 @@
+from smartmyodoo.swarm.models import SkillName
+from smartmyodoo.swarm.skills.skill_config import SkillConfig
+
+skill = SkillConfig(
+    name=SkillName.ODOO_ETL_MANAGER,
+    system_prompt="Batching Mandatory — max 200 rekordów/request",
+    allowed_tools=["xmlrpc", "shadow_mode"],
+    red_flags=["no_mass_delete", "use_archive"],
+    requires_shadow_mode=True,
+    recommended_model="claude-3-5-sonnet"
+)

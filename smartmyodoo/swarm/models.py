@@ -1,6 +1,12 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, Field
+
+
+class EnvironmentInfo(BaseModel):
+    odoo_version: str
+    edition: Literal["community", "enterprise", "unknown"]
+    hosting_type: Literal["saas", "odoo_sh", "on_premise", "unknown"]
 
 
 class IntentCategory(str, Enum):
@@ -12,6 +18,20 @@ class IntentCategory(str, Enum):
     F_ARCHITECTURE = "F"
     G_PROJECT_MANAGEMENT = "G"
     H_GENERAL_CHAT = "H"
+
+
+class SkillName(str, Enum):
+    ODOO_BUSINESS_ANALYST = "ODOO_BUSINESS_ANALYST"
+    ODOO_DEVELOPER = "ODOO_DEVELOPER"
+    ODOO_DEVOPS_GITHUB = "ODOO_DEVOPS_GITHUB"
+    ODOO_SH_LOGS = "ODOO_SH_LOGS"
+    ODOO_AUDIT_HISTORY = "ODOO_AUDIT_HISTORY"
+    ODOO_CRUD = "ODOO_CRUD"
+    ODOO_ETL_MANAGER = "ODOO_ETL_MANAGER"
+    FINANCIAL_AUDIT = "FINANCIAL_AUDIT"
+    SECURITY_AUDIT = "SECURITY_AUDIT"
+    ODOO_API_EXPERT = "ODOO_API_EXPERT"
+    MAGIC_FIX = "MAGIC_FIX"
 
 
 class Persona(str, Enum):
@@ -29,7 +49,8 @@ class DispatchResult(BaseModel):
     category: IntentCategory = Field(
         description="Zidentyfikowana kategoria intencji (A-H)"
     )
-    persona: Persona = Field(description="Persona przypisana do obsługi zadania")
+    persona: Persona | None = Field(default=None, description="Persona przypisana do obsługi zadania")
+    skill_name: SkillName | None = Field(default=None, description="Konkretny skill z registry przypisany do zadania")
     recommended_model: str = Field(
         description="Zalecany model LLM do realizacji zadania"
     )
