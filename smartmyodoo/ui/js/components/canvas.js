@@ -5,15 +5,19 @@ class Canvas {
     constructor() {
         this.tabVault = document.getElementById('tab-vault');
         this.tabChat = document.getElementById('tab-chat');
+        this.tabActivity = document.getElementById('tab-activity');
         this.tabSettings = document.getElementById('tab-settings');
+        
         this.screenVault = document.getElementById('vault-screen');
         this.screenChat = document.getElementById('chat-screen');
+        this.screenActivity = document.getElementById('activity-screen');
         this.screenSettings = document.getElementById('settings-screen');
 
         // Definicja zakładek: { buttonEl, screenEl }
         this.tabs = [
             { btn: this.tabVault, screen: this.screenVault, key: 'vault' },
             { btn: this.tabChat, screen: this.screenChat, key: 'chat' },
+            { btn: this.tabActivity, screen: this.screenActivity, key: 'activity' },
             { btn: this.tabSettings, screen: this.screenSettings, key: 'settings' },
         ];
 

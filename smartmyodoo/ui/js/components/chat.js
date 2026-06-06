@@ -5,6 +5,7 @@ class ChatPanel {
     constructor() {
         this.container = document.getElementById('chat-screen');
         this.messages = [];
+        this.sessions = [];
         this.isWaiting = false;
         this.sessionId = `hub-${Date.now()}`;
 
@@ -13,10 +14,12 @@ class ChatPanel {
             if (newState.workspaceId !== oldState.workspaceId) {
                 this.messages = [];
                 this.sessionId = `hub-${Date.now()}`;
+                this.loadSessions();
                 this.render();
             }
             if (newState.activeTab === 'chat' && oldState.activeTab !== 'chat') {
-                // Przy każdym wejściu na zakładkę — upewnij się że jest wyrenderowane
+                // Przy każdym wejściu na zakładkę — załaduj sesje z serwera
+                this.loadSessions();
                 setTimeout(() => this.scrollToBottom(), 50);
             }
             if (newState.isAuthenticated && !oldState.isAuthenticated) {
@@ -25,6 +28,55 @@ class ChatPanel {
             }
         });
 
+        this.render();
+    }
+
+    async loadSessions() {
+        try {
+            const token = window.AppStore.getState().authToken;
+            const wsId = window.AppStore.getState().workspaceId;
+            const res = await fetch(`/api/chat/sessions?workspace_id=${wsId}&limit=10`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                this.sessions = await res.json();
+                this.render();
+            }
+        } catch (e) {
+            console.warn('[Chat] Błąd pobierania sesji:', e);
+        }
+    }
+
+    async switchSession(sessionId) {
+        try {
+            const token = window.AppStore.getState().authToken;
+            const res = await fetch(`/api/chat/sessions/${sessionId}/messages?limit=200`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const msgs = await res.json();
+                this.sessionId = sessionId;
+                // Zamień format bazy na format UI
+                this.messages = msgs.reverse().map(m => {
+                    const extra = m.metadata_json ? JSON.parse(m.metadata_json) : {};
+                    return {
+                        role: m.role,
+                        text: m.content,
+                        timestamp: new Date(m.timestamp).getTime(),
+                        ...extra
+                    };
+                });
+                this.render();
+            }
+        } catch (e) {
+            console.warn('[Chat] Błąd wczytywania wiadomości:', e);
+        }
+    }
+
+    startNewSession() {
+        this.sessionId = `hub-${Date.now()}`;
+        this.messages = [];
+        this.addMessage('agent', `Rozpoczęto nową sesję konwersacji. W czym mogę pomóc?`);
         this.render();
     }
 
@@ -73,44 +125,70 @@ class ChatPanel {
             messagesHtml += '</div>';
         }
 
-        this.container.innerHTML = `
-            <!-- Chat Header -->
-            <div class="h-16 border-b border-slate-800 bg-slate-900/50 flex items-center px-6 gap-3 shrink-0">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-indigo-500/20">AI</div>
-                <div class="flex-1">
-                    <h3 class="text-sm font-semibold text-white">Agent Swarm</h3>
-                    <p class="text-xs text-slate-500">Przestrzeń: <span class="text-indigo-400">${workspaceName}</span></p>
+        let sidebarHtml = `
+            <div class="w-64 border-r border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
+                <div class="p-4 border-b border-slate-800">
+                    <button onclick="window.AppChat.startNewSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm py-2 rounded-lg transition font-medium">
+                        + Nowy Czat
+                    </button>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
-                    <span class="text-xs text-emerald-400">Online</span>
+                <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                    <div class="px-2 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Poprzednie Sesje</div>
+                    ${this.sessions.map(s => `
+                        <button onclick="window.AppChat.switchSession('${s.session_id}')" class="w-full text-left p-3 rounded-lg transition ${s.session_id === this.sessionId ? 'bg-indigo-500/10 border-indigo-500/30' : 'hover:bg-slate-800 border-transparent'} border">
+                            <div class="text-xs text-white truncate font-medium mb-1">${this._escapeHtml(s.preview || 'Nowa sesja')}</div>
+                            <div class="flex justify-between items-center text-[10px] text-slate-500">
+                                <span>${new Date(s.last_activity).toLocaleDateString()}</span>
+                                <span>💬 ${s.message_count}</span>
+                            </div>
+                        </button>
+                    `).join('')}
+                    ${this.sessions.length === 0 ? '<div class="px-2 text-xs text-slate-600 italic">Brak historii sesji.</div>' : ''}
                 </div>
             </div>
+        `;
 
-            <!-- Messages Area -->
-            ${messagesHtml}
-
-            <!-- Input Bar -->
-            <div class="shrink-0 border-t border-slate-800 bg-slate-900/60 p-4">
-                <div class="max-w-4xl mx-auto flex items-center gap-3">
-                    <div class="flex-1 relative">
-                        <input
-                            type="text"
-                            id="chat-input"
-                            placeholder="Napisz polecenie dla Agenta..."
-                            class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-5 pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                            ${this.isWaiting ? 'disabled' : ''}
-                            onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.AppChat.handleSend(); }"
-                        >
-                        <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs">↵</div>
+        this.container.innerHTML = `
+            ${sidebarHtml}
+            <div class="flex-1 flex flex-col min-w-0">
+                <!-- Chat Header -->
+                <div class="h-16 border-b border-slate-800 bg-slate-900/50 flex items-center px-6 gap-3 shrink-0">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-indigo-500/20">AI</div>
+                    <div class="flex-1">
+                        <h3 class="text-sm font-semibold text-white">Agent Swarm</h3>
+                        <p class="text-xs text-slate-500">Przestrzeń: <span class="text-indigo-400">${workspaceName}</span> | <span class="opacity-50">Sesja: ${this.sessionId.slice(0, 10)}...</span></p>
                     </div>
-                    <button
-                        onclick="window.AppChat.handleSend()"
-                        class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 ${this.isWaiting ? 'opacity-50 cursor-not-allowed' : ''}"
-                        ${this.isWaiting ? 'disabled' : ''}
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
+                        <span class="text-xs text-emerald-400">Online</span>
+                    </div>
+                </div>
+
+                <!-- Messages Area -->
+                ${messagesHtml}
+
+                <!-- Input Bar -->
+                <div class="shrink-0 border-t border-slate-800 bg-slate-900/60 p-4">
+                    <div class="max-w-4xl mx-auto flex items-center gap-3">
+                        <div class="flex-1 relative">
+                            <input
+                                type="text"
+                                id="chat-input"
+                                placeholder="Napisz polecenie dla Agenta..."
+                                class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-5 pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                ${this.isWaiting ? 'disabled' : ''}
+                                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.AppChat.handleSend(); }"
+                            >
+                            <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs">↵</div>
+                        </div>
+                        <button
+                            onclick="window.AppChat.handleSend()"
+                            class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 ${this.isWaiting ? 'opacity-50 cursor-not-allowed' : ''}"
+                            ${this.isWaiting ? 'disabled' : ''}
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;

@@ -1,64 +1,87 @@
-import sys
 import os
-import argparse
-import subprocess
-import uvicorn
-from smartmyodoo.core.database import backup_before_migrate
+import sys
+import time
 
-
-def run_migrations():
-    """Wykonywanie kopii zapasowej i aktualizacja schematu bazy danych."""
-    print("Pre-migration backup...")
-    backup_before_migrate()
-    print("Running database migrations...")
-    env = os.environ.copy()
-    try:
-        subprocess.run(["alembic", "upgrade", "head"], env=env, check=True)
-        print("Migrations completed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Migration failed: {e}", file=sys.stderr)
-        sys.exit(1)
-    except FileNotFoundError:
-        print("Alembic not found. Is it installed?", file=sys.stderr)
-        sys.exit(1)
+from smartmyodoo.cli import InteractiveCLI
+from smartmyodoo.swarm.executor import SkillExecutor
+from smartmyodoo.swarm.llm_client import OpenRouterClient
+from smartmyodoo.swarm.skills.skill_config import SkillConfig
+from smartmyodoo.swarm.models import SkillName
+from smartmyodoo.swarm.sandbox import SandboxManager
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SmartMyOdoo CLI")
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    # ── Database setup ──
+    from smartmyodoo.core.database import engine, SessionLocal
+    from smartmyodoo.core import models as db_models
+    db_models.Base.metadata.create_all(bind=engine)
+    db_session = SessionLocal()
 
-    # Serve command
-    serve_parser = subparsers.add_parser("serve", help="Run the FastAPI server")
-    serve_parser.add_argument("--host", default="127.0.0.1", help="Host serwera")
-    serve_parser.add_argument("--port", type=int, default=5000, help="Port serwera")
+    # ── Chat Repository (EP-1: Historia chatów) ──
+    from smartmyodoo.core.chat_repository import ChatRepository
+    chat_repo = ChatRepository(db=db_session)
 
-    # MCP command
-    subparsers.add_parser("mcp", help="Run the MCP server (Odoo Tools)")
+    workspace_id = os.environ.get("SMARTMYODOO_WORKSPACE", "default")
+    session_id = f"cli-{int(time.time())}"
 
-    # Vault command
-    vault_parser = subparsers.add_parser("vault", help="Vault management tools")
-    vault_parser.add_argument(
-        "action", choices=["init", "reset-pin"], help="Vault action"
+    # ── Sandbox Manager (EP-2: Rollback) ──
+    sandbox = SandboxManager()
+
+    # ── LLM Client ──
+    api_key = os.environ.get("OPENROUTER_API_KEY", "dummy_key_for_testing")
+    llm_client = OpenRouterClient(
+        api_key=api_key,
+        model="openrouter/meta-llama/llama-3.1-8b-instruct",
     )
 
-    args = parser.parse_args()
+    # ── Executor z pełną integracją ──
+    executor = SkillExecutor(
+        llm_client=llm_client,
+        chat_repo=chat_repo,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        sandbox=sandbox,
+    )
 
-    # Default to serve if no command provided
-    command = args.command or "serve"
+    # ── Skill Config ──
+    try:
+        config = SkillConfig(
+            name=SkillName.ODOO_DEVELOPER,
+            system_prompt=(
+                "Jesteś ekspertem Odoo Developer. "
+                "Masz do dyspozycji narzędzia do interakcji z Odoo. "
+                "Odpowiadaj krótko i konkretnie."
+            ),
+            allowed_tools=[
+                "odoo_search", "odoo_schema", "odoo_create",
+                "search_knowledge_base", "scaffold_module",
+                "read_odoo_log", "search_odoo_code",
+            ],
+            red_flags=[],
+            recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
+        )
+    except Exception as e:
+        print(f"Błąd konfiguracji Skilla: {str(e)}")
+        sys.exit(1)
 
-    if command == "serve":
-        run_migrations()
-        print("Starting FastAPI server...")
-        uvicorn.run("smartmyodoo.api:app", host=args.host, port=args.port, reload=False)
+    def callback(message: str) -> dict:
+        # Aktualizuj session_id w executor (może się zmienić po /sessions)
+        executor.session_id = cli.session_id
+        return executor.execute(config, message)
 
-    elif command == "mcp":
-        from smartmyodoo.mcp.server import serve as mcp_serve
-
-        mcp_serve()
-
-    elif command == "vault":
-        print(f"Vault action {args.action} not yet implemented via CLI.")
+    # ── CLI z historią sesji ──
+    cli = InteractiveCLI(
+        callback=callback,
+        chat_repo=chat_repo,
+        workspace_id=workspace_id,
+        session_id=session_id,
+    )
+    try:
+        cli.run()
+    finally:
+        db_session.close()
 
 
 if __name__ == "__main__":
     main()
+

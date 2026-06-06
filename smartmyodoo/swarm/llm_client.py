@@ -1,56 +1,50 @@
 """
 LLM Client Factory dla SmartMyOdoo Swarm.
-Obsługuje komunikację z OpenRouter API.
+Obsługuje komunikację z modelami (domyślnie OpenRouter) za pomocą litellm.
 Wzorzec: Fallback — brak klucza API = None → Dispatcher używa heurystyk.
 """
 
 import logging
-from typing import Optional
+import os
+from typing import Optional, List, Dict, Any
 
-import httpx
+import litellm
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "meta-llama/llama-3.1-8b-instruct"
-
+DEFAULT_MODEL = "openrouter/meta-llama/llama-3.1-8b-instruct"
 
 class OpenRouterClient:
-    """Klient HTTP do komunikacji z OpenRouter API."""
+    """Klient LLM wykorzystujący litellm do komunikacji (domyślnie OpenRouter)."""
 
     def __init__(self, api_key: str, model: str = DEFAULT_MODEL):
         self.api_key = api_key
         self.model = model
+        # Wymagane przez litellm dla providera OpenRouter
+        os.environ["OPENROUTER_API_KEY"] = api_key
+        # Dodatkowe headery
+        litellm.headers = {"HTTP-Referer": "http://localhost:8000", "X-Title": "SmartMyOdoo Agent"}  # type: ignore
 
-    def chat(self, prompt: str) -> str:
+    def chat(self, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> Any:
         """
-        Wysyła prompt do OpenRouter i zwraca surowy tekst odpowiedzi.
-        W przypadku błędu zwraca pusty string (Dispatcher fallback na H).
+        Wysyła messages do LLM via litellm. Obsługuje tool calling.
+        Zwraca pełny obiekt odpowiedzi litellm. W przypadku błędu zwraca None.
         """
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:8000",
-            "X-Title": "SmartMyOdoo Agent",
-        }
-        payload = {
-            "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 100,
-            "temperature": 0.1,
-        }
-
         try:
-            with httpx.Client(timeout=15.0) as client:
-                response = client.post(
-                    OPENROUTER_API_URL, headers=headers, json=payload
-                )
-                response.raise_for_status()
-                data = response.json()
-                return data["choices"][0]["message"]["content"].strip()
+            kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.1,
+                "max_tokens": 1000,
+            }
+            if tools:
+                kwargs["tools"] = tools
+
+            response = litellm.completion(**kwargs)
+            return response
         except Exception as e:
-            logger.warning(f"[LLM] Błąd komunikacji z OpenRouter: {e}")
-            return ""
+            logger.warning(f"[LLM] Błąd komunikacji z modelem: {e}")
+            return None
 
 
 def create_client(api_key: Optional[str] = None) -> Optional[OpenRouterClient]:

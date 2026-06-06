@@ -43,6 +43,7 @@
     <script src="js/components/sidebar.js" defer></script>
     <script src="js/components/canvas.js" defer></script>
     <script src="js/components/chat.js" defer></script>
+    <script src="js/components/activity.js" defer></script>
 </head>
 <body class="h-screen w-full bg-[#0f172a] text-slate-200 overflow-hidden">
 
@@ -89,6 +90,7 @@
             <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm">
                 <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
                 <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">💬 Czat</button>
+                <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
                 <button onclick="AppStore.setState({activeTab: 'settings'})" id="tab-settings" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">Ustawienia</button>
             </nav>
 
@@ -139,8 +141,13 @@
     </div>
 
                 <!-- Tab: Czat z Agentem AI -->
-                <div id="chat-screen" class="w-full h-full hidden flex-col">
+                <div id="chat-screen" class="w-full h-full hidden flex-row gap-0 p-0 m-0 !p-0">
                     <!-- Wypełniane przez chat.js -->
+                </div>
+
+                <!-- Tab: Aktywność -->
+                <div id="activity-screen" class="w-full h-full hidden flex-col">
+                    <!-- Wypełniane przez activity.js -->
                 </div>
 
                 <!-- Tab: Ustawienia -->
@@ -162,7 +169,19 @@
                             </div>
 
                             <div class="pt-4 border-t border-slate-800">
-                                <button type="button" onclick="AppStore.setState({activeTab: 'secrets'})" class="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
+                                <label class="block text-sm font-medium text-slate-400 mb-1">Powiązane Zadanie Odoo (Karty Pracy)</label>
+                                <div class="flex gap-2 mb-2">
+                                    <input type="text" id="settings-task-name" readonly placeholder="Brak przypisanego zadania" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-slate-300">
+                                    <input type="hidden" id="settings-task-ref">
+                                    <button type="button" onclick="openTaskSearchModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 rounded-lg transition text-sm flex items-center gap-1">
+                                        🔍 Szukaj...
+                                    </button>
+                                </div>
+                                <p class="text-xs text-slate-500">Powiązane zadanie pozwala na automatyczne logowanie czasu pracy (Timesheets) do Odoo.</p>
+                            </div>
+
+                            <div class="pt-4 border-t border-slate-800">
+                                <button type="button" onclick="AppStore.setState({activeTab: 'vault'})" class="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
                                     <span>🔐</span> Zarządzaj poświadczeniami w Vault &rarr;
                                 </button>
                             </div>
@@ -175,6 +194,23 @@
             </main>
         </div>
     </div>
+    </div>
+
+    <!-- Modal Szukania Zadań -->
+    <div id="task-search-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+        <div class="glass-card w-full max-w-lg p-6 relative flex flex-col h-[70vh]">
+            <button onclick="closeTaskSearchModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 class="text-2xl font-bold mb-4 text-gradient">Wybierz Zadanie Odoo</h2>
+            
+            <div class="flex gap-2 mb-4 shrink-0">
+                <input type="text" id="task-search-input" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="Szukaj po nazwie zadania..." onkeydown="if(event.key === 'Enter') searchTasks()">
+                <button onclick="searchTasks()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg transition">Szukaj</button>
+            </div>
+            
+            <div id="task-search-results" class="flex-1 overflow-y-auto space-y-2 pr-2">
+                <div class="text-center py-8 text-slate-500 text-sm">Wpisz frazę aby wyszukać zadania...</div>
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->
@@ -936,6 +972,8 @@
                 document.getElementById('settings-ws-id').value = ws.id;
                 document.getElementById('settings-ws-name').value = ws.name;
                 document.getElementById('settings-ws-url').value = ws.odoo_url || '';
+                document.getElementById('settings-task-ref').value = ws.task_ref || '';
+                document.getElementById('settings-task-name').value = ws.task_name || '';
                 document.getElementById('settings-msg').classList.add('hidden');
             }
         }
@@ -953,6 +991,87 @@
                 });
             }
         });
+        // --- Szukanie Zadań (EP-5.3) ---
+        function openTaskSearchModal() {
+            document.getElementById('task-search-input').value = '';
+            document.getElementById('task-search-results').innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">Wpisz frazę aby wyszukać zadania...</div>';
+            document.getElementById('task-search-modal').classList.remove('hidden');
+            document.getElementById('task-search-modal').classList.add('flex');
+            setTimeout(() => document.getElementById('task-search-input').focus(), 100);
+        }
+
+        function closeTaskSearchModal() {
+            document.getElementById('task-search-modal').classList.add('hidden');
+            document.getElementById('task-search-modal').classList.remove('flex');
+        }
+
+        async function searchTasks() {
+            const query = document.getElementById('task-search-input').value;
+            const wsId = AppStore.getState().workspaceId;
+            const token = AppStore.getState().authToken;
+            const resultsEl = document.getElementById('task-search-results');
+            
+            if (!query) return;
+
+            resultsEl.innerHTML = '<div class="text-center py-8 text-slate-400"><span class="animate-pulse">Szukanie w Odoo...</span></div>';
+            
+            try {
+                const res = await fetch(`/api/workspaces/${wsId}/tasks/search?query=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    const tasks = await res.json();
+                    if (tasks.length === 0) {
+                        resultsEl.innerHTML = '<div class="text-center py-8 text-slate-500">Brak wyników.</div>';
+                        return;
+                    }
+                    
+                    resultsEl.innerHTML = tasks.map(t => {
+                        const projName = t.project_id && t.project_id[1] ? t.project_id[1] : 'Brak projektu';
+                        return `
+                            <button onclick="bindTask('${t.id}', '${t.name.replace(/'/g, "\\'")}')" class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
+                                <div class="font-medium text-white group-hover:text-indigo-300 transition">${t.name}</div>
+                                <div class="text-xs text-slate-500 mt-1">🗂️ ${projName} (ID: ${t.id})</div>
+                            </button>
+                        `;
+                    }).join('');
+                } else {
+                    const err = await res.json();
+                    resultsEl.innerHTML = `<div class="text-center py-8 text-red-400 text-sm">Błąd: ${err.detail || 'Nieznany błąd'}</div>`;
+                }
+            } catch (e) {
+                resultsEl.innerHTML = '<div class="text-center py-8 text-red-400 text-sm">Błąd połączenia.</div>';
+            }
+        }
+
+        async function bindTask(taskId, taskName) {
+            const wsId = AppStore.getState().workspaceId;
+            const token = AppStore.getState().authToken;
+            
+            try {
+                const res = await fetch(`/api/workspaces/${wsId}/task_bind`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ task_ref: taskId, task_name: taskName })
+                });
+                
+                if (res.ok) {
+                    document.getElementById('settings-task-ref').value = taskId;
+                    document.getElementById('settings-task-name').value = taskName;
+                    showToast('✅ Zadanie powiązane pomyślnie!');
+                    closeTaskSearchModal();
+                    if (window.AppSidebar) window.AppSidebar.loadFromAPI();
+                } else {
+                    alert('Błąd przypisywania zadania.');
+                }
+            } catch (e) {
+                alert('Błąd połączenia.');
+            }
+        }
     </script>
 </body>
 </html>
