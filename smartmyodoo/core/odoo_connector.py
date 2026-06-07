@@ -30,11 +30,23 @@ class OdooProjectConnector:
 
         self.models = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/object")
 
-    def execute_kw(self, model: str, method: str, *args, **kwargs):
-        """Helper to execute methods on Odoo models."""
+    def execute_kw(
+        self,
+        model: str,
+        method: str,
+        args: Optional[List] = None,
+        kw: Optional[Dict] = None,
+    ):
+        """Helper to execute methods on Odoo models via XML-RPC."""
         try:
             return self.models.execute_kw(
-                self.db, self.uid, self.password, model, method, *args, **kwargs
+                self.db,
+                self.uid,
+                self.password,
+                model,
+                method,
+                args or [],
+                kw or {},
             )
         except Exception as e:
             raise OdooProjectConnectorError(

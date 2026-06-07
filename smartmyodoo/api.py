@@ -440,7 +440,7 @@ async def search_odoo_projects(
             model="project.project",
             method="search_read",
             args=[domain],
-            kwargs={"fields": ["id", "name"], "limit": 30},
+            kw={"fields": ["id", "name"], "limit": 30},
         )
         return projects
     except vault.VaultDecryptionError:
@@ -467,7 +467,7 @@ async def list_project_tasks(
             model="project.task",
             method="search_read",
             args=[domain],
-            kwargs={"fields": ["id", "name", "stage_id", "user_ids"], "limit": 200},
+            kw={"fields": ["id", "name", "stage_id", "user_ids"], "limit": 200},
         )
         return tasks
     except vault.VaultDecryptionError:
@@ -494,7 +494,7 @@ async def search_odoo_tasks(
             model="project.task",
             method="search_read",
             args=[domain],
-            kwargs={"fields": ["id", "name", "project_id"], "limit": 20},
+            kw={"fields": ["id", "name", "project_id"], "limit": 20},
         )
         return tasks
     except vault.VaultDecryptionError:

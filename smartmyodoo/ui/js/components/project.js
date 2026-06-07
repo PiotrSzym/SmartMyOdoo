@@ -75,17 +75,18 @@ async function connectProject(event) {
     msgEl.className = "text-sm mt-2 text-indigo-400 text-center block";
 
     try {
-        // Zapisz do sejfu (musi pasować do SecretCreateRequest Pydantic)
+        // Zapisz do sejfu jako GLOBALNY klucz (wspólny dla wszystkich workspace'ów)
+        // Credentials do projektów/timesheetów są zawsze te same — jedna instancja Odoo
         const secretPayload = {
             password: password,
             login: login,
             url: url,
             db: db,
             api_key: password,
-            workspace_id: wsId
+            workspace_id: "default"
         };
 
-        const saveRes = await fetch(`/api/secrets/${wsId}_ODOO`, {
+        const saveRes = await fetch(`/api/secrets/default_ODOO`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
