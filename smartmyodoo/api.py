@@ -509,6 +509,8 @@ async def search_odoo_tasks(
 class TimesheetRequest(BaseModel):
     hours: float
     description: str
+    task_id: Optional[int] = None
+    is_nominal: bool = False
 
 
 @app.post("/api/workspaces/{ws_id}/timesheet")
@@ -520,86 +522,19 @@ async def log_timesheet(
 ):
     """Zapisuje wpis czasu pracy (timesheet) do Odoo."""
     ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
-    if not ws or not ws.project_ref or not ws.task_ref:
-        raise HTTPException(
-            status_code=400, detail="Najpierw wybierz projekt i zadanie."
-        )
-
-    vk, _, _ = auth_data
-    try:
-        connector = _get_odoo_connector(vk, ws_id)
-        entry_id = connector.log_timesheet(
-            project_id=int(ws.project_ref),
-            task_id=int(ws.task_ref),
-            hours=payload.hours,
-            description=payload.description,
-        )
-        return {"success": True, "entry_id": entry_id}
-    except vault.VaultDecryptionError:
-        raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.put("/api/workspaces/{ws_id}/task_bind")
-async def bind_workspace_task(
-    ws_id: str,
-    payload: dict,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    """Zapisuje powiązanie projektu + domyślnego zadania."""
-    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
-    if not ws:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-
-    ws.project_ref = payload.get("project_ref", "")
-    ws.project_name = payload.get("project_name", "")
-    ws.task_ref = payload.get("task_ref", "")
-    ws.task_name = payload.get("task_name", "")
-    db.commit()
-    return {
-        "success": True,
-        "project_ref": ws.project_ref,
-        "project_name": ws.project_name,
-        "task_ref": ws.task_ref,
-        "task_name": ws.task_name,
-    }
-
-
-@app.post("/api/workspaces/{ws_id}/log_time")
-async def log_workspace_time(
-    ws_id: str,
-    payload: dict,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
     vk, _, _ = auth_data
     try:
-        vault_data = vault.load_vault(vk)
-        secret_key = f"{ws_id}_ODOO"
-        if secret_key not in vault_data:
-            raise HTTPException(
-                status_code=400, detail="Brak poświadczeń Odoo w sejfie"
-            )
-
-        # Jeśli wymuszamy auto-logowanie, a brak task_ref, stwórzmy domyślne zadanie
         connector = _get_odoo_connector(vk, ws_id)
 
-        task_id = payload.get("task_id")
-        is_nominal = payload.get("is_nominal", False)
+        task_id = payload.task_id
+        is_nominal = payload.is_nominal
 
-        # Jeśli nie nominalny, to automatyczny - idzie na domyślny task z workspace
         if not is_nominal and not task_id:
-            task_id = ws.task_ref
+            task_id = int(ws.task_ref) if ws.task_ref else None
 
-            # Auto-create if not present
             if not task_id and ws.project_ref:
                 try:
                     task_id = connector.create_task(
@@ -618,18 +553,56 @@ async def log_workspace_time(
                 status_code=400, detail="Brak ID zadania (task_id) dla logowania czasu."
             )
 
-        project_id = payload.get("project_id") or ws.project_ref
-        res = connector.log_timesheet(
-            project_id=int(project_id) if project_id else False,
+        project_id = ws.project_ref
+        if not project_id:
+            raise HTTPException(status_code=400, detail="Najpierw wybierz projekt.")
+
+        entry_id = connector.log_timesheet(
+            project_id=int(project_id),
             task_id=int(task_id),
-            hours=payload.get("hours", 0.0),
-            description=payload.get("description", "Praca agenta AI"),
+            hours=payload.hours,
+            description=payload.description,
         )
-        return {"success": True, "timesheet_id": res}
+        return {"success": True, "timesheet_id": entry_id}
     except vault.VaultDecryptionError:
         raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class TaskBindRequest(BaseModel):
+    project_ref: str
+    project_name: str
+    task_ref: str = ""
+    task_name: str = ""
+
+
+@app.put("/api/workspaces/{ws_id}/task_bind")
+async def bind_workspace_task(
+    ws_id: str,
+    payload: TaskBindRequest,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Zapisuje powiązanie projektu + domyślnego zadania."""
+    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    ws.project_ref = payload.project_ref  # type: ignore
+    ws.project_name = payload.project_name  # type: ignore
+    ws.task_ref = payload.task_ref  # type: ignore
+    ws.task_name = payload.task_name  # type: ignore
+    db.commit()
+    return {
+        "success": True,
+        "project_ref": ws.project_ref,
+        "project_name": ws.project_name,
+        "task_ref": ws.task_ref,
+        "task_name": ws.task_name,
+    }
 
 
 @app.post("/api/workspaces")

@@ -7,21 +7,28 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 
+
 class InteractiveCLI:
-    def __init__(self, callback, chat_repo=None, workspace_id="default", session_id=None):
+    def __init__(
+        self, callback, chat_repo=None, workspace_id="default", session_id=None
+    ):
         self.console = Console()
         self.callback = callback
         self.chat_repo = chat_repo
         self.workspace_id = workspace_id
         self.session_id = session_id or f"cli-{int(time.time())}"
-        self.style = Style.from_dict({
-            'prompt': '#00ff00 bold',
-        })
+        self.style = Style.from_dict(
+            {
+                "prompt": "#00ff00 bold",
+            }
+        )
         self.session = PromptSession(style=self.style)
 
     def print_agent_response(self, text: str, tools_used: list | None = None):
         if tools_used:
-            self.console.print(f"[dim italic]Tools used: {', '.join(tools_used)}[/dim italic]")
+            self.console.print(
+                f"[dim italic]Tools used: {', '.join(tools_used)}[/dim italic]"
+            )
         md = Markdown(text)
         self.console.print(Panel(md, title="SmartMyOdoo Agent", border_style="blue"))
 
@@ -35,7 +42,9 @@ class InteractiveCLI:
 
         sessions = self.chat_repo.list_sessions(self.workspace_id, limit=5)
         if not sessions:
-            self.console.print("[dim]Brak wcześniejszych sesji w tym workspace.[/dim]\n")
+            self.console.print(
+                "[dim]Brak wcześniejszych sesji w tym workspace.[/dim]\n"
+            )
             return
 
         table = Table(title="📋 Ostatnie sesje", border_style="dim", show_lines=False)
@@ -58,18 +67,28 @@ class InteractiveCLI:
 
         # Zapytaj czy kontynuować ostatnią sesję
         try:
-            choice = self.session.prompt(
-                [('class:prompt', 'Kontynuować ostatnią sesję? (y/N/numer): ')]
-            ).strip().lower()
+            choice = (
+                self.session.prompt(
+                    [("class:prompt", "Kontynuować ostatnią sesję? (y/N/numer): ")]
+                )
+                .strip()
+                .lower()
+            )
 
-            if choice == 'y' and sessions:
+            if choice == "y" and sessions:
                 self.session_id = sessions[0]["session_id"]
-                self.console.print(f"[green]✓ Wznowiono sesję: {self.session_id[:10]}...[/green]\n")
+                self.console.print(
+                    f"[green]✓ Wznowiono sesję: {self.session_id[:10]}...[/green]\n"
+                )
             elif choice.isdigit() and 1 <= int(choice) <= len(sessions):
                 self.session_id = sessions[int(choice) - 1]["session_id"]
-                self.console.print(f"[green]✓ Załadowano sesję: {self.session_id[:10]}...[/green]\n")
+                self.console.print(
+                    f"[green]✓ Załadowano sesję: {self.session_id[:10]}...[/green]\n"
+                )
             else:
-                self.console.print(f"[cyan]→ Nowa sesja: {self.session_id[:10]}...[/cyan]\n")
+                self.console.print(
+                    f"[cyan]→ Nowa sesja: {self.session_id[:10]}...[/cyan]\n"
+                )
         except (KeyboardInterrupt, EOFError):
             pass
 
@@ -89,22 +108,26 @@ class InteractiveCLI:
 
         while True:
             try:
-                user_input = self.session.prompt([('class:prompt', 'You: ')])
-                if user_input.strip().lower() in ['exit', 'quit']:
+                user_input = self.session.prompt([("class:prompt", "You: ")])
+                if user_input.strip().lower() in ["exit", "quit"]:
                     break
                 if not user_input.strip():
                     continue
 
                 # Komendy specjalne
-                if user_input.strip() == '/sessions':
+                if user_input.strip() == "/sessions":
                     self._show_previous_sessions()
                     continue
-                
+
                 # Oznaczenie że system pracuje
-                with self.console.status("[bold cyan]Agent myśli...[/bold cyan]", spinner="dots"):
+                with self.console.status(
+                    "[bold cyan]Agent myśli...[/bold cyan]", spinner="dots"
+                ):
                     result = self.callback(user_input)
-                
-                self.print_agent_response(result.get("response", ""), result.get("tools_used", []))
+
+                self.print_agent_response(
+                    result.get("response", ""), result.get("tools_used", [])
+                )
 
             except KeyboardInterrupt:
                 continue
@@ -112,4 +135,3 @@ class InteractiveCLI:
                 break
             except Exception as e:
                 self.print_error(str(e))
-

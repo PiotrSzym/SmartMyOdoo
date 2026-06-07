@@ -14,11 +14,13 @@ def main():
     # ── Database setup ──
     from smartmyodoo.core.database import engine, SessionLocal
     from smartmyodoo.core import models as db_models
+
     db_models.Base.metadata.create_all(bind=engine)
     db_session = SessionLocal()
 
     # ── Chat Repository (EP-1: Historia chatów) ──
     from smartmyodoo.core.chat_repository import ChatRepository
+
     chat_repo = ChatRepository(db=db_session)
 
     workspace_id = os.environ.get("SMARTMYODOO_WORKSPACE", "default")
@@ -53,9 +55,13 @@ def main():
                 "Odpowiadaj krótko i konkretnie."
             ),
             allowed_tools=[
-                "odoo_search", "odoo_schema", "odoo_create",
-                "search_knowledge_base", "scaffold_module",
-                "read_odoo_log", "search_odoo_code",
+                "odoo_search",
+                "odoo_schema",
+                "odoo_create",
+                "search_knowledge_base",
+                "scaffold_module",
+                "read_odoo_log",
+                "search_odoo_code",
             ],
             red_flags=[],
             recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
@@ -84,4 +90,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

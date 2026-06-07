@@ -9,9 +9,11 @@ class Workspace(Base):
     name = Column(String, nullable=False)
     odoo_url = Column(String, default="")
     position = Column(Integer, default=0)
-    project_ref = Column(String, default="")  # Odoo project.project ID
+    project_ref = Column(String, default="", nullable=True)  # Odoo project.project ID
     project_name = Column(String, default="")  # Cached project display name
-    task_ref = Column(String, default="")  # Odoo project.task ID (domyślne zadanie)
+    task_ref = Column(
+        String, default="", nullable=True
+    )  # Odoo project.task ID (domyślne zadanie)
     task_name = Column(String, default="")  # Cached task display name
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

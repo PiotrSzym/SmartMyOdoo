@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "openrouter/meta-llama/llama-3.1-8b-instruct"
 
+
 class OpenRouterClient:
     """Klient LLM wykorzystujący litellm do komunikacji (domyślnie OpenRouter)."""
 
@@ -23,9 +24,16 @@ class OpenRouterClient:
         # Wymagane przez litellm dla providera OpenRouter
         os.environ["OPENROUTER_API_KEY"] = api_key
         # Dodatkowe headery
-        litellm.headers = {"HTTP-Referer": "http://localhost:8000", "X-Title": "SmartMyOdoo Agent"}  # type: ignore
+        litellm.headers = {
+            "HTTP-Referer": "http://localhost:8000",
+            "X-Title": "SmartMyOdoo Agent",
+        }  # type: ignore
 
-    def chat(self, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> Any:
+    def chat(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> Any:
         """
         Wysyła messages do LLM via litellm. Obsługuje tool calling.
         Zwraca pełny obiekt odpowiedzi litellm. W przypadku błędu zwraca None.

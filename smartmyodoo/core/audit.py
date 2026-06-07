@@ -51,12 +51,14 @@ def log_tool_call(
 ) -> None:
     """Loguje wywołanie narzędzia do tabeli AuditLog."""
     status = "OK" if success else "ERROR"
-    details = _sanitize_details({
-        "tool": tool_name,
-        "args": args,
-        "result_preview": str(result)[:200],
-        "status": status,
-    })
+    details = _sanitize_details(
+        {
+            "tool": tool_name,
+            "args": args,
+            "result_preview": str(result)[:200],
+            "status": status,
+        }
+    )
 
     entry = AuditLog(
         workspace_id=workspace_id,

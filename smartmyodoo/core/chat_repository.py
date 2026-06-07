@@ -150,7 +150,7 @@ class ChatRepository:
                     {
                         "role": "system",
                         "content": f"[Poprzednia sesja ({s['session_id'][:8]}...): "
-                        f"Użytkownik pytał: \"{s['preview']}\" "
+                        f'Użytkownik pytał: "{s["preview"]}" '
                         f"({s['message_count']} wiadomości)]",
                     }
                 )

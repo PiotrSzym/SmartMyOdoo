@@ -50,12 +50,16 @@ tmp/
 logs/
 *.log
 *.sqlite3
+
 *.db
 *.db-shm
 *.db-wal
 *.db.bak.*
 
-*.db
-*.db-wal
-*.db-shm
+# ------------------------------------------------------------------------------
+# 5. Debug & Test Artifacts
+# ------------------------------------------------------------------------------
+screenshot*.png
+diff.txt
+check_vault.py
 smartmyodoo.db*
