@@ -1,5 +1,8 @@
 // --- project.js ---
-// Obsługa dwustanowej zakładki Projekt (Credentials / Task Picker)
+// Obsługa 3-stanowej zakładki Projekt:
+//   Stan 1: Formularz credentials (jeśli brak default_ODOO)
+//   Stan 2: Wybór projektu (lista projektów z Odoo)
+//   Stan 3: Task Picker + Karta Czasu Pracy
 
 function escapeHtml(s) {
     if (!s) return '';
@@ -21,44 +24,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ── Helpers: State Visibility ────────────────────────────────────────────────
+
+function showState(n) {
+    [1, 2, 3].forEach(i => {
+        const el = document.getElementById(`project-state-${i}`);
+        if (!el) return;
+        if (i === n) {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        } else {
+            el.classList.add('hidden');
+            el.classList.remove('flex', 'block');
+        }
+    });
+}
+
+// ── RENDER: Główna logika stanu ──────────────────────────────────────────────
+
 async function renderProjectTab() {
     const wsId = AppStore.getState().workspaceId;
-    if (!wsId || wsId === 'default') {
-        // Hide both states or show a message
-        document.getElementById('project-state-1').classList.add('hidden');
-        document.getElementById('project-state-2').classList.add('hidden');
+    if (!wsId) {
+        showState(1);
         return;
     }
 
-    // Pobierz informacje o workspace z Sidebar (SSoT)
+    // Pobierz workspace z Sidebar (SSoT)
     const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
     const ws = workspaces.find(w => w.id === wsId);
 
     if (ws && ws.project_ref) {
-        // STAN 2: Task Picker
-        document.getElementById('project-state-1').classList.add('hidden');
-        document.getElementById('project-state-1').classList.remove('block');
-
-        document.getElementById('project-state-2').classList.remove('hidden');
-        document.getElementById('project-state-2').classList.add('flex');
-
+        // STAN 3: Projekt wybrany → Task Picker + Timesheet
+        showState(3);
         document.getElementById('active-project-name').innerText = ws.project_name || `Projekt ID: ${ws.project_ref}`;
         document.getElementById('active-task-name').innerText = ws.task_name || 'Brak domyślnego zadania';
-
         loadProjectTasks(ws.project_ref);
     } else {
-        // STAN 1: Formularz poświadczeń
-        document.getElementById('project-state-2').classList.add('hidden');
-        document.getElementById('project-state-2').classList.remove('flex');
-
-        document.getElementById('project-state-1').classList.remove('hidden');
-        document.getElementById('project-state-1').classList.add('block');
-
-        // Zresetuj formularz
-        document.getElementById('project-credentials-form').reset();
-        document.getElementById('proj-connect-msg').classList.add('hidden');
+        // Sprawdź czy mamy credentials w sejfie (default_ODOO)
+        const token = AppStore.getState().authToken;
+        try {
+            const secretsRes = await fetch(`/api/secrets?workspace_id=${wsId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (secretsRes.ok) {
+                const secrets = await secretsRes.json();
+                // Szukaj default_ODOO lub {wsId}_ODOO
+                const hasOdoo = secrets.hasOwnProperty('default_ODOO') || secrets.hasOwnProperty(`${wsId}_ODOO`);
+                if (hasOdoo) {
+                    // Mamy credentials → STAN 2: Wybór projektu
+                    showState(2);
+                    loadProjectList();
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Błąd sprawdzania sejfu:', e);
+        }
+        // Brak credentials → STAN 1: Formularz
+        showState(1);
+        const form = document.getElementById('project-credentials-form');
+        if (form) form.reset();
+        const msg = document.getElementById('proj-connect-msg');
+        if (msg) msg.classList.add('hidden');
     }
 }
+
+// ── STAN 1: Połączenie z Odoo ────────────────────────────────────────────────
 
 async function connectProject(event) {
     event.preventDefault();
@@ -76,7 +107,6 @@ async function connectProject(event) {
 
     try {
         // Zapisz do sejfu jako GLOBALNY klucz (wspólny dla wszystkich workspace'ów)
-        // Credentials do projektów/timesheetów są zawsze te same — jedna instancja Odoo
         const secretPayload = {
             password: password,
             login: login,
@@ -97,33 +127,89 @@ async function connectProject(event) {
 
         if (!saveRes.ok) throw new Error("Nie udało się zapisać w sejfie.");
 
-        // Spróbuj pobrać projekty aby zweryfikować połączenie
-        const projRes = await fetch(`/api/workspaces/${wsId}/projects/search?query=`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!projRes.ok) {
-            const err = await projRes.json();
-            throw new Error(`Błąd Odoo: ${err.detail}`);
-        }
-
-        const projects = await projRes.json();
-        if (projects.length === 0) {
-            throw new Error("Połączono, ale nie znaleziono żadnych projektów w Odoo.");
-        }
-
-        // Automatycznie przypisz pierwszy projekt (lub pozwól userowi wybrać w przyszłości)
-        // Dla uproszczenia (F7-01) bierzemy pierwszy aktywny projekt
-        const project = projects[0];
-
-        // Bind project to workspace (bez tasku na razie)
-        await bindProjectToWorkspace(project.id, project.name);
+        // Po zapisaniu → pokaż Stan 2 (wybór projektu)
+        showState(2);
+        loadProjectList();
 
     } catch (e) {
         msgEl.innerText = e.message;
         msgEl.className = "text-sm mt-2 text-red-400 text-center block";
     }
 }
+
+// ── STAN 2: Wybór Projektu ───────────────────────────────────────────────────
+
+async function loadProjectList() {
+    const wsId = AppStore.getState().workspaceId;
+    const token = AppStore.getState().authToken;
+    const listEl = document.getElementById('proj-project-list');
+
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="text-center py-4 text-slate-500 animate-pulse">Ładowanie projektów z Odoo...</div>';
+
+    try {
+        const res = await fetch(`/api/workspaces/${wsId}/projects/search?query=`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            listEl.innerHTML = `<div class="text-center py-4 text-red-400">Błąd: ${escapeHtml(err.detail || 'Nieznany błąd')}</div>`;
+            return;
+        }
+
+        window._currentProjectList = await res.json();
+        renderProjectList(window._currentProjectList);
+    } catch (e) {
+        listEl.innerHTML = '<div class="text-center py-4 text-red-400">Błąd połączenia z Odoo.</div>';
+    }
+}
+
+function renderProjectList(projects, filterQuery = '') {
+    const listEl = document.getElementById('proj-project-list');
+    if (!listEl) return;
+
+    if (!projects || projects.length === 0) {
+        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak projektów w Odoo.</div>';
+        return;
+    }
+
+    const query = filterQuery.toLowerCase();
+    const filtered = projects.filter(p => p.name.toLowerCase().includes(query));
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak wyników.</div>';
+        return;
+    }
+
+    listEl.innerHTML = filtered.map(p => {
+        const safeName = escapeHtml(p.name);
+        const safeId = escapeHtml(String(p.id));
+        return `
+            <button onclick="selectProject('${safeId}', '${safeName.replace(/'/g, "\\\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-indigo-900/40 border border-slate-700 hover:border-indigo-500 p-4 rounded-lg transition group">
+                <div class="text-left flex items-center gap-3">
+                    <span class="text-2xl">📁</span>
+                    <div>
+                        <div class="font-semibold text-white group-hover:text-indigo-300 transition">${safeName}</div>
+                        <div class="text-xs text-slate-500">ID: ${safeId}</div>
+                    </div>
+                </div>
+                <span class="text-indigo-400 opacity-0 group-hover:opacity-100 transition">Wybierz →</span>
+            </button>
+        `;
+    }).join('');
+}
+
+function filterProjectList() {
+    const query = document.getElementById('proj-project-search').value;
+    renderProjectList(window._currentProjectList || [], query);
+}
+
+async function selectProject(projectId, projectName) {
+    await bindProjectToWorkspace(projectId, projectName);
+}
+
+// ── STAN 3: Task Picker + Timesheet ──────────────────────────────────────────
 
 async function bindProjectToWorkspace(projectId, projectName) {
     const wsId = AppStore.getState().workspaceId;
@@ -145,7 +231,6 @@ async function bindProjectToWorkspace(projectId, projectName) {
         });
 
         if (res.ok) {
-            // Reload workspaces and re-render
             window.AppSidebar && await window.AppSidebar.loadFromAPI();
             renderProjectTab();
         }
@@ -193,7 +278,6 @@ function renderTaskList(tasks, filterQuery = '') {
         return;
     }
 
-    // Sort tasks: smartmyodoo task first, then others
     filtered.sort((a, b) => {
         if (a.name.includes('[SmartMyOdoo]')) return -1;
         if (b.name.includes('[SmartMyOdoo]')) return 1;
@@ -205,7 +289,7 @@ function renderTaskList(tasks, filterQuery = '') {
         const safeName = escapeHtml(t.name);
         const safeId = escapeHtml(String(t.id));
         return `
-            <button onclick="bindTaskFromPicker('${safeId}', '${safeName.replace(/'/g, "\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
+            <button onclick="bindTaskFromPicker('${safeId}', '${safeName.replace(/'/g, "\\\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
                 <div class="text-left">
                     <div class="font-medium ${isAutoLog ? 'text-indigo-400' : 'text-white'} group-hover:text-indigo-300 transition flex items-center gap-2">
                         ${isAutoLog ? '🤖' : '📋'} ${safeName}
@@ -226,7 +310,6 @@ async function bindTaskFromPicker(taskId, taskName) {
     const wsId = AppStore.getState().workspaceId;
     const token = AppStore.getState().authToken;
 
-    // Z zachowaniem aktualnego projektu (czytamy z Sidebar SSoT)
     const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
     const ws = workspaces.find(w => w.id === wsId);
 
@@ -254,8 +337,66 @@ async function bindTaskFromPicker(taskId, taskName) {
     }
 }
 
+// ── Timesheet: Wpis czasu pracy ──────────────────────────────────────────────
+
+async function logTimesheetEntry(event) {
+    event.preventDefault();
+    const wsId = AppStore.getState().workspaceId;
+    const token = AppStore.getState().authToken;
+
+    const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
+    const ws = workspaces.find(w => w.id === wsId);
+
+    if (!ws || !ws.project_ref || !ws.task_ref) {
+        alert("Najpierw wybierz projekt i domyślne zadanie!");
+        return;
+    }
+
+    const hours = parseFloat(document.getElementById('ts-hours').value);
+    const description = document.getElementById('ts-description').value;
+    const msgEl = document.getElementById('ts-msg');
+
+    msgEl.innerText = "Zapisywanie do Odoo...";
+    msgEl.className = "text-sm mt-1 text-emerald-400 text-center block";
+
+    try {
+        const res = await fetch(`/api/workspaces/${wsId}/timesheet`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                hours: hours,
+                description: description
+            })
+        });
+
+        if (res.ok) {
+            msgEl.innerText = `✅ Zapisano ${hours}h do zadania "${ws.task_name}"`;
+            msgEl.className = "text-sm mt-1 text-emerald-400 text-center block";
+            document.getElementById('ts-description').value = '';
+        } else {
+            const err = await res.json();
+            msgEl.innerText = `❌ ${err.detail || 'Błąd zapisu'}`;
+            msgEl.className = "text-sm mt-1 text-red-400 text-center block";
+        }
+    } catch (e) {
+        msgEl.innerText = "❌ Błąd połączenia";
+        msgEl.className = "text-sm mt-1 text-red-400 text-center block";
+    }
+}
+
+// ── Nawigacja między stanami ─────────────────────────────────────────────────
+
+function goBackToProjectPicker() {
+    // Wróć do Stanu 2 (wybór projektu) bez resetowania credentials
+    showState(2);
+    loadProjectList();
+}
+
 function resetProjectState() {
     if(confirm("Czy na pewno chcesz odpiąć obecny projekt i zadanie? Wprowadzone hasła zostaną w sejfie, ale musisz wybrać projekt ponownie.")) {
-        bindProjectToWorkspace("", ""); // Puste = reset
+        bindProjectToWorkspace("", ""); // Puste = reset → pokaże Stan 2
     }
 }

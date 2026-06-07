@@ -2,6 +2,7 @@ import os
 import datetime
 import json
 from typing import Dict, Any, Tuple, Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -497,6 +498,43 @@ async def search_odoo_tasks(
             kw={"fields": ["id", "name", "project_id"], "limit": 20},
         )
         return tasks
+    except vault.VaultDecryptionError:
+        raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TimesheetRequest(BaseModel):
+    hours: float
+    description: str
+
+
+@app.post("/api/workspaces/{ws_id}/timesheet")
+async def log_timesheet(
+    ws_id: str,
+    payload: TimesheetRequest,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Zapisuje wpis czasu pracy (timesheet) do Odoo."""
+    ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
+    if not ws or not ws.project_ref or not ws.task_ref:
+        raise HTTPException(
+            status_code=400, detail="Najpierw wybierz projekt i zadanie."
+        )
+
+    vk, _, _ = auth_data
+    try:
+        connector = _get_odoo_connector(vk, ws_id)
+        entry_id = connector.log_timesheet(
+            project_id=int(ws.project_ref),
+            task_id=int(ws.task_ref),
+            hours=payload.hours,
+            description=payload.description,
+        )
+        return {"success": True, "entry_id": entry_id}
     except vault.VaultDecryptionError:
         raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
     except HTTPException:

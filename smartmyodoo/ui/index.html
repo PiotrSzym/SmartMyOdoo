@@ -46,7 +46,7 @@
     <script src="js/components/canvas.js" defer></script>
     <script src="js/components/chat.js?v=2" defer></script>
     <script src="js/components/activity.js" defer></script>
-    <script src="js/components/project.js?v=3" defer></script>
+    <script src="js/components/project.js?v=4" defer></script>
 </head>
 <body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
@@ -165,7 +165,7 @@
                 <div id="settings-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
                     <h1 class="text-4xl font-bold text-gradient mb-4">Projekt</h1>
 
-                    <!-- STAN 1: Poświadczenia (widoczny jeśli brak projektu) -->
+                    <!-- STAN 1: Poświadczenia (widoczny jeśli brak default_ODOO) -->
                     <div id="project-state-1" class="glass-card p-6 block">
                         <h2 class="text-xl font-semibold text-white mb-4">Połączenie z Odoo</h2>
                         <form id="project-credentials-form" onsubmit="connectProject(event)" class="space-y-4">
@@ -192,8 +192,24 @@
                         </form>
                     </div>
 
-                    <!-- STAN 2: Task Picker (widoczny jeśli projekt ustawiony) -->
+                    <!-- STAN 2: Wybór Projektu (widoczny po połączeniu, przed wybraniem projektu) -->
                     <div id="project-state-2" class="hidden flex-col gap-4">
+                        <div class="glass-card p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl font-semibold text-white">Wybierz Projekt</h2>
+                                <div class="flex gap-2 items-center">
+                                    <input type="text" id="proj-project-search" onkeyup="filterProjectList()" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-3 text-sm text-white focus:outline-none focus:border-indigo-500 w-64" placeholder="Szukaj projektu...">
+                                    <button onclick="resetProjectState()" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition text-sm" title="Zmień dane logowania">🔑 Zmień</button>
+                                </div>
+                            </div>
+                            <div id="proj-project-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                                <!-- Projekty renderowane przez project.js -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STAN 3: Task Picker + Karta Czasu Pracy (widoczny jeśli projekt wybrany) -->
+                    <div id="project-state-3" class="hidden flex-col gap-4">
                         <!-- Banner z nazwą projektu i zadania -->
                         <div class="glass-card p-6 flex justify-between items-center border-l-4 border-indigo-500 bg-indigo-900/10">
                             <div>
@@ -204,9 +220,33 @@
                                     <span id="active-task-name" class="text-indigo-400 font-semibold">Brak</span>
                                 </div>
                             </div>
-                            <button onclick="resetProjectState()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition group" title="Zmień dane logowania">
-                                <span class="group-hover:rotate-90 transition-transform block">⚙️</span>
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="goBackToProjectPicker()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition group" title="Zmień projekt">
+                                    <span class="block">📂</span>
+                                </button>
+                                <button onclick="resetProjectState()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition group" title="Zmień dane logowania">
+                                    <span class="group-hover:rotate-90 transition-transform block">⚙️</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Karta Czasu Pracy -->
+                        <div class="glass-card p-6 border-l-4 border-emerald-500 bg-emerald-900/10">
+                            <h3 class="text-lg font-semibold text-white mb-3">⏱️ Wpis Czasu Pracy</h3>
+                            <form id="timesheet-form" onsubmit="logTimesheetEntry(event)" class="space-y-3">
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-slate-400 mb-1">Godziny</label>
+                                        <input type="number" id="ts-hours" step="0.25" min="0.25" max="24" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-white" required>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-slate-400 mb-1">Opis</label>
+                                        <input type="text" id="ts-description" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-3 text-white" placeholder="Co robiłeś?" required>
+                                    </div>
+                                </div>
+                                <button type="submit" id="btn-log-time" class="bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-6 rounded-lg transition w-full font-semibold">📝 Zapisz czas pracy do Odoo</button>
+                                <p id="ts-msg" class="text-sm mt-1 hidden text-center"></p>
+                            </form>
                         </div>
 
                         <!-- Lista zadań do wyboru domyślnego -->
