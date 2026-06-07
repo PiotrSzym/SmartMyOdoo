@@ -1,6 +1,13 @@
 // --- project.js ---
 // Obsługa dwustanowej zakładki Projekt (Credentials / Task Picker)
 
+function escapeHtml(s) {
+    if (!s) return '';
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (window.AppStore) {
         window.AppStore.subscribe((newState, oldState) => {
@@ -23,8 +30,8 @@ async function renderProjectTab() {
         return;
     }
 
-    // Pobierz informacje o workspace
-    const workspaces = AppStore.getState().workspaces || [];
+    // Pobierz informacje o workspace z Sidebar (SSoT)
+    const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
     const ws = workspaces.find(w => w.id === wsId);
 
     if (ws && ws.project_ref) {
@@ -68,14 +75,14 @@ async function connectProject(event) {
     msgEl.className = "text-sm mt-2 text-indigo-400 text-center block";
 
     try {
-        // Zapisz do sejfu
+        // Zapisz do sejfu (musi pasować do SecretCreateRequest Pydantic)
         const secretPayload = {
-            value: password,
-            metadata: {
-                login: login,
-                url: url,
-                db: db
-            }
+            password: password,
+            login: login,
+            url: url,
+            db: db,
+            api_key: password,
+            workspace_id: wsId
         };
 
         const saveRes = await fetch(`/api/secrets/${wsId}_ODOO`, {
@@ -138,7 +145,7 @@ async function bindProjectToWorkspace(projectId, projectName) {
 
         if (res.ok) {
             // Reload workspaces and re-render
-            window.AppSidebar && await window.AppSidebar.loadWorkspaces();
+            window.AppSidebar && await window.AppSidebar.loadFromAPI();
             renderProjectTab();
         }
     } catch (e) {
@@ -194,14 +201,16 @@ function renderTaskList(tasks, filterQuery = '') {
 
     listEl.innerHTML = filtered.map(t => {
         const isAutoLog = t.name.includes('[SmartMyOdoo]');
+        const safeName = escapeHtml(t.name);
+        const safeId = escapeHtml(String(t.id));
         return `
-            <button onclick="bindTaskFromPicker('${t.id}', '${t.name.replace(/'/g, "\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
+            <button onclick="bindTaskFromPicker('${safeId}', '${safeName.replace(/'/g, "\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
                 <div class="text-left">
                     <div class="font-medium ${isAutoLog ? 'text-indigo-400' : 'text-white'} group-hover:text-indigo-300 transition flex items-center gap-2">
-                        ${isAutoLog ? '🤖' : '📋'} ${t.name}
+                        ${isAutoLog ? '🤖' : '📋'} ${safeName}
                     </div>
                 </div>
-                <div class="text-xs text-slate-500">ID: ${t.id}</div>
+                <div class="text-xs text-slate-500">ID: ${safeId}</div>
             </button>
         `;
     }).join('');
@@ -216,8 +225,8 @@ async function bindTaskFromPicker(taskId, taskName) {
     const wsId = AppStore.getState().workspaceId;
     const token = AppStore.getState().authToken;
 
-    // Z zachowaniem aktualnego projektu
-    const workspaces = AppStore.getState().workspaces || [];
+    // Z zachowaniem aktualnego projektu (czytamy z Sidebar SSoT)
+    const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
     const ws = workspaces.find(w => w.id === wsId);
 
     try {
@@ -236,7 +245,7 @@ async function bindTaskFromPicker(taskId, taskName) {
         });
 
         if (res.ok) {
-            window.AppSidebar && await window.AppSidebar.loadWorkspaces();
+            window.AppSidebar && await window.AppSidebar.loadFromAPI();
             renderProjectTab();
         }
     } catch (e) {

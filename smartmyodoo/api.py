@@ -539,8 +539,8 @@ async def log_workspace_time(
     db: Session = Depends(get_db),
 ):
     ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
-    if not ws or not ws.task_ref:
-        raise HTTPException(status_code=400, detail="Brak powiązanego zadania")
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
     vk, _, _ = auth_data
     try:
