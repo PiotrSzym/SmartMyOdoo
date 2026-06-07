@@ -76,6 +76,7 @@ class ChatRequest(BaseModel):
     active_id: int | None = None
     session_id: str
     workspace_id: str = "default"
+    selected_skills: list[str] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -85,6 +86,7 @@ class ChatResponse(BaseModel):
     category: str | None = None
     persona: str | None = None
     model: str | None = None
+    selected_skills: list[str] | None = None
 
 
 class Proposal(BaseModel):

@@ -47,6 +47,7 @@
     <script src="js/components/chat.js?v=2" defer></script>
     <script src="js/components/activity.js" defer></script>
     <script src="js/components/project.js?v=4" defer></script>
+    <script src="js/components/skills.js" defer></script>
 </head>
 <body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
@@ -97,6 +98,9 @@
                     <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
                     <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
                     <span class="flex items-center gap-2">⚙️ Projekt</span>
+                </button>
+                    <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2">🧠 Skille</span>
                 </button>
                 </div>
                 <div class="flex-1"></div>
@@ -154,6 +158,11 @@
                 <!-- Tab: Czat z Agentem AI -->
                 <div id="chat-screen" class="w-full h-full hidden flex-row gap-0 p-0 m-0 !p-0">
                     <!-- Wypełniane przez chat.js -->
+                </div>
+
+                <!-- Tab: Skille -->
+                <div id="skills-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
+                    <!-- Wypełniane przez skills.js -->
                 </div>
 
                 <!-- Tab: Aktywność -->

@@ -8,7 +8,7 @@ def test_skill_config_valid():
     config = SkillConfig(
         name=SkillName.ODOO_CRUD,
         system_prompt="You are a CRUD expert.",
-        allowed_tools=["xmlrpc"],
+        allowed_tools=["odoo_search", "odoo_create"],
         red_flags=["no_delete"],
         recommended_model="claude-3-5-sonnet",
     )
@@ -25,7 +25,7 @@ def test_skill_config_missing_prompt():
         SkillConfig(
             name=SkillName.ODOO_CRUD,
             system_prompt="",
-            allowed_tools=["xmlrpc"],
+            allowed_tools=["odoo_search"],
             red_flags=[],
             recommended_model="claude-3-5-sonnet",
         )

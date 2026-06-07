@@ -17,6 +17,7 @@ from smartmyodoo.vault import schemas
 from smartmyodoo.swarm.models import (
     ChatRequest,
     ChatResponse,
+    ChatProposalData,
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
 from smartmyodoo.swarm import llm_client
@@ -204,13 +205,106 @@ async def change_pin(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/skills")
+async def get_skills(
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
+    from smartmyodoo.swarm.skills.registry import SKILL_REGISTRY
+
+    skills = []
+    # These match the icons and descriptions provided in the SkillPanel for UI consistency
+    ui_defaults = {
+        "ODOO_BUSINESS_ANALYST": {
+            "icon": "📊",
+            "name": "Business Analyst",
+            "desc": "Standard First — konfiguracja",
+        },
+        "ODOO_DEVELOPER": {
+            "icon": "💻",
+            "name": "Developer",
+            "desc": "_inherit mandatory, no core mod",
+        },
+        "ODOO_DEVOPS_GITHUB": {
+            "icon": "🚀",
+            "name": "DevOps/GitHub",
+            "desc": "Staging Isolation, Feature Branches",
+        },
+        "ODOO_SH_LOGS": {
+            "icon": "📋",
+            "name": "SH Logs",
+            "desc": "Tracebacki bottom-up",
+        },
+        "ODOO_AUDIT_HISTORY": {
+            "icon": "🔍",
+            "name": "Audit History",
+            "desc": "Chatter tracking via mail.message",
+        },
+        "ODOO_CRUD": {"icon": "🗄️", "name": "CRUD", "desc": "Magic Tuples (0,0,{})"},
+        "ODOO_ETL_MANAGER": {
+            "icon": "📦",
+            "name": "ETL Manager",
+            "desc": "Batching 200 rek/req",
+        },
+        "FINANCIAL_AUDIT": {
+            "icon": "💰",
+            "name": "Financial Audit",
+            "desc": "Lock Dates, Credit Note",
+        },
+        "SECURITY_AUDIT": {
+            "icon": "🔒",
+            "name": "Security Audit",
+            "desc": "PII Pseudonymization",
+        },
+        "ODOO_API_EXPERT": {
+            "icon": "🔌",
+            "name": "API Expert",
+            "desc": "API Keys, no auth=public",
+        },
+        "MAGIC_FIX": {
+            "icon": "🪄",
+            "name": "Magic Fix",
+            "desc": "Force unlock, kryzysowe",
+        },
+    }
+
+    for skill_name, config in SKILL_REGISTRY.items():
+        defaults = ui_defaults.get(
+            skill_name.value,
+            {"icon": "🛠️", "name": skill_name.value, "desc": "Brak opisu"},
+        )
+        skills.append(
+            {
+                "id": skill_name.value,
+                "icon": defaults["icon"],
+                "name": defaults["name"],
+                "desc": defaults["desc"],
+                "read_only": config.read_only,
+                "shadow": config.requires_shadow_mode,
+                "human_override": config.requires_human_override,
+            }
+        )
+    return skills
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def handle_chat(
     req: ChatRequest,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    result = dispatcher.classify_intent(req.message)
+    if req.selected_skills:
+        # Bypass Dispatcher
+        category_value = "H"
+        persona_value = "H"
+        recommended_model = "claude-3-opus-20240229"  # Generic fallback if we bypass
+        selected_skills_to_use = req.selected_skills
+    else:
+        # Use Dispatcher
+        result = dispatcher.classify_intent(req.message)
+        category_value = result.category.value
+        persona_value = result.persona.value if result.persona else "H"
+        recommended_model = result.recommended_model
+        selected_skills_to_use = [result.skill_name.value] if result.skill_name else []
 
     PERSONA_REPLIES = {
         "A": "[💻 Developer] Rozumiem — chcesz napisać lub poprawić kod. Przygotowuję rozwiązanie...",
@@ -223,15 +317,50 @@ async def handle_chat(
         "H": "[🤖 Asystent] {message_echo}",
     }
 
-    reply_template = PERSONA_REPLIES.get(result.category.value, PERSONA_REPLIES["H"])
+    reply_template = PERSONA_REPLIES.get(category_value, PERSONA_REPLIES["H"])
     reply_text = reply_template.format(message_echo=req.message)
+
+    if category_value == "B":
+        import uuid
+        import json
+        from smartmyodoo.core.models import Proposal
+
+        proposal_id = str(uuid.uuid4())[:8]
+        proposal = Proposal(
+            id=proposal_id,
+            workspace_id=req.workspace_id,
+            odoo_model="res.partner",
+            method="CREATE",
+            values=json.dumps({"name": "Z wiadomości: " + req.message[:50]}),
+            reason=f"Dispatcher wykrył intencję bazodanową: {req.message[:80]}",
+            status="pending",
+        )
+        db.add(proposal)
+        db.commit()
+
+        return ChatResponse(
+            reply=reply_text,
+            action_type="SHADOW_PROPOSAL",
+            category=category_value,
+            persona=persona_value,
+            model=recommended_model,
+            selected_skills=selected_skills_to_use,
+            proposal_data=ChatProposalData(
+                proposal_id=proposal_id,
+                text=str(proposal.reason),
+                model=str(proposal.odoo_model),
+                method=str(proposal.method),
+                args=[json.loads(str(proposal.values))],
+            ),
+        )
 
     return ChatResponse(
         reply=reply_text,
         action_type="CHAT",
-        category=result.category.value,
-        persona=result.persona.value if result.persona else "H",
-        model=result.recommended_model,
+        category=category_value,
+        persona=persona_value,
+        model=recommended_model,
+        selected_skills=selected_skills_to_use,
     )
 
 

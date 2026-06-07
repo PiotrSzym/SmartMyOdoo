@@ -17,7 +17,7 @@ def test_config():
     return SkillConfig(
         name=SkillName.ODOO_CRUD,
         system_prompt="Test Prompt",
-        allowed_tools=["xmlrpc", "shadow_mode"],
+        allowed_tools=["odoo_search", "odoo_create"],
         red_flags=["DROP TABLE"],
         recommended_model="test-model",
     )
@@ -55,7 +55,7 @@ def test_executor_filters_shadow_mode_for_read_only(mock_llm):
     config = SkillConfig(
         name=SkillName.FINANCIAL_AUDIT,
         system_prompt="Test Prompt",
-        allowed_tools=["xmlrpc_read", "shadow_mode"],
+        allowed_tools=["odoo_search", "odoo_create"],
         red_flags=[],
         read_only=True,
         recommended_model="test-model",

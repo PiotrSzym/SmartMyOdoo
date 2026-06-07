@@ -380,6 +380,11 @@ class ChatPanel {
 
         try {
             const token = window.AppStore.getState().authToken;
+
+            // Get selected skills if the panel is initialized
+            const selectedSkills = window.AppSkills ? window.AppSkills.getSelectedSkills() : [];
+            const reqSelectedSkills = selectedSkills.length > 0 ? selectedSkills : null;
+
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
@@ -393,6 +398,7 @@ class ChatPanel {
                     active_id: null,
                     session_id: this.sessionId,
                     workspace_id: window.AppStore.getState().workspaceId,
+                    selected_skills: reqSelectedSkills
                 })
             });
 
@@ -401,6 +407,14 @@ class ChatPanel {
             }
 
             const data = await res.json();
+
+            // Handle dispatcher feedback
+            if (data.selected_skills && window.AppSkills) {
+                // We clear and update the skill panel with what the backend actually used
+                window.AppSkills.selectedSkills.clear();
+                data.selected_skills.forEach(s => window.AppSkills.selectedSkills.add(s));
+                window.AppSkills.render();
+            }
 
             this.isWaiting = false;
             this.addMessage('agent', data.reply || 'Brak odpowiedzi.', {
