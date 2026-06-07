@@ -49,9 +49,7 @@ class ChatRepository:
         self.db.refresh(msg)
         return msg
 
-    def get_session_messages(
-        self, session_id: str, limit: int = 200
-    ) -> list[dict]:
+    def get_session_messages(self, session_id: str, limit: int = 200) -> list[dict]:
         """Pobierz PEŁNE wiadomości z danej sesji (on-demand load)."""
         rows = (
             self.db.query(ChatMessage)
@@ -65,7 +63,7 @@ class ChatRepository:
                 "id": r.id,
                 "role": r.role,
                 "content": r.content,
-                "metadata": json.loads(r.metadata_json) if r.metadata_json else {},
+                "metadata": json.loads(r.metadata_json) if r.metadata_json else {},  # type: ignore
                 "created_at": r.created_at.isoformat() if r.created_at else "",
             }
             for r in rows
@@ -76,7 +74,7 @@ class ChatRepository:
         Lista sesji per workspace — Smart Context.
         Zwraca skróty (preview) zamiast pełnych wiadomości.
         """
-        from sqlalchemy import func as sa_func, distinct
+        from sqlalchemy import func as sa_func
 
         # Pobierz unikalne session_id z workspace
         session_ids = (
@@ -102,7 +100,7 @@ class ChatRepository:
             )
             preview = ""
             if first_user_msg and first_user_msg.content:
-                preview = first_user_msg.content[:SUMMARY_PREVIEW_LEN]
+                preview = first_user_msg.content[:SUMMARY_PREVIEW_LEN]  # type: ignore
                 if len(first_user_msg.content) > SUMMARY_PREVIEW_LEN:
                     preview += "..."
 
@@ -121,16 +119,22 @@ class ChatRepository:
                 .first()
             )
 
-            sessions.append({
-                "session_id": sid,
-                "preview": preview,
-                "message_count": msg_count,
-                "last_activity": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else "",
-            })
+            sessions.append(
+                {
+                    "session_id": sid,
+                    "preview": preview,
+                    "message_count": msg_count,
+                    "last_activity": last_msg.created_at.isoformat()
+                    if last_msg and last_msg.created_at
+                    else "",
+                }
+            )
 
         return sessions
 
-    def get_smart_context(self, workspace_id: str, current_session_id: str) -> list[dict]:
+    def get_smart_context(
+        self, workspace_id: str, current_session_id: str
+    ) -> list[dict]:
         """
         Smart Context Pattern:
         Ładuje skróty z POPRZEDNICH sesji (nie bieżącej) jako kontekst dla LLM.
@@ -142,12 +146,14 @@ class ChatRepository:
             if s["session_id"] == current_session_id:
                 continue  # Pomiń bieżącą sesję
             if s["preview"]:
-                context_items.append({
-                    "role": "system",
-                    "content": f"[Poprzednia sesja ({s['session_id'][:8]}...): "
-                               f"Użytkownik pytał: \"{s['preview']}\" "
-                               f"({s['message_count']} wiadomości)]",
-                })
+                context_items.append(
+                    {
+                        "role": "system",
+                        "content": f"[Poprzednia sesja ({s['session_id'][:8]}...): "
+                        f"Użytkownik pytał: \"{s['preview']}\" "
+                        f"({s['message_count']} wiadomości)]",
+                    }
+                )
         return context_items
 
     def get_latest_session_id(self, workspace_id: str) -> Optional[str]:

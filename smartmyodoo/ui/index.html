@@ -39,13 +39,16 @@
         .delete-option.selected { background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.4); }
         .delete-option input[type="radio"] { accent-color: #818cf8; }
     </style>
+    <link rel="stylesheet" href="css/theme.css">
     <script src="js/store.js"></script>
-    <script src="js/components/sidebar.js" defer></script>
+    <script src="js/components/theme.js" defer></script>
+    <script src="js/components/sidebar.js?v=2" defer></script>
     <script src="js/components/canvas.js" defer></script>
-    <script src="js/components/chat.js" defer></script>
+    <script src="js/components/chat.js?v=2" defer></script>
     <script src="js/components/activity.js" defer></script>
+    <script src="js/components/project.js" defer></script>
 </head>
-<body class="h-screen w-full bg-[#0f172a] text-slate-200 overflow-hidden">
+<body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
     <!-- Ekran inicjalizacji -->
     <div id="init-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden z-50">
@@ -87,11 +90,19 @@
         <!-- Prawa strona -->
         <div class="flex-1 flex flex-col h-full overflow-hidden relative">
             <!-- ZONA 2: Tab Bar -->
-            <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm">
-                <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
-                <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">💬 Czat</button>
-                <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
-                <button onclick="AppStore.setState({activeTab: 'settings'})" id="tab-settings" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">Ustawienia</button>
+            <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm w-full">
+                <div class="flex items-center gap-2">
+                    <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
+                    <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">💬 Czat</button>
+                    <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
+                    <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
+                    <span class="flex items-center gap-2">⚙️ Projekt</span>
+                </button>
+                </div>
+                <div class="flex-1"></div>
+                <button onclick="window.AppTheme && window.AppTheme.toggle()" id="theme-toggle-btn" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="Zmień motyw">
+                    ☀️
+                </button>
             </nav>
 
             <!-- ZONA 3: Main Canvas -->
@@ -150,45 +161,64 @@
                     <!-- Wypełniane przez activity.js -->
                 </div>
 
-                <!-- Tab: Ustawienia -->
+                <!-- Tab: Projekt (Settings) -->
                 <div id="settings-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
-                    <h1 class="text-4xl font-bold text-gradient mb-4">Ustawienia Przestrzeni</h1>
-                    <div class="glass-card p-6">
-                        <form id="settings-form" onsubmit="saveSettings(event)" class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-400 mb-1">Nazwa Workspace</label>
-                                <input type="text" id="settings-ws-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-400 mb-1">ID (Readonly)</label>
-                                <input type="text" id="settings-ws-id" readonly class="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-slate-500 cursor-not-allowed">
-                            </div>
+                    <h1 class="text-4xl font-bold text-gradient mb-4">Projekt</h1>
+
+                    <!-- STAN 1: Poświadczenia (widoczny jeśli brak projektu) -->
+                    <div id="project-state-1" class="glass-card p-6 block">
+                        <h2 class="text-xl font-semibold text-white mb-4">Połączenie z Odoo</h2>
+                        <form id="project-credentials-form" onsubmit="connectProject(event)" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-400 mb-1">URL Odoo</label>
-                                <input type="url" id="settings-ws-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. http://localhost:8069">
+                                <input type="url" id="proj-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. http://localhost:8069" required>
                             </div>
-
-                            <div class="pt-4 border-t border-slate-800">
-                                <label class="block text-sm font-medium text-slate-400 mb-1">Powiązane Zadanie Odoo (Karty Pracy)</label>
-                                <div class="flex gap-2 mb-2">
-                                    <input type="text" id="settings-task-name" readonly placeholder="Brak przypisanego zadania" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-slate-300">
-                                    <input type="hidden" id="settings-task-ref">
-                                    <button type="button" onclick="openTaskSearchModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 rounded-lg transition text-sm flex items-center gap-1">
-                                        🔍 Szukaj...
-                                    </button>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-400 mb-1">Nazwa Bazy Danych</label>
+                                <input type="text" id="proj-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. smartmyodoo_dev" required>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-1">Login</label>
+                                    <input type="text" id="proj-login" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" required>
                                 </div>
-                                <p class="text-xs text-slate-500">Powiązane zadanie pozwala na automatyczne logowanie czasu pracy (Timesheets) do Odoo.</p>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-400 mb-1">Hasło / API Key</label>
+                                    <input type="password" id="proj-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" required>
+                                </div>
                             </div>
-
-                            <div class="pt-4 border-t border-slate-800">
-                                <button type="button" onclick="AppStore.setState({activeTab: 'vault'})" class="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2">
-                                    <span>🔐</span> Zarządzaj poświadczeniami w Vault &rarr;
-                                </button>
-                            </div>
-
-                            <button type="submit" id="btn-save-settings" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition mt-4">Zapisz Ustawienia</button>
-                            <p id="settings-msg" class="text-sm mt-2 hidden"></p>
+                            <button type="submit" id="btn-connect-project" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition mt-4 w-full">Połącz i Wybierz Projekt</button>
+                            <p id="proj-connect-msg" class="text-sm mt-2 hidden text-center"></p>
                         </form>
+                    </div>
+
+                    <!-- STAN 2: Task Picker (widoczny jeśli projekt ustawiony) -->
+                    <div id="project-state-2" class="hidden flex-col gap-4">
+                        <!-- Banner z nazwą projektu i zadania -->
+                        <div class="glass-card p-6 flex justify-between items-center border-l-4 border-indigo-500 bg-indigo-900/10">
+                            <div>
+                                <p class="text-sm text-slate-400">Aktywny Projekt</p>
+                                <h2 id="active-project-name" class="text-2xl font-bold text-white">Brak</h2>
+                                <div class="mt-2 text-sm">
+                                    <span class="text-slate-400">Domyślne zadanie (Auto-logowanie): </span>
+                                    <span id="active-task-name" class="text-indigo-400 font-semibold">Brak</span>
+                                </div>
+                            </div>
+                            <button onclick="resetProjectState()" class="p-3 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition group" title="Zmień dane logowania">
+                                <span class="group-hover:rotate-90 transition-transform block">⚙️</span>
+                            </button>
+                        </div>
+
+                        <!-- Lista zadań do wyboru domyślnego -->
+                        <div class="glass-card p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-white">Wybierz domyślne zadanie</h3>
+                                <input type="text" id="proj-task-search" onkeyup="filterProjectTasks()" class="bg-slate-900 border border-slate-700 rounded-lg py-1 px-3 text-sm text-white focus:outline-none focus:border-indigo-500 w-64" placeholder="Szukaj zadania...">
+                            </div>
+                            <div id="proj-task-list" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                                <!-- Tasks renderowane przez project.js -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -201,12 +231,12 @@
         <div class="glass-card w-full max-w-lg p-6 relative flex flex-col h-[70vh]">
             <button onclick="closeTaskSearchModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
             <h2 class="text-2xl font-bold mb-4 text-gradient">Wybierz Zadanie Odoo</h2>
-            
+
             <div class="flex gap-2 mb-4 shrink-0">
                 <input type="text" id="task-search-input" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="Szukaj po nazwie zadania..." onkeydown="if(event.key === 'Enter') searchTasks()">
                 <button onclick="searchTasks()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg transition">Szukaj</button>
             </div>
-            
+
             <div id="task-search-results" class="flex-1 overflow-y-auto space-y-2 pr-2">
                 <div class="text-center py-8 text-slate-500 text-sm">Wpisz frazę aby wyszukać zadania...</div>
             </div>
@@ -928,69 +958,8 @@
             _deleteWsId = null;
         }
 
-        // --- Ustawienia Przestrzeni ---
-        async function saveSettings(e) {
-            e.preventDefault();
-            const id = document.getElementById('settings-ws-id').value;
-            const name = document.getElementById('settings-ws-name').value;
-            const url = document.getElementById('settings-ws-url').value;
-            const msgEl = document.getElementById('settings-msg');
+        // --- (Usunięto stare Ustawienia Przestrzeni, logika przeniesiona do project.js) ---
 
-            const token = window.AppStore ? window.AppStore.getState().authToken : "";
-
-            try {
-                const res = await fetch(`/api/workspaces/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ name, odoo_url: url })
-                });
-
-                if (res.ok) {
-                    showToast('Ustawienia zapisane');
-                    msgEl.textContent = 'Zapisano pomyślnie.';
-                    msgEl.className = 'text-sm mt-2 text-green-400 block';
-                    if (window.AppSidebar) window.AppSidebar.loadFromAPI();
-                } else {
-                    const err = await res.json();
-                    msgEl.textContent = err.detail || 'Błąd zapisu.';
-                    msgEl.className = 'text-sm mt-2 text-red-400 block';
-                }
-            } catch (err) {
-                msgEl.textContent = 'Błąd połączenia.';
-                msgEl.className = 'text-sm mt-2 text-red-400 block';
-            }
-        }
-
-        function populateSettingsForm() {
-            if (!window.AppStore || !window.AppSidebar) return;
-            const wsId = window.AppStore.getState().workspaceId;
-            const ws = window.AppSidebar.workspaces.find(w => w.id === wsId);
-            if (ws) {
-                document.getElementById('settings-ws-id').value = ws.id;
-                document.getElementById('settings-ws-name').value = ws.name;
-                document.getElementById('settings-ws-url').value = ws.odoo_url || '';
-                document.getElementById('settings-task-ref').value = ws.task_ref || '';
-                document.getElementById('settings-task-name').value = ws.task_name || '';
-                document.getElementById('settings-msg').classList.add('hidden');
-            }
-        }
-
-        // Hook w Canvas albo Globalnie
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.AppStore) {
-                window.AppStore.subscribe((newState, oldState) => {
-                    if (newState.activeTab === 'settings' && oldState.activeTab !== 'settings') {
-                        populateSettingsForm();
-                    }
-                    if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'settings') {
-                        populateSettingsForm();
-                    }
-                });
-            }
-        });
         // --- Szukanie Zadań (EP-5.3) ---
         function openTaskSearchModal() {
             document.getElementById('task-search-input').value = '';
@@ -1010,23 +979,23 @@
             const wsId = AppStore.getState().workspaceId;
             const token = AppStore.getState().authToken;
             const resultsEl = document.getElementById('task-search-results');
-            
+
             if (!query) return;
 
             resultsEl.innerHTML = '<div class="text-center py-8 text-slate-400"><span class="animate-pulse">Szukanie w Odoo...</span></div>';
-            
+
             try {
                 const res = await fetch(`/api/workspaces/${wsId}/tasks/search?query=${encodeURIComponent(query)}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (res.ok) {
                     const tasks = await res.json();
                     if (tasks.length === 0) {
                         resultsEl.innerHTML = '<div class="text-center py-8 text-slate-500">Brak wyników.</div>';
                         return;
                     }
-                    
+
                     resultsEl.innerHTML = tasks.map(t => {
                         const projName = t.project_id && t.project_id[1] ? t.project_id[1] : 'Brak projektu';
                         return `
@@ -1048,7 +1017,7 @@
         async function bindTask(taskId, taskName) {
             const wsId = AppStore.getState().workspaceId;
             const token = AppStore.getState().authToken;
-            
+
             try {
                 const res = await fetch(`/api/workspaces/${wsId}/task_bind`, {
                     method: 'PUT',
@@ -1058,7 +1027,7 @@
                     },
                     body: JSON.stringify({ task_ref: taskId, task_name: taskName })
                 });
-                
+
                 if (res.ok) {
                     document.getElementById('settings-task-ref').value = taskId;
                     document.getElementById('settings-task-name').value = taskName;

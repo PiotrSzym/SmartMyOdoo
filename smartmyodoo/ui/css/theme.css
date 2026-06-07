@@ -1,0 +1,125 @@
+/* ui/css/theme.css */
+
+/*
+   Wzorzec Light/Dark. Tryb domyślny (brak atrybutu lub dark) jest bazowany na oryginalnym SmartMyOdoo UI.
+   Tryb data-theme="light" nadpisuje kolory Tailwind definiowane sztywno w klasach w sposób bezpieczny.
+*/
+
+:root {
+  --bg-primary: #0f172a;
+  --text-primary: #e2e8f0;
+  --bg-glass: rgba(255, 255, 255, 0.03);
+  --border-glass: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --text-primary: #1e293b;
+  --bg-glass: rgba(255, 255, 255, 0.8);
+  --border-glass: rgba(0, 0, 0, 0.1);
+}
+
+.theme-bg {
+  background-color: var(--bg-primary);
+}
+
+.theme-text {
+  color: var(--text-primary);
+}
+
+/*
+  Bezpieczne nadpisywanie sztywnych klas Tailwind użytych w index.html
+  bez robienia pełnego find & replace.
+*/
+
+:root[data-theme="light"] .bg-slate-900 {
+  background-color: #f1f5f9 !important;
+}
+
+:root[data-theme="light"] .bg-slate-900\/30 {
+  background-color: rgba(241, 245, 249, 0.3) !important;
+}
+
+:root[data-theme="light"] .bg-slate-900\/50 {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+:root[data-theme="light"] .bg-slate-900\/60 {
+  background-color: rgba(241, 245, 249, 0.6) !important;
+}
+
+:root[data-theme="light"] .bg-slate-900\/80 {
+  background-color: rgba(241, 245, 249, 0.8) !important;
+}
+
+:root[data-theme="light"] .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+}
+
+:root[data-theme="light"] .bg-slate-800\/60 {
+  background-color: rgba(226, 232, 240, 0.6) !important;
+}
+
+:root[data-theme="light"] .bg-slate-800\/80 {
+  background-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+:root[data-theme="light"] .bg-slate-700 {
+  background-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .border-slate-800 {
+  border-color: #cbd5e1 !important;
+}
+
+:root[data-theme="light"] .border-slate-700 {
+  border-color: #94a3b8 !important;
+}
+
+:root[data-theme="light"] .border-slate-700\/50 {
+  border-color: rgba(148, 163, 184, 0.5) !important;
+}
+
+:root[data-theme="light"] .text-slate-200 {
+  color: var(--text-primary) !important;
+}
+
+:root[data-theme="light"] .text-slate-300 {
+  color: #334155 !important;
+}
+
+:root[data-theme="light"] .text-slate-400 {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .text-slate-500 {
+  color: #64748b !important;
+}
+
+:root[data-theme="light"] .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme="light"] .text-white {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .hover\:text-slate-200:hover {
+  color: #0f172a !important;
+}
+
+/* Dostosowanie samego Glass Card */
+:root[data-theme="light"] .glass-card {
+  background: var(--bg-glass) !important;
+  border-color: var(--border-glass) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Form input adjustments */
+:root[data-theme="light"] input::placeholder {
+  color: #94a3b8 !important;
+}

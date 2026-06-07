@@ -54,3 +54,8 @@ logs/
 *.db-shm
 *.db-wal
 *.db.bak.*
+
+*.db
+*.db-wal
+*.db-shm
+smartmyodoo.db*

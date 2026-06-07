@@ -148,8 +148,11 @@
 
 ---
 
-## Faza 7: Production Hardening & Client-Server Mode (📋 Planowana)
+## Faza 7: Production Hardening & Client-Server Mode (⏳ W trakcie)
 **Cel:** Stabilizacja, integracja Pipeline FSM z Tool Engine, pełna architektura agentowa i integracja z zewnętrznymi trackerami.
+
+> **Sprint F7-01:** `docs/sprints/2026-06-07_F7-01_projekt_tab_sprint.md`
+> **Zrealizowano (F7-01):** Dwustanowy widok projektu (Credentials / Task Picker), obsługa wielu projektów w jednym Odoo, auto-tworzenie domyślnych zadań ([SmartMyOdoo] Pula czasu roboczego), weryfikacja logiki z prawdziwym testem Playwright (E2E).
 
 ### 7.1 Pipeline Integration
 - Podłączenie Tool Engine do pełnego `pipeline.py` FSM (AUTH→RECON→COGNITIVE→ACTUATION→SYNC).
@@ -164,5 +167,5 @@
 - Dry Run mode (`--dry-run` flag w CLI).
 - Integracja z systemami zewnętrznymi (Jira / Linear) jako Task Pickery.
 - Opcja Knowledge Seeding (Stack Overflow, Odoo Forums).
-- Automatyczne tworzenie logów pracy i zamykanie Timesheetów.
+- ✅ Automatyczne tworzenie logów pracy i zamykanie Timesheetów (Task Binding i Auto-Create Task wdrażane w F7-01).
 - **Stack:** `websockets>=12.0`, `aiohttp>=3.9.0`

@@ -234,8 +234,19 @@ async def handle_chat(
     )
 
 
+# ── EP-Agent: Agent Status API ───────────────────────────────────────────────
+
+
+@app.get("/api/agent/status")
+async def get_agent_status(
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+):
+    """Zwraca obecny status działania agenta (mock na potrzeby UI)."""
+    return {"status": "idle", "task": None, "step": None, "elapsed_s": 0}
+
 
 # ── EP-1: Chat Sessions API ──────────────────────────────────────────────────
+
 
 @app.get("/api/chat/sessions")
 async def get_chat_sessions(
@@ -246,6 +257,7 @@ async def get_chat_sessions(
 ):
     """Lista sesji czatu dla danego workspace (Smart Context)."""
     from smartmyodoo.core.chat_repository import ChatRepository
+
     repo = ChatRepository(db=db)
     return repo.list_sessions(workspace_id, limit=limit)
 
@@ -259,11 +271,13 @@ async def get_session_messages(
 ):
     """Pełna historia wiadomości z konkretnej sesji (on-demand load)."""
     from smartmyodoo.core.chat_repository import ChatRepository
+
     repo = ChatRepository(db=db)
     return repo.get_session_messages(session_id, limit=limit)
 
 
 # ── EP-3: Audit Trail API ────────────────────────────────────────────────────
+
 
 @app.get("/api/audit")
 async def get_audit_log(
@@ -382,13 +396,87 @@ async def get_workspaces(
             "name": w.name,
             "odoo_url": w.odoo_url,
             "position": w.position,
+            "project_ref": w.project_ref,
+            "project_name": w.project_name,
             "task_ref": w.task_ref,
             "task_name": w.task_name,
         }
         for w in wks
     ]
 
-# ── EP-5: Task Binding API ───────────────────────────────────────────────────
+
+# ── EP-5.4: Project + Task Binding API ───────────────────────────────────────
+
+
+def _get_odoo_connector(vk, ws_id):
+    """Helper: pobiera OdooProjectConnector z poświadczeń Vault dla danego workspace."""
+    vault_data = vault.load_vault(vk)
+    secret_key = f"{ws_id}_ODOO"
+    if secret_key not in vault_data:
+        secret_key = "default_ODOO"  # nosec B105
+    if secret_key not in vault_data:
+        raise HTTPException(
+            status_code=400, detail="Brak poświadczeń Odoo w sejfie dla tego workspace."
+        )
+    creds = vault_data[secret_key]
+    from smartmyodoo.core.odoo_connector import OdooProjectConnector
+
+    return OdooProjectConnector(creds)
+
+
+@app.get("/api/workspaces/{ws_id}/projects/search")
+async def search_odoo_projects(
+    ws_id: str,
+    query: str = "",
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Szuka projektów w Odoo (project.project)."""
+    vk, _, _ = auth_data
+    try:
+        connector = _get_odoo_connector(vk, ws_id)
+        domain = [("name", "ilike", query)] if query else []
+        projects = connector.execute_kw(
+            model="project.project",
+            method="search_read",
+            args=[domain],
+            kwargs={"fields": ["id", "name"], "limit": 30},
+        )
+        return projects
+    except vault.VaultDecryptionError:
+        raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workspaces/{ws_id}/projects/{project_id}/tasks")
+async def list_project_tasks(
+    ws_id: str,
+    project_id: int,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Zwraca wszystkie zadania z danego projektu Odoo."""
+    vk, _, _ = auth_data
+    try:
+        connector = _get_odoo_connector(vk, ws_id)
+        domain = [("project_id", "=", project_id)]
+        tasks = connector.execute_kw(
+            model="project.task",
+            method="search_read",
+            args=[domain],
+            kwargs={"fields": ["id", "name", "stage_id", "user_ids"], "limit": 200},
+        )
+        return tasks
+    except vault.VaultDecryptionError:
+        raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/workspaces/{ws_id}/tasks/search")
 async def search_odoo_tasks(
@@ -397,36 +485,25 @@ async def search_odoo_tasks(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    """Szuka zadań w Odoo używając poświadczeń z Vaulta."""
+    """Szuka zadań w Odoo (project.task) — zachowane dla kompatybilności."""
     vk, _, _ = auth_data
     try:
-        vault_data = vault.load_vault(vk)
-        secret_key = f"{ws_id}_ODOO"
-        if secret_key not in vault_data:
-            raise HTTPException(status_code=400, detail="Brak poświadczeń Odoo w sejfie dla tego workspace.")
-        
-        creds = vault_data[secret_key]
-        from smartmyodoo.swarm.db_manager import OdooDBManager
-        db_mgr = OdooDBManager(
-            url=creds.get("url"),
-            db="NA", # nie potrzebujemy bazy dla xmlrpc
-            username=creds.get("login"),
-            password=creds.get("password") or creds.get("api_key")
-        )
-        
-        # Odoo 16/18 model: project.task
+        connector = _get_odoo_connector(vk, ws_id)
         domain = [("name", "ilike", query)] if query else []
-        tasks = db_mgr.execute_kw(
+        tasks = connector.execute_kw(
             model="project.task",
             method="search_read",
             args=[domain],
-            kwargs={"fields": ["id", "name", "project_id"], "limit": 20}
+            kwargs={"fields": ["id", "name", "project_id"], "limit": 20},
         )
         return tasks
-    except vault.VaultDecryptionError as e:
+    except vault.VaultDecryptionError:
         raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.put("/api/workspaces/{ws_id}/task_bind")
 async def bind_workspace_task(
@@ -435,14 +512,24 @@ async def bind_workspace_task(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
+    """Zapisuje powiązanie projektu + domyślnego zadania."""
     ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
     if not ws:
         raise HTTPException(status_code=404, detail="Workspace not found")
 
+    ws.project_ref = payload.get("project_ref", "")
+    ws.project_name = payload.get("project_name", "")
     ws.task_ref = payload.get("task_ref", "")
     ws.task_name = payload.get("task_name", "")
     db.commit()
-    return {"success": True, "task_ref": ws.task_ref, "task_name": ws.task_name}
+    return {
+        "success": True,
+        "project_ref": ws.project_ref,
+        "project_name": ws.project_name,
+        "task_ref": ws.task_ref,
+        "task_name": ws.task_name,
+    }
+
 
 @app.post("/api/workspaces/{ws_id}/log_time")
 async def log_workspace_time(
@@ -454,36 +541,54 @@ async def log_workspace_time(
     ws = db.query(db_models.Workspace).filter(db_models.Workspace.id == ws_id).first()
     if not ws or not ws.task_ref:
         raise HTTPException(status_code=400, detail="Brak powiązanego zadania")
-    
+
     vk, _, _ = auth_data
     try:
         vault_data = vault.load_vault(vk)
         secret_key = f"{ws_id}_ODOO"
         if secret_key not in vault_data:
-            raise HTTPException(status_code=400, detail="Brak poświadczeń Odoo w sejfie")
-            
-        creds = vault_data[secret_key]
-        from smartmyodoo.swarm.db_manager import OdooDBManager
-        db_mgr = OdooDBManager(
-            url=creds.get("url"),
-            db="NA",
-            username=creds.get("login"),
-            password=creds.get("password") or creds.get("api_key")
-        )
-        
-        time_entry = {
-            "task_id": int(ws.task_ref),
-            "name": payload.get("description", "Praca agenta AI"),
-            "unit_amount": payload.get("hours", 0.0),
-            "project_id": False
-        }
-        res = db_mgr.execute_kw(
-            model="account.analytic.line",
-            method="create",
-            args=[time_entry]
+            raise HTTPException(
+                status_code=400, detail="Brak poświadczeń Odoo w sejfie"
+            )
+
+        # Jeśli wymuszamy auto-logowanie, a brak task_ref, stwórzmy domyślne zadanie
+        connector = _get_odoo_connector(vk, ws_id)
+
+        task_id = payload.get("task_id")
+        is_nominal = payload.get("is_nominal", False)
+
+        # Jeśli nie nominalny, to automatyczny - idzie na domyślny task z workspace
+        if not is_nominal and not task_id:
+            task_id = ws.task_ref
+
+            # Auto-create if not present
+            if not task_id and ws.project_ref:
+                try:
+                    task_id = connector.create_task(
+                        int(ws.project_ref), "[SmartMyOdoo] Pula czasu roboczego"
+                    )
+                    ws.task_ref = str(task_id)  # type: ignore
+                    ws.task_name = "[SmartMyOdoo] Pula czasu roboczego"  # type: ignore
+                    db.commit()
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500, detail=f"Błąd auto-create task: {str(e)}"
+                    )
+
+        if not task_id:
+            raise HTTPException(
+                status_code=400, detail="Brak ID zadania (task_id) dla logowania czasu."
+            )
+
+        project_id = payload.get("project_id") or ws.project_ref
+        res = connector.log_timesheet(
+            project_id=int(project_id) if project_id else False,
+            task_id=int(task_id),
+            hours=payload.get("hours", 0.0),
+            description=payload.get("description", "Praca agenta AI"),
         )
         return {"success": True, "timesheet_id": res}
-    except vault.VaultDecryptionError as e:
+    except vault.VaultDecryptionError:
         raise HTTPException(status_code=500, detail="Błąd deszyfrowania sejfu")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,9 +1,9 @@
 ---
 sprint_id: "F6-02"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-06
-closed: null
+closed: 2026-06-06
 goal: "MVP Polishing — persystentna historia chatów (Smart Context), automatyczny Rollback (Scratchpad DB), Audit Trail, Activity UI, Task Binding do Odoo"
 prefix: "F6"
 complexity: 7
@@ -35,12 +35,12 @@ depends_on: ["F6-01"]
 - [x] EP-1.5: `__main__.py` — wiring (DB, ChatRepo, Sandbox → Executor → CLI)
 - [x] EP-1.5+3.3: API endpointy (`/api/chat/sessions`, `/api/audit`)
 - [x] EP-4.2: `activity.js` — timeline aktywności agenta
-- [ ] EP-4.1+4.3: Wiring Activity do `index.html` + `canvas.js`
-- [ ] EP-5.1: Rozszerzenie `Workspace` o `task_ref` (model gotowy, API brakuje)
-- [ ] EP-5.2: API: search tasks, bind task, log time
-- [ ] EP-5.3: UI Settings — sekcja "Powiązane Zadanie"
-- [ ] **Testy jednostkowe** (chat_repo, audit, sandbox)
-- [ ] **Release Gate**
+- [x] EP-4.1+4.3: Wiring Activity do `index.html` + `canvas.js`
+- [x] EP-5.1: Rozszerzenie `Workspace` o `task_ref` (model gotowy, API brakuje)
+- [x] EP-5.2: API: search tasks, bind task, log time
+- [x] EP-5.3: UI Settings — sekcja "Powiązane Zadanie"
+- [x] **Testy jednostkowe** (chat_repo, audit, sandbox)
+- [x] **Release Gate**
 
 ---
 
@@ -114,7 +114,7 @@ Brak pola `odoo_task_id`. Nie ma automatycznego raportowania czasu pracy z powro
 | 1.3 | `swarm/executor.py` | Zapis user/assistant do historii po każdej turze + Smart Context prefix | ✅ |
 | 1.4 | `cli.py` | Tabela sesji, prompt "Kontynuować?", komenda `/sessions` | ✅ |
 | 1.5 | `api.py` | Endpointy: `GET /api/chat/sessions`, `GET /api/chat/sessions/{id}/messages` | ✅ |
-| 1.6 | `ui/js/components/chat.js` | Panel sesji w UI (lewy sidebar w widoku chat) | ⏳ |
+| 1.6 | `ui/js/components/chat.js` | Panel sesji w UI (lewy sidebar w widoku chat) | ✅ |
 
 ### EP-2: Rollback Safety Net (🟡 P1 — 2-3h)
 
@@ -122,7 +122,7 @@ Brak pola `odoo_task_id`. Nie ma automatycznego raportowania czasu pracy z powro
 |---|------|---------|--------|
 | 2.1 | `swarm/sandbox.py` [NEW] | `SandboxManager` — enter/exit sandbox, is_write_tool | ✅ |
 | 2.2 | `swarm/executor.py` | Pre/post hooks: auto-enter before write, rollback on error | ✅ |
-| 2.3 | `swarm/tools.py` | Tool `rollback_changes` w TOOL_REGISTRY | ⏳ |
+| 2.3 | `swarm/tools.py` | Tool `rollback_changes` w TOOL_REGISTRY | ✅ |
 
 ### EP-3: Audit Trail Enrichment (🟡 P1 — 1-2h)
 
@@ -136,17 +136,17 @@ Brak pola `odoo_task_id`. Nie ma automatycznego raportowania czasu pracy z powro
 
 | # | Plik | Zadanie | Status |
 |---|------|---------|--------|
-| 4.1 | `ui/js/components/chat.js` | Panel sesji (lewy sidebar w chat) | ⏳ |
+| 4.1 | `ui/js/components/chat.js` | Panel sesji (lewy sidebar w chat) | ✅ |
 | 4.2 | `ui/js/components/activity.js` [NEW] | Timeline aktywności agenta | ✅ |
-| 4.3 | `ui/index.html` + `canvas.js` | Nowa zakładka "Aktywność" + wiring | ⏳ |
+| 4.3 | `ui/index.html` + `canvas.js` | Nowa zakładka "Aktywność" + wiring | ✅ |
 
 ### EP-5: Task Binding & Timesheets (🟢 P2 — 2-3h)
 
 | # | Plik | Zadanie | Status |
 |---|------|---------|--------|
 | 5.1 | `core/models.py` | `Workspace.task_ref`, `Workspace.task_name` | ✅ |
-| 5.2 | `api.py` | Endpointy: search tasks, bind task, log time | ⏳ |
-| 5.3 | `ui/index.html` | Settings → sekcja "Powiązane Zadanie" | ⏳ |
+| 5.2 | `api.py` | Endpointy: search tasks, bind task, log time | ✅ |
+| 5.3 | `ui/index.html` | Settings → sekcja "Powiązane Zadanie" | ✅ |
 
 ---
 
@@ -184,11 +184,11 @@ Wszystkie zależności (SQLAlchemy, Rich, prompt_toolkit, litellm) zostały doda
 ---
 
 ## 🏁 CLOSE CHECKLIST (Bramka Zamykająca)
-- [ ] EP-1: Chat History działa w CLI i API.
-- [ ] EP-2: Sandbox tworzy Scratchpad przy write tools.
-- [ ] EP-3: Audit loguje każde wywołanie narzędzia.
-- [ ] EP-4: Zakładka "Aktywność" w Web UI.
-- [ ] EP-5: Task Binding w Settings.
-- [ ] `python -m pytest tests/ -v` → ALL GREEN.
-- [ ] `ruff check smartmyodoo/` → 0 errors.
-- [ ] Sprint zamknięty w YAML frontmatter (`status: DONE`, `closed: <data>`).
+- [x] EP-1: Chat History działa w CLI i API.
+- [x] EP-2: Sandbox tworzy Scratchpad przy write tools.
+- [x] EP-3: Audit loguje każde wywołanie narzędzia.
+- [x] EP-4: Zakładka "Aktywność" w Web UI.
+- [x] EP-5: Task Binding w Settings.
+- [x] `python -m pytest tests/ -v` → ALL GREEN.
+- [x] `ruff check smartmyodoo/` → 0 errors.
+- [x] Sprint zamknięty w YAML frontmatter (`status: DONE`, `closed: <data>`).

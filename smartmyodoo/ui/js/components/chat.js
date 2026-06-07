@@ -126,7 +126,7 @@ class ChatPanel {
         }
 
         let sidebarHtml = `
-            <div class="w-64 border-r border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
+            <div class="w-64 border-l border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
                 <div class="p-4 border-b border-slate-800">
                     <button onclick="window.AppChat.startNewSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-sm py-2 rounded-lg transition font-medium">
                         + Nowy Czat
@@ -149,7 +149,6 @@ class ChatPanel {
         `;
 
         this.container.innerHTML = `
-            ${sidebarHtml}
             <div class="flex-1 flex flex-col min-w-0">
                 <!-- Chat Header -->
                 <div class="h-16 border-b border-slate-800 bg-slate-900/50 flex items-center px-6 gap-3 shrink-0">
@@ -191,6 +190,7 @@ class ChatPanel {
                     </div>
                 </div>
             </div>
+            ${sidebarHtml}
         `;
 
         this.scrollToBottom();

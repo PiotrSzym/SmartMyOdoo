@@ -168,7 +168,7 @@ class Sidebar {
                     <div class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-3 ${activeClasses} group relative">
                         <span class="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 select-none" title="Przeciągnij">⠿</span>
                         <button
-                            onclick="AppStore.setState({ workspaceId: '${ws.id}' })"
+                            onclick="AppStore.setState({ workspaceId: '${ws.id}', activeTab: 'chat' })"
                             class="flex items-center gap-3 flex-1 text-left"
                         >
                             <span class="w-2 h-2 rounded-full ${isActive ? 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.8)]' : 'bg-slate-600'}"></span>

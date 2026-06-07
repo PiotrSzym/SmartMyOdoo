@@ -29,8 +29,10 @@ class SandboxManager:
         master_password: Optional[str] = None,
     ):
         self.odoo_url = odoo_url or os.environ.get("ODOO_URL", "http://localhost:8069")
-        self.master_password = master_password or os.environ.get("ODOO_MASTER_PASSWORD", "admin")
-        self.db_manager = OdooDBManager(self.odoo_url, self.master_password)
+        self.master_password = master_password or os.environ.get(
+            "ODOO_MASTER_PASSWORD", "admin"
+        )
+        self.db_manager = OdooDBManager(self.odoo_url, self.master_password)  # type: ignore
         self._active_scratchpad: Optional[str] = None
         self._original_db: Optional[str] = None
         self.enabled = os.environ.get("SANDBOX_ENABLED", "true").lower() == "true"
@@ -62,7 +64,9 @@ class SandboxManager:
             self._active_scratchpad = scratchpad_name
             return scratchpad_name
         else:
-            logger.error("Nie udało się utworzyć Scratchpad DB — operacja write bez sandboxa!")
+            logger.error(
+                "Nie udało się utworzyć Scratchpad DB — operacja write bez sandboxa!"
+            )
             return None
 
     def exit_sandbox(self, success: bool = True) -> None:

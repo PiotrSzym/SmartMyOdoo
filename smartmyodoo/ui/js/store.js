@@ -8,7 +8,7 @@ class Store {
     constructor() {
         this.state = {
             workspaceId: 'default', // Domyślna przestrzeń robocza
-            activeTab: 'vault',  // Domyślna zakładka
+            activeTab: 'chat',  // Domyślna zakładka
             authToken: '',
             isAuthenticated: false
         };

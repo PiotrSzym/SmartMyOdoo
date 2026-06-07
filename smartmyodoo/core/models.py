@@ -9,13 +9,16 @@ class Workspace(Base):
     name = Column(String, nullable=False)
     odoo_url = Column(String, default="")
     position = Column(Integer, default=0)
-    task_ref = Column(String, default="")  # Odoo project.task ID
-    task_name = Column(String, default="")  # Cached display name
+    project_ref = Column(String, default="")  # Odoo project.project ID
+    project_name = Column(String, default="")  # Cached project display name
+    task_ref = Column(String, default="")  # Odoo project.task ID (domyślne zadanie)
+    task_name = Column(String, default="")  # Cached task display name
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class ChatMessage(Base):
     """Persystentna historia chatu — każda wiadomość user/assistant/tool."""
+
     __tablename__ = "chat_messages"
     id = Column(Integer, primary_key=True, index=True)
     workspace_id = Column(String, default="default", index=True)
