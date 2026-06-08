@@ -159,6 +159,9 @@
 >
 > **Sprint ARCH-S1.1 (Swarm Integration - Skill Panel):** `docs/sprints/ARCH-S1.1_skill_panel.md`
 > **Zrealizowano (ARCH-S1.1):** Dodanie zakładki z ręcznym doborem skilli (Skill Panel) oraz predefiniowanymi programami, endpoint GET /api/skills, omijanie (bypass) automatycznego Dispatchera przy jawnym wyborze oraz odzwierciedlenie autoselekcji w UI.
+>
+> **Sprint HOTFIX-S1.1 (Skill Badges in Chat):** `docs/sprints/HOTFIX-S1.1_skill_panel_chat.md`
+> **Zrealizowano (HOTFIX-S1.1):** Pełna integracja UI, dwukierunkowa synchronizacja wybranych skilli między panelem "Skille" a zakładką "Czat", dodanie renderowania odznak (badges) wybranych ról tuż nad polem wprowadzania tekstu.
 
 ### 7.1 Pipeline Integration
 - Podłączenie Tool Engine do pełnego `pipeline.py` FSM (AUTH→RECON→COGNITIVE→ACTUATION→SYNC).

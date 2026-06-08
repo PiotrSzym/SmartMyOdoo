@@ -487,8 +487,15 @@
                 }
                 const data = await res.json();
                 if(data.initialized) {
-                    document.getElementById('login-screen').classList.remove('hidden');
-                    document.getElementById('login-screen').classList.add('flex');
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const pin = urlParams.get('pin');
+                    if (pin) {
+                        document.getElementById('auth-password').value = pin;
+                        await login();
+                    } else {
+                        document.getElementById('login-screen').classList.remove('hidden');
+                        document.getElementById('login-screen').classList.add('flex');
+                    }
                 } else {
                     document.getElementById('init-screen').classList.remove('hidden');
                     document.getElementById('init-screen').classList.add('flex');

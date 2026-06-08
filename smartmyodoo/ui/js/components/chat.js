@@ -168,25 +168,28 @@ class ChatPanel {
 
                 <!-- Input Bar -->
                 <div class="shrink-0 border-t border-slate-800 bg-slate-900/60 p-4">
-                    <div class="max-w-4xl mx-auto flex items-center gap-3">
-                        <div class="flex-1 relative">
-                            <input
-                                type="text"
-                                id="chat-input"
-                                placeholder="Napisz polecenie dla Agenta..."
-                                class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-5 pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                    <div class="max-w-4xl mx-auto flex flex-col">
+                        ${this._renderSkillBadges()}
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 relative">
+                                <input
+                                    type="text"
+                                    id="chat-input"
+                                    placeholder="Napisz polecenie dla Agenta..."
+                                    class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-5 pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                                    ${this.isWaiting ? 'disabled' : ''}
+                                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.AppChat.handleSend(); }"
+                                >
+                                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs">↵</div>
+                            </div>
+                            <button
+                                onclick="window.AppChat.handleSend()"
+                                class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 ${this.isWaiting ? 'opacity-50 cursor-not-allowed' : ''}"
                                 ${this.isWaiting ? 'disabled' : ''}
-                                onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.AppChat.handleSend(); }"
                             >
-                            <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs">↵</div>
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                            </button>
                         </div>
-                        <button
-                            onclick="window.AppChat.handleSend()"
-                            class="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 ${this.isWaiting ? 'opacity-50 cursor-not-allowed' : ''}"
-                            ${this.isWaiting ? 'disabled' : ''}
-                        >
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -202,6 +205,23 @@ class ChatPanel {
                 setTimeout(() => input.focus(), 100);
             }
         }
+    }
+
+    _renderSkillBadges() {
+        if (!window.AppSkills) return '';
+        const selected = window.AppSkills.getSelectedSkills();
+        if (!selected || selected.length === 0) return '';
+
+        const badgesHtml = selected.map(skill => {
+            return `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-indigo-500/20 text-indigo-300 border-indigo-500/30 font-medium">${this._escapeHtml(skill)}</span>`;
+        }).join('');
+
+        return `
+            <div class="mb-2 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                <span class="text-xs text-slate-500 shrink-0">Wybrane skille:</span>
+                ${badgesHtml}
+            </div>
+        `;
     }
 
     _renderBubble(msg) {
