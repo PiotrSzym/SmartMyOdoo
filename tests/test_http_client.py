@@ -124,3 +124,13 @@ def test_client_connection_error():
 
         with pytest.raises(httpx.ConnectError):
             client.login("pin")
+
+
+def test_client_timeout_graceful():
+    client = SmartMyOdooClient(base_url="http://test")
+    client._token = "valid_pin"
+    with patch.object(client._client, "post") as mock_post:
+        mock_post.side_effect = httpx.TimeoutException("Timeout")
+
+        with pytest.raises(httpx.TimeoutException):
+            client.chat("Hej", workspace_id="ws1", session_id="ses1")

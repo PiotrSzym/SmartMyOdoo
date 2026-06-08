@@ -52,8 +52,13 @@ class DecisionEngine:
         )
 
         try:
-            response = self.llm_client.chat(prompt)
-            data = json.loads(response)
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm_client.chat(messages=messages)
+            if response and hasattr(response, "choices") and response.choices:
+                response_text = response.choices[0].message.content or ""
+            else:
+                response_text = str(response) if response else ""
+            data = json.loads(response_text)
             return data
         except Exception as e:
             logger.error(f"Błąd podczas ewaluacji ADP: {str(e)}")

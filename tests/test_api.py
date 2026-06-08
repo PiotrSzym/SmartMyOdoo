@@ -554,3 +554,50 @@ def test_delete_nonexistent_workspace(client, auth_headers):
     """DELETE /api/workspaces/{id} zwraca 404 na nieistniejący workspace"""
     res = client.delete("/api/workspaces/nonexistent-ws-xyz", headers=auth_headers)
     assert res.status_code == 404
+
+
+def test_api_pipeline_run(client, auth_headers, mocker):
+    mock_pipeline = mocker.patch("smartmyodoo.swarm.pipeline.ExecutionPipeline")
+    mock_instance = mock_pipeline.return_value
+    mock_instance.state.name = "SYNC"
+    mock_instance.adp_plan = {"mocked": "plan"}
+    mock_instance._rolled_back = False
+
+    res = client.post(
+        "/api/pipeline/run",
+        json={
+            "message": "uruchom pipeline",
+            "workspace_id": "test_ws",
+            "session_id": "test_sess",
+        },
+        headers=auth_headers,
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["final_state"] == "SYNC"
+    assert data["rolled_back"] is False
+
+
+def test_api_pipeline_run_rollback(client, auth_headers, mocker):
+    mock_pipeline = mocker.patch("smartmyodoo.swarm.pipeline.ExecutionPipeline")
+    mock_instance = mock_pipeline.return_value
+    mock_instance.state.name = "SYNC"
+    mock_instance.adp_plan = {}
+    mock_instance._rolled_back = True
+
+    res = client.post(
+        "/api/pipeline/run",
+        json={
+            "message": "zrob cos zlego",
+            "workspace_id": "test_ws",
+            "session_id": "test_sess",
+        },
+        headers=auth_headers,
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is False
+    assert data["rolled_back"] is True

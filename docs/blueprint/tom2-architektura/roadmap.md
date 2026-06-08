@@ -168,9 +168,10 @@
 - Integracja z SmartMyVault (automatyczne wstrzykiwanie credentials w pełnym potoku FSM).
 
 ### 7.2 CLI Client-Server Mode
-- Przejście CLI z importu bezpośredniego na HTTP client odpytujący FastAPI.
-- Naprawa `/api/chat` endpoint → prawdziwy LLM response zamiast hardkodowanego template.
-- WebSocket streaming responses dla Live Logs z backendu.
+- ✅ Przejście CLI z importu bezpośredniego na HTTP client odpytujący FastAPI (F7-02).
+- ✅ Naprawa `/api/chat` endpoint → prawdziwy LLM response zamiast hardkodowanego template (ARCH-F7-03).
+- ✅ Chat persistence obu ścieżek + AuditLog (F7-02c).
+- [ ] WebSocket streaming responses dla Live Logs z backendu (F7-02b).
 
 ### 7.3 Advanced Features & Extended Ecosystem
 - Dry Run mode (`--dry-run` flag w CLI).

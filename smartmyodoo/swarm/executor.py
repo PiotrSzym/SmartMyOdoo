@@ -40,7 +40,12 @@ class SkillExecutor:
         except Exception:
             return None
 
-    def execute(self, skill_config: SkillConfig, message: str) -> Dict[str, Any]:
+    def execute(
+        self,
+        skill_config: SkillConfig,
+        message: str,
+        phase_restrictions: Optional[list] = None,
+    ) -> Dict[str, Any]:
         """
         Executes a given message against the skill configuration.
         Integrates: Chat History, Audit Trail, Sandbox.
@@ -54,6 +59,9 @@ class SkillExecutor:
         allowed_tools = list(skill_config.allowed_tools)
         if skill_config.read_only and "odoo_create" in allowed_tools:
             allowed_tools.remove("odoo_create")
+
+        if phase_restrictions is not None:
+            allowed_tools = [t for t in allowed_tools if t in phase_restrictions]
 
         tools_schemas = []
         for tool_name in allowed_tools:
@@ -212,6 +220,252 @@ class SkillExecutor:
             "requires_human_override": skill_config.requires_human_override,
             "tools_used": list(tools_used),
         }
+
+    async def execute_stream(
+        self,
+        skill_config: SkillConfig,
+        message: str,
+        phase_restrictions: Optional[list] = None,
+    ):
+        """
+        Wykonuje zapytanie w trybie strumieniowym (Live Logs & Streaming).
+        Zwraca asynchroniczny generator obiektów JSON.
+        """
+        import asyncio
+
+        # 1. Red Flag Detection
+        for flag in skill_config.red_flags:
+            if re.search(flag, message, re.IGNORECASE):
+                yield {"type": "error", "content": f"Red flag triggered: {flag}"}
+                return
+
+        # 2. Filter Tools
+        allowed_tools = list(skill_config.allowed_tools)
+        if skill_config.read_only and "odoo_create" in allowed_tools:
+            allowed_tools.remove("odoo_create")
+
+        if phase_restrictions is not None:
+            allowed_tools = [t for t in allowed_tools if t in phase_restrictions]
+
+        tools_schemas = []
+        for tool_name in allowed_tools:
+            if tool_name in TOOL_REGISTRY:
+                tools_schemas.append(TOOL_REGISTRY[tool_name]["schema"])
+            else:
+                logger.warning(f"Narzędzie '{tool_name}' nie istnieje w TOOL_REGISTRY.")
+
+        # 3. Build messages with Smart Context
+        messages = [
+            {"role": "system", "content": skill_config.system_prompt},
+        ]
+
+        if self.chat_repo and self.session_id:
+            try:
+                context = self.chat_repo.get_smart_context(
+                    self.workspace_id, self.session_id
+                )
+                messages.extend(context)
+            except Exception as e:
+                logger.warning(f"Smart Context load failed: {e}")
+
+        messages.append({"role": "user", "content": message})
+        self._save_chat("user", message)
+
+        response_text = ""
+        tools_used = set()
+        sandbox_activated = False
+        audit_db = self._get_audit_db()
+
+        if self.llm_client and hasattr(self.llm_client, "chat_stream"):
+            max_iterations = 10
+            for i in range(max_iterations):
+                current_tool_calls = {}
+
+                try:
+                    stream = self.llm_client.chat_stream(
+                        messages=messages,
+                        tools=tools_schemas if tools_schemas else None,
+                    )
+                except Exception as e:
+                    yield {"type": "error", "content": str(e)}
+                    break
+
+                full_message_content = ""
+                for chunk in stream:
+                    await asyncio.sleep(0)  # oddaj kontrolę do event loopa
+                    if not chunk.choices:
+                        continue
+
+                    delta = chunk.choices[0].delta
+
+                    if getattr(delta, "content", None):
+                        full_message_content += delta.content
+                        yield {"type": "token", "content": delta.content}
+
+                    if getattr(delta, "tool_calls", None):
+                        for tc in delta.tool_calls:
+                            tc_index = getattr(tc, "index", 0)
+                            if tc_index not in current_tool_calls:
+                                current_tool_calls[tc_index] = {
+                                    "id": tc.id if hasattr(tc, "id") and tc.id else "",
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name
+                                        if hasattr(tc.function, "name")
+                                        and tc.function.name
+                                        else "",
+                                        "arguments": tc.function.arguments
+                                        if hasattr(tc.function, "arguments")
+                                        and tc.function.arguments
+                                        else "",
+                                    },
+                                }
+                            else:
+                                if (
+                                    hasattr(tc.function, "arguments")
+                                    and tc.function.arguments
+                                ):
+                                    current_tool_calls[tc_index]["function"][
+                                        "arguments"
+                                    ] += tc.function.arguments
+                                if hasattr(tc.function, "name") and tc.function.name:
+                                    current_tool_calls[tc_index]["function"][
+                                        "name"
+                                    ] += tc.function.name
+
+                if full_message_content:
+                    response_text += full_message_content
+
+                if not current_tool_calls:
+                    msg_to_append: Dict[str, Any] = {
+                        "role": "assistant",
+                        "content": full_message_content,
+                    }
+                    messages.append(msg_to_append)
+                    break
+
+                # format tool calls for append
+                formatted_tcs = []
+                for idx, tc_data in current_tool_calls.items():
+
+                    class _Function:
+                        name = tc_data["function"]["name"]
+                        arguments = tc_data["function"]["arguments"]
+
+                    class _ToolCall:
+                        id = tc_data["id"]
+                        type = "function"
+                        function = _Function()
+
+                    formatted_tcs.append(_ToolCall())
+
+                msg_to_append = {
+                    "role": "assistant",
+                    "content": full_message_content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
+                        }
+                        for tc in formatted_tcs
+                    ],
+                }
+                messages.append(msg_to_append)
+
+                for tc in formatted_tcs:
+                    func_name = tc.function.name
+                    try:
+                        args = json.loads(tc.function.arguments)
+                    except Exception:
+                        args = {}
+
+                    yield {
+                        "type": "log",
+                        "content": f"Wywoływanie narzędzia: {func_name}(...)",
+                    }
+
+                    if (
+                        self.sandbox
+                        and self.sandbox.is_write_tool(func_name)
+                        and not sandbox_activated
+                    ):
+                        yield {
+                            "type": "log",
+                            "content": f"Uruchamiam bezpieczny Sandbox dla {func_name}",
+                        }
+                        self.sandbox.enter_sandbox(original_db=self._get_odoo_db())
+                        sandbox_activated = True
+
+                    tools_used.add(func_name)
+
+                    tool_result_str = ""
+                    tool_success = True
+                    if func_name in TOOL_REGISTRY:
+                        try:
+                            result = TOOL_REGISTRY[func_name]["callable"](**args)
+                            tool_result_str = str(result)
+                        except Exception as e:
+                            tool_result_str = f"Error executing {func_name}: {str(e)}"
+                            tool_success = False
+                            if sandbox_activated and self.sandbox:
+                                self.sandbox.exit_sandbox(success=False)
+                                sandbox_activated = False
+                    else:
+                        tool_result_str = f"Tool {func_name} not found."
+                        tool_success = False
+
+                    if audit_db:
+                        try:
+                            from smartmyodoo.core.audit import log_tool_call
+
+                            log_tool_call(
+                                db=audit_db,
+                                workspace_id=self.workspace_id,
+                                tool_name=func_name,
+                                args=args,
+                                result=tool_result_str,
+                                success=tool_success,
+                            )
+                        except Exception as e:
+                            logger.warning(f"Audit log failed: {e}")
+
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "name": func_name,
+                            "content": tool_result_str,
+                        }
+                    )
+
+            else:
+                yield {
+                    "type": "error",
+                    "content": "Błąd: Przekroczono maksymalną liczbę iteracji (tool loop).",
+                }
+
+        if sandbox_activated and self.sandbox:
+            self.sandbox.exit_sandbox(success=True)
+
+        if audit_db:
+            try:
+                audit_db.close()
+            except Exception:
+                pass
+
+        self._save_chat(
+            "assistant",
+            response_text,
+            {
+                "tools_used": list(tools_used),
+            },
+        )
+
+        yield {"type": "done"}
 
     def _save_chat(self, role: str, content: str, metadata: Optional[dict] = None):
         """Zapisz wiadomość do persystentnej historii chatu."""

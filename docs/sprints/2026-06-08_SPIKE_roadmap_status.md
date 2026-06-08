@@ -35,18 +35,33 @@ Z **Fazy 7 (Production Hardening & Client-Server Mode)** – która jest "w trak
 To są elementy, które aktualnie wiszą na roadmapie jako niezrealizowane i blokują pełne zakończenie Fazy 7:
 
 ### 1. Pipeline Integration (7.1)
-- [ ] Podłączenie Tool Engine do pełnego `pipeline.py` FSM (stanów: AUTH → RECON → COGNITIVE → ACTUATION → SYNC).
-- [ ] Integracja z SmartMyVault (automatyczne wstrzykiwanie credentials podczas działania pełnego potoku FSM).
+
+**Opis Problemu:**
+Obecnie `SkillExecutor` i `/api/chat` operują świetnie na luźnych konwersacjach, jednak nie są spięte w przewidywalny i bezpieczny "Potok Operacyjny". Aby agent mógł bezpiecznie i transakcyjnie operować na danych Odoo, musimy podpiąć jego działanie pod docelową Maszynę Stanów (FSM), zgodnie z założeniami ze sprintu F5-02 oraz politykami bezpieczeństwa.
+
+**Fazy Maszyny Stanów (FSM) i Wymagania Integracyjne:**
+1. **AUTH (Autoryzacja):** Inicjalizacja potoku z udziałem `SmartMyVault`. Należy wstrzyknąć credentials przy użyciu PIN-u Agenta zabezpieczonego przez KDF w sposób bezstanowy, izolując główny skarbiec od logów systemowych bota (zgodnie z **ADR-001: Dual-Auth Zero-Trust**).
+2. **RECON (Analiza Sytuacji):** Uruchomienie narzędzi zwiadowczych. Zastosowanie ustrukturyzowanego promptu Agent Decision Protocol (ADP), podczas którego agent ma dostęp tylko do narzędzi w trybie "read-only" na klonie środowiska (Scratchpad DB).
+3. **COGNITIVE (Myślenie):** Model LLM przetwarza zebrane w fazie RECON dane i układa plan akcji (Tool Engine przygotowuje argumenty JSON).
+4. **ACTUATION (Działanie na Odoo):** Wywołanie zadeklarowanych akcji modyfikujących stan. Jeśli włączony jest **Shadow Mode** (zgodnie z **ADR-005**), działanie nie zapisuje wprost do bazy, lecz generuje Baner Formularza w Odoo do zatwierdzenia przez usera.
+5. **SYNC (Zapis):** Finalna faza operacji. W przypadku powodzenia – synchronizacja stanu. Jeżeli w fazie ACTUATION wystąpi błąd (exception), FSM wyzwala procedurę `rollback()` i przywraca spójność danych.
+
+**Kroki do zrealizowania:**
+- [ ] Podłączenie Tool Engine do `pipeline.py` z restrykcjami dla poszczególnych faz (np. zablokowanie zapisu w fazie RECON).
+- [ ] Utworzenie wrappera autoryzacyjnego wstrzykującego rozkodowany klucz ze SmartMyVault w fazie AUTH.
+- [ ] Implementacja solidnej pętli obsługi wyjątków współpracującej z mechanizmem `rollback()`.
 
 ### 2. CLI Client-Server Mode (7.2)
-- [x] Przejście CLI z bezposredniego importowania funkcji na pełnego klienta HTTP odpytującego nasz backend FastAPI (Zrealizowane: F7-02).
-- [ ] Naprawa endpointu `/api/chat` – ma zwracać **prawdziwą odpowiedź LLM-a**, obecnie zwraca hardkodowany template.
-- [ ] Zaimplementowanie WebSocketów (streaming responses) do wyświetlania na żywo logów (Live Logs) w GUI/CLI z backendu.
+- [x] Przejście CLI z bezpośredniego importowania funkcji na pełnego klienta HTTP odpytującego nasz backend FastAPI (Zrealizowane: F7-02).
+- [x] Naprawa endpointu `/api/chat` – zwraca **prawdziwą odpowiedź LLM-a** z wykorzystaniem `SkillExecutor` (Zrealizowane: ARCH-F7-03).
+- [x] Chat persistence — poprawne zapisywanie historii czatu (LLM i fallback) oraz logów audytowych w bazie (Zrealizowane: F7-02c).
+- [x] Zaimplementowanie WebSocketów (streaming responses) do wyświetlania na żywo logów (Live Logs) w GUI/CLI z backendu (Zrealizowane: F7-02b).
 
 ### 3. Advanced Features & Extended Ecosystem (7.3)
 - [ ] Dry Run mode (flaga `--dry-run` do CLI, by można było zasymulować działanie agencji bez realnego wpływu).
 - [ ] Integracja z systemami zewnętrznymi dla zadań: **Jira** oraz **Linear** (obecnie działa tylko `project.task` jako Task Picker Odoo).
 - [ ] Opcja **Knowledge Seeding** (odłożona z Fazy 5) – zasilanie pamięci agentów danymi ze Stack Overflow i Odoo Forums.
+- [ ] **Odoo Knowledge Base Expert Skill:** Integracja narzędzia [MarkItDown](https://github.com/microsoft/markitdown) jako natywnego skilla/narzędzia w SmartMyOdoo do ekstrakcji wiedzy z załączników (PDF, PPTX) oraz linków (np. YouTube) i konwersji do formatu Markdown.
 
 ---
 

@@ -3,7 +3,14 @@ import datetime
 import json
 from typing import Dict, Any, Tuple, Optional
 from pydantic import BaseModel
-from fastapi import FastAPI, Depends, HTTPException, Security
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    Security,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +28,16 @@ from smartmyodoo.swarm.models import (
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
 from smartmyodoo.swarm import llm_client
+from typing import List
+
+
+class PipelineRunRequest(BaseModel):
+    message: str
+    workspace_id: str = "default"
+    session_id: str = ""
+    selected_skills: List[str] = []
+    use_pipeline: bool = True
+
 
 db_models.Base.metadata.create_all(bind=engine)
 
@@ -391,11 +408,21 @@ async def handle_chat(
 
     # ── 5. Execute (async-safe) ──
     if llm:
+        from smartmyodoo.core.models import AuditLog
+
         try:
             exec_result = await asyncio.to_thread(
                 executor.execute, skill_config, req.message
             )
             reply_text = exec_result.get("response", "Brak odpowiedzi od agenta.")
+
+            audit = AuditLog(
+                workspace_id=req.workspace_id,
+                action="chat_llm",
+                details=f"skill={selected_skills_to_use}",
+            )
+            db.add(audit)
+            db.commit()
         except RedFlagViolation:
             reply_text = "⛔ Zablokowano: wykryto niedozwoloną operację."
         except Exception as e:
@@ -459,6 +486,301 @@ async def handle_chat(
         model=recommended_model,
         selected_skills=selected_skills_to_use,
     )
+
+
+@app.post("/api/pipeline/run")
+async def run_pipeline(
+    req: PipelineRunRequest,
+    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    import asyncio
+    import uuid
+    from smartmyodoo.core.chat_repository import ChatRepository
+    from smartmyodoo.swarm.llm_client import OpenRouterClient
+    from smartmyodoo.swarm.executor import SkillExecutor
+    from smartmyodoo.swarm.sandbox import SandboxManager
+    from smartmyodoo.swarm.pipeline import ExecutionPipeline
+    from smartmyodoo.swarm.db_manager import OdooDBManager
+    from smartmyodoo.swarm.adp import DecisionEngine
+    from smartmyodoo.swarm.recon import EnvironmentRecon
+
+    vk, role, pwd = auth_data
+
+    chat_repo = ChatRepository(db=db)
+
+    # -- Resolve secrets from Vault (SEC-01/SEC-02) --
+    vault_data = {}
+    openrouter_key = None
+    odoo_url = os.environ.get("ODOO_URL", "http://localhost:8069")
+    odoo_master_pwd = os.environ.get("ODOO_MASTER_PASSWORD", "")
+    odoo_db_name = os.environ.get("ODOO_DB", "odoo_prod")
+    try:
+        vault_data = vault.load_vault(vk)
+        secret = vault_data.get("OPENROUTER_KEY", {})
+        openrouter_key = (
+            secret.get("api_key") or secret.get("password") or secret.get("key")
+        )
+        # Odoo connection from Vault
+        odoo_secret = vault_data.get("ODOO", vault_data.get("ODOO_URL", {}))
+        if isinstance(odoo_secret, dict):
+            odoo_url = odoo_secret.get("url", odoo_url)
+        master_secret = vault_data.get("ODOO_MASTER_PASSWORD", {})
+        if isinstance(master_secret, dict):
+            odoo_master_pwd = master_secret.get("password", odoo_master_pwd)
+        db_secret = vault_data.get("ODOO_DB", {})
+        if isinstance(db_secret, dict):
+            odoo_db_name = db_secret.get("password", db_secret.get("db", odoo_db_name))
+        elif isinstance(db_secret, str):
+            odoo_db_name = db_secret
+    except Exception:
+        pass
+    if not openrouter_key:
+        openrouter_key = os.environ.get("OPENROUTER_KEY")
+
+    llm = OpenRouterClient(api_key=openrouter_key) if openrouter_key else None
+    sandbox = SandboxManager(odoo_url=odoo_url, master_password=odoo_master_pwd)
+    session_id = req.session_id or str(uuid.uuid4())
+
+    executor = SkillExecutor(
+        llm_client=llm,
+        chat_repo=chat_repo,
+        workspace_id=req.workspace_id,
+        session_id=session_id,
+        sandbox=sandbox,
+    )
+
+    db_manager = OdooDBManager(odoo_url, odoo_master_pwd)
+    decision_engine = DecisionEngine(llm_client=llm)
+    recon_engine = EnvironmentRecon(db_manager)
+
+    pipeline = ExecutionPipeline(
+        db_manager=db_manager,
+        decision_engine=decision_engine,
+        recon_engine=recon_engine,
+        executor=executor,
+        db_session=db,
+        workspace_id=req.workspace_id,
+    )
+
+    # BUG-01: Run pipeline in background thread to avoid blocking
+    await asyncio.to_thread(pipeline.run, req.message, "H", odoo_db_name, pwd)
+
+    # BUG-03: Distinguish success from rollback
+    return {
+        "success": not pipeline._rolled_back,
+        "final_state": pipeline.state.name,
+        "adp_plan": pipeline.adp_plan,
+        "rolled_back": pipeline._rolled_back,
+    }
+
+
+@app.websocket("/api/chat/stream")
+async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
+    """
+    Strumieniuje odpowiedź modelu używając WebSockets.
+    Klient najpierw wysyła JSON: {message, workspace_id, session_id, password, selected_skills}
+    Server odpowiada strumieniem chunków: {"type": "token"|"log"|"error"|"done", "content": ...}
+    """
+    await websocket.accept()
+
+    import uuid
+    import asyncio
+    import logging
+    from smartmyodoo.core.chat_repository import ChatRepository
+    from smartmyodoo.swarm.llm_client import OpenRouterClient
+    from smartmyodoo.swarm.executor import SkillExecutor
+    from smartmyodoo.swarm.sandbox import SandboxManager
+    from smartmyodoo.swarm.skills.registry import SKILL_REGISTRY
+    from smartmyodoo.swarm.models import SkillName
+    from smartmyodoo.swarm.skills.skill_config import SkillConfig
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        data = await websocket.receive_text()
+        req_data = json.loads(data)
+
+        message = req_data.get("message", "")
+        workspace_id = req_data.get("workspace_id", "default")
+        session_id = req_data.get("session_id", str(uuid.uuid4()))
+        pwd = req_data.get("password", "")
+        selected_skills = req_data.get("selected_skills", [])
+
+        # 1. Auth manual (ponieważ WebSocket i headers bywają problematyczne w niektórych klientach)
+        vk, role = get_auth_key(pwd)
+        if not vk:
+            await websocket.send_json(
+                {"type": "error", "content": "Invalid credentials"}
+            )
+            await websocket.close(code=1008)
+            return
+
+        # 2. Dispatch
+        if selected_skills:
+            recommended_model = "claude-3-opus-20240229"
+            selected_skills_to_use = selected_skills
+        else:
+            dispatch_result = dispatcher.classify_intent(message)
+            recommended_model = dispatch_result.recommended_model
+            selected_skills_to_use = (
+                [dispatch_result.skill_name.value] if dispatch_result.skill_name else []
+            )
+
+        # 3. LLM Key
+        openrouter_key = None
+        try:
+            vault_data = vault.load_vault(vk)
+            secret = vault_data.get("OPENROUTER_KEY", {})
+            openrouter_key = (
+                secret.get("api_key") or secret.get("password") or secret.get("key")
+            )
+        except Exception:
+            pass
+        if not openrouter_key:
+            openrouter_key = os.environ.get("OPENROUTER_KEY")
+
+        if not openrouter_key:
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "content": "Brak klucza OPENROUTER_KEY w Vault lub ENV.",
+                }
+            )
+            await websocket.close(code=1000)
+            return
+
+        # 4. Executor
+        chat_repo = ChatRepository(db=db)
+        llm = OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        sandbox = SandboxManager()
+
+        executor = SkillExecutor(
+            llm_client=llm,
+            chat_repo=chat_repo,
+            workspace_id=workspace_id,
+            session_id=session_id,
+            sandbox=sandbox,
+        )
+
+        skill_config = None
+        if selected_skills_to_use:
+            skill_key = selected_skills_to_use[0]
+            for key, cfg in SKILL_REGISTRY.items():
+                if key.value == skill_key:
+                    skill_config = cfg
+                    break
+
+        if not skill_config:
+            skill_config = SkillConfig(
+                name=SkillName.ODOO_BUSINESS_ANALYST,
+                system_prompt="Jesteś asystentem SmartMyOdoo.",
+                allowed_tools=[],
+                red_flags=[],
+                recommended_model=recommended_model,
+            )
+
+        # Audit
+        from smartmyodoo.core.models import AuditLog
+
+        audit = AuditLog(
+            workspace_id=workspace_id,
+            action="chat_ws_stream",
+            details=f"skill={selected_skills_to_use}",
+        )
+        db.add(audit)
+        db.commit()
+
+        # 5. Run Generator
+        if req_data.get("use_pipeline", False):
+            from smartmyodoo.swarm.pipeline import ExecutionPipeline
+            from smartmyodoo.swarm.db_manager import OdooDBManager
+            from smartmyodoo.swarm.adp import DecisionEngine
+            from smartmyodoo.swarm.recon import EnvironmentRecon
+
+            # SEC-01/SEC-02: Read Odoo credentials from Vault
+            ws_odoo_url = os.environ.get("ODOO_URL", "http://localhost:8069")
+            ws_odoo_master_pwd = os.environ.get("ODOO_MASTER_PASSWORD", "")
+            ws_odoo_db_name = os.environ.get("ODOO_DB", "odoo_prod")
+            try:
+                ws_vault_data = vault.load_vault(vk)
+                ws_odoo_secret = ws_vault_data.get(
+                    "ODOO", ws_vault_data.get("ODOO_URL", {})
+                )
+                if isinstance(ws_odoo_secret, dict):
+                    ws_odoo_url = ws_odoo_secret.get("url", ws_odoo_url)
+                ws_master_secret = ws_vault_data.get("ODOO_MASTER_PASSWORD", {})
+                if isinstance(ws_master_secret, dict):
+                    ws_odoo_master_pwd = ws_master_secret.get(
+                        "password", ws_odoo_master_pwd
+                    )
+                ws_db_secret = ws_vault_data.get("ODOO_DB", {})
+                if isinstance(ws_db_secret, dict):
+                    ws_odoo_db_name = ws_db_secret.get(
+                        "password", ws_db_secret.get("db", ws_odoo_db_name)
+                    )
+                elif isinstance(ws_db_secret, str):
+                    ws_odoo_db_name = ws_db_secret
+            except Exception:
+                pass
+
+            db_manager = OdooDBManager(ws_odoo_url, ws_odoo_master_pwd)
+            decision_engine = DecisionEngine(llm_client=llm)
+            recon_engine = EnvironmentRecon(db_manager)
+
+            loop = asyncio.get_running_loop()
+
+            def on_transition(phase: str):
+                asyncio.run_coroutine_threadsafe(
+                    websocket.send_json({"type": "fsm_state", "phase": phase}), loop
+                )
+
+            pipeline = ExecutionPipeline(
+                db_manager=db_manager,
+                decision_engine=decision_engine,
+                recon_engine=recon_engine,
+                executor=executor,
+                db_session=None,  # Set inside thread
+                workspace_id=workspace_id,
+                on_transition_callback=on_transition,
+            )
+
+            def run_pipeline_thread():
+                from smartmyodoo.core.database import SessionLocal
+
+                thread_db = SessionLocal()
+                try:
+                    pipeline.db_session = thread_db
+                    pipeline.run(message, "H", ws_odoo_db_name, pwd)
+                finally:
+                    thread_db.close()
+
+            await asyncio.to_thread(run_pipeline_thread)
+            await websocket.send_json(
+                {
+                    "type": "done",
+                    "content": pipeline.adp_plan.get("response", "Zakończono Pipeline"),
+                    "rolled_back": pipeline._rolled_back,
+                }
+            )
+        else:
+            generator = executor.execute_stream(skill_config, message)
+            async for chunk in generator:
+                await websocket.send_json(chunk)
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.send_json({"type": "error", "content": str(e)})
+        except Exception:
+            pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 # ── EP-Agent: Agent Status API ───────────────────────────────────────────────

@@ -63,3 +63,25 @@ def test_cli_show_previous_sessions_api_error():
         # Verify it printed the error
         mock_print.assert_called_once()
         assert "Nie udało się pobrać sesji: API Down" in mock_print.call_args[0][0]
+
+
+def test_cli_url_param_forwarded(mocker):
+    import sys
+    from smartmyodoo.__main__ import main
+
+    mocker.patch.object(sys, "argv", ["smartmyodoo", "--url", "http://custom-url:9999"])
+    mocker.patch("getpass.getpass", return_value="1111")
+    mocker.patch(
+        "smartmyodoo.http_client.SmartMyOdooClient.login",
+        return_value={"success": True},
+    )
+
+    mock_cli = mocker.patch("smartmyodoo.__main__.InteractiveCLI")
+    mock_cli.return_value.run = MagicMock()
+
+    main()
+
+    mock_cli.assert_called_once()
+    kwargs = mock_cli.call_args[1]
+    client = kwargs["http_client"]
+    assert client.base_url == "http://custom-url:9999"

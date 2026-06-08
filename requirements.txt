@@ -10,3 +10,4 @@ spacy>=3.7.0
 rich>=13.0
 prompt_toolkit>=3.0
 litellm>=1.40
+websockets>=12.0

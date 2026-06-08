@@ -52,6 +52,46 @@ class OpenRouterClient:
             logger.warning(f"[LLM] Błąd komunikacji z modelem: {e}")
             return None
 
+    def chat_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> Any:
+        """
+        Wysyła messages do LLM via litellm w trybie strumieniowym.
+        Obsługuje tool calling.
+        Zwraca generator obiektów chunk. W przypadku błędu zwraca wygenerowany chunk błędu.
+        """
+        try:
+            kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.1,
+                "max_tokens": 1000,
+                "api_key": self.api_key,
+                "stream": True,
+            }
+            if tools:
+                kwargs["tools"] = tools
+
+            response = litellm.completion(**kwargs)
+            for chunk in response:
+                yield chunk
+        except Exception as e:
+            logger.warning(f"[LLM] Błąd komunikacji z modelem (stream): {e}")
+
+            class _ErrorDelta:
+                content = f"Błąd serwera LLM: {str(e)}"
+                tool_calls = None
+
+            class _ErrorChoice:
+                delta = _ErrorDelta()
+
+            class _ErrorChunk:
+                choices = [_ErrorChoice()]
+
+            yield _ErrorChunk()
+
 
 def create_client(api_key: Optional[str] = None) -> Optional[OpenRouterClient]:
     """

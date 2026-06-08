@@ -124,14 +124,64 @@ class InteractiveCLI:
                     continue
 
                 # Oznaczenie że system pracuje
-                with self.console.status(
-                    "[bold cyan]Agent myśli...[/bold cyan]", spinner="dots"
-                ):
-                    result = self.callback(user_input)
+                if hasattr(self.http_client, "chat_stream"):
+                    import asyncio
+                    from rich.live import Live
+                    from rich.console import Group
+                    from rich.text import Text
 
-                self.print_agent_response(
-                    result.get("response", ""), result.get("tools_used", [])
-                )
+                    async def run_stream():
+                        full_text = ""
+                        logs_text = ""
+
+                        def get_renderable():
+                            items = []
+                            if logs_text:
+                                items.append(
+                                    Text(logs_text.strip(), style="dim italic")
+                                )
+                            items.append(
+                                Panel(
+                                    Markdown(full_text),
+                                    title="SmartMyOdoo Agent",
+                                    border_style="blue",
+                                )
+                            )
+                            return Group(*items)
+
+                        with Live(
+                            get_renderable(),
+                            refresh_per_second=15,
+                            console=self.console,
+                        ) as live:
+                            generator = self.http_client.chat_stream(
+                                message=user_input,
+                                workspace_id=self.workspace_id,
+                                session_id=self.session_id,
+                            )
+                            async for chunk in generator:
+                                if chunk["type"] == "token":
+                                    full_text += chunk["content"]
+                                    live.update(get_renderable())
+                                elif chunk["type"] == "log":
+                                    logs_text += f"⚙️ {chunk['content']}\n"
+                                    live.update(get_renderable())
+                                elif chunk["type"] == "error":
+                                    logs_text += f"❌ Błąd: {chunk['content']}\n"
+                                    live.update(get_renderable())
+                                elif chunk["type"] == "done":
+                                    break
+
+                    asyncio.run(run_stream())
+                else:
+                    with self.console.status(
+                        "[bold cyan]Agent myśli...[/bold cyan]", spinner="dots"
+                    ):
+                        result = self.callback(user_input)
+
+                    self.print_agent_response(
+                        result.get("response", ""), result.get("tools_used", [])
+                    )
 
             except KeyboardInterrupt:
                 continue
