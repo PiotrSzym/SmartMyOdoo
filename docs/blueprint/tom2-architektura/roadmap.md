@@ -153,6 +153,12 @@
 
 > **Sprint F7-01:** `docs/sprints/2026-06-07_F7-01_projekt_tab_sprint.md`
 > **Zrealizowano (F7-01):** Dwustanowy widok projektu (Credentials / Task Picker), obsługa wielu projektów w jednym Odoo, auto-tworzenie domyślnych zadań ([SmartMyOdoo] Pula czasu roboczego), weryfikacja logiki z prawdziwym testem Playwright (E2E).
+>
+> **Sprint FIX-F7-02:** `docs/sprints/2026-06-07_FIX-F7-02_qa_hotfix_sprint.md`
+> **Zrealizowano (FIX-F7-02):** Hotfixy QA, usunięcie śledzonych plików binarnych, scalenie endpointów logowania czasu, strict Pydantic walidacja, ujednolicenie klucza Vault (globalny `default_ODOO`).
+>
+> **Sprint ARCH-S1.1 (Swarm Integration - Skill Panel):** `docs/sprints/ARCH-S1.1_skill_panel.md`
+> **Zrealizowano (ARCH-S1.1):** Dodanie zakładki z ręcznym doborem skilli (Skill Panel) oraz predefiniowanymi programami, endpoint GET /api/skills, omijanie (bypass) automatycznego Dispatchera przy jawnym wyborze oraz odzwierciedlenie autoselekcji w UI.
 
 ### 7.1 Pipeline Integration
 - Podłączenie Tool Engine do pełnego `pipeline.py` FSM (AUTH→RECON→COGNITIVE→ACTUATION→SYNC).
