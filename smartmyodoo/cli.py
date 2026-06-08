@@ -10,11 +10,11 @@ from rich.table import Table
 
 class InteractiveCLI:
     def __init__(
-        self, callback, chat_repo=None, workspace_id="default", session_id=None
+        self, callback, http_client=None, workspace_id="default", session_id=None
     ):
         self.console = Console()
         self.callback = callback
-        self.chat_repo = chat_repo
+        self.http_client = http_client
         self.workspace_id = workspace_id
         self.session_id = session_id or f"cli-{int(time.time())}"
         self.style = Style.from_dict(
@@ -36,11 +36,15 @@ class InteractiveCLI:
         self.console.print(f"[bold red]Error:[/bold red] {text}")
 
     def _show_previous_sessions(self):
-        """Wyświetla listę poprzednich sesji (Smart Context)."""
-        if not self.chat_repo:
+        """Wyświetla listę poprzednich sesji (Smart Context) pobraną z API."""
+        if not self.http_client:
             return
 
-        sessions = self.chat_repo.list_sessions(self.workspace_id, limit=5)
+        try:
+            sessions = self.http_client.list_sessions(self.workspace_id, limit=5)
+        except Exception as e:
+            self.console.print(f"[dim red]Nie udało się pobrać sesji: {e}[/dim red]\n")
+            return
         if not sessions:
             self.console.print(
                 "[dim]Brak wcześniejszych sesji w tym workspace.[/dim]\n"

@@ -69,10 +69,10 @@ class SkillPanel {
             const badgeShadow = s.shadow ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wider font-bold">Shadow</span>` : '';
 
             return `
-            <label class="relative group flex items-start gap-3 p-4 glass-card border ${isChecked ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/50 hover:bg-slate-800/50'} cursor-pointer transition-all rounded-xl">
+            <label class="relative group hover:z-50 flex items-start gap-3 p-4 glass-card border ${isChecked ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/50 hover:bg-slate-800/50'} cursor-pointer transition-all rounded-xl">
 
                 <!-- Tooltip -->
-                <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 p-3 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 backdrop-blur-md bg-slate-900/95 border border-indigo-500/40 text-sm pointer-events-none">
+                <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-96 p-3 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 backdrop-blur-md bg-slate-900/95 border border-indigo-500/40 text-sm pointer-events-none">
                     <div class="flex items-center gap-2 mb-1.5 border-b border-slate-700/50 pb-1.5">
                         <span class="text-base">${s.icon}</span>
                         <span class="font-bold text-indigo-300">${s.name}</span>

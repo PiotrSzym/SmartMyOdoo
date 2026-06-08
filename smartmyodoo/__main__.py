@@ -1,91 +1,62 @@
-import os
+import argparse
 import sys
 import time
 
 from smartmyodoo.cli import InteractiveCLI
-from smartmyodoo.swarm.executor import SkillExecutor
-from smartmyodoo.swarm.llm_client import OpenRouterClient
-from smartmyodoo.swarm.skills.skill_config import SkillConfig
-from smartmyodoo.swarm.models import SkillName
-from smartmyodoo.swarm.sandbox import SandboxManager
+from smartmyodoo.http_client import SmartMyOdooClient
 
 
 def main():
-    # ── Database setup ──
-    from smartmyodoo.core.database import engine, SessionLocal
-    from smartmyodoo.core import models as db_models
-
-    db_models.Base.metadata.create_all(bind=engine)
-    db_session = SessionLocal()
-
-    # ── Chat Repository (EP-1: Historia chatów) ──
-    from smartmyodoo.core.chat_repository import ChatRepository
-
-    chat_repo = ChatRepository(db=db_session)
-
-    workspace_id = os.environ.get("SMARTMYODOO_WORKSPACE", "default")
-    session_id = f"cli-{int(time.time())}"
-
-    # ── Sandbox Manager (EP-2: Rollback) ──
-    sandbox = SandboxManager()
-
-    # ── LLM Client ──
-    api_key = os.environ.get("OPENROUTER_API_KEY", "dummy_key_for_testing")
-    llm_client = OpenRouterClient(
-        api_key=api_key,
-        model="openrouter/meta-llama/llama-3.1-8b-instruct",
+    parser = argparse.ArgumentParser(description="SmartMyOdoo CLI (Thin Client)")
+    parser.add_argument(
+        "--url",
+        type=str,
+        default="http://127.0.0.1:8000",
+        help="URL of the FastAPI server",
     )
+    parser.add_argument("--workspace", type=str, default="default", help="Workspace ID")
+    args = parser.parse_args()
 
-    # ── Executor z pełną integracją ──
-    executor = SkillExecutor(
-        llm_client=llm_client,
-        chat_repo=chat_repo,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        sandbox=sandbox,
-    )
+    client = SmartMyOdooClient(base_url=args.url)
 
-    # ── Skill Config ──
+    print("==================================================")
+    print(f"|  SmartMyOdoo CLI connecting to: {args.url}")
+    print("==================================================")
+
+    # Login
     try:
-        config = SkillConfig(
-            name=SkillName.ODOO_DEVELOPER,
-            system_prompt=(
-                "Jesteś ekspertem Odoo Developer. "
-                "Masz do dyspozycji narzędzia do interakcji z Odoo. "
-                "Odpowiadaj krótko i konkretnie."
-            ),
-            allowed_tools=[
-                "odoo_search",
-                "odoo_schema",
-                "odoo_create",
-                "search_knowledge_base",
-                "scaffold_module",
-                "read_odoo_log",
-                "search_odoo_code",
-            ],
-            red_flags=[],
-            recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
-        )
+        import getpass
+
+        pin = getpass.getpass("PIN: ")
+        auth = client.login(pin)
+        if not auth.get("success"):
+            print("❌ Logowanie nieudane. Zły PIN lub brak autoryzacji.")
+            sys.exit(1)
+        print("✅ Logowanie pomyślne.")
     except Exception as e:
-        print(f"Błąd konfiguracji Skilla: {str(e)}")
+        print(f"❌ Błąd logowania: {e}")
         sys.exit(1)
 
-    def callback(message: str) -> dict:
-        # Aktualizuj session_id w executor (może się zmienić po /sessions)
-        executor.session_id = cli.session_id
-        return executor.execute(config, message)
+    workspace_id = args.workspace
+    session_id = f"cli-{int(time.time())}"
 
-    # ── CLI z historią sesji ──
+    def callback(message: str) -> dict:
+        try:
+            resp = client.chat(message, workspace_id, cli.session_id)
+            return {
+                "response": resp.get("reply", "Brak odpowiedzi od serwera."),
+                "tools_used": resp.get("selected_skills", []),
+            }
+        except Exception as e:
+            return {"response": f"Błąd komunikacji z serwerem: {e}", "tools_used": []}
+
     cli = InteractiveCLI(
         callback=callback,
-        chat_repo=chat_repo,
+        http_client=client,
         workspace_id=workspace_id,
         session_id=session_id,
     )
-    try:
-        cli.run()
-    finally:
-        db_session.close()
+    cli.run()
 
 
 if __name__ == "__main__":
