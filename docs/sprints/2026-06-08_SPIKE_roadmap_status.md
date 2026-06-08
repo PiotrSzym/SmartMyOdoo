@@ -39,7 +39,7 @@ To są elementy, które aktualnie wiszą na roadmapie jako niezrealizowane i blo
 - [ ] Integracja z SmartMyVault (automatyczne wstrzykiwanie credentials podczas działania pełnego potoku FSM).
 
 ### 2. CLI Client-Server Mode (7.2)
-- [ ] Przejście CLI z bezposredniego importowania funkcji na pełnego klienta HTTP odpytującego nasz backend FastAPI.
+- [x] Przejście CLI z bezposredniego importowania funkcji na pełnego klienta HTTP odpytującego nasz backend FastAPI (Zrealizowane: F7-02).
 - [ ] Naprawa endpointu `/api/chat` – ma zwracać **prawdziwą odpowiedź LLM-a**, obecnie zwraca hardkodowany template.
 - [ ] Zaimplementowanie WebSocketów (streaming responses) do wyświetlania na żywo logów (Live Logs) w GUI/CLI z backendu.
 
