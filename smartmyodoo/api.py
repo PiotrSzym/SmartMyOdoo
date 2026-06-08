@@ -292,40 +292,116 @@ async def handle_chat(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
+    import asyncio
+    import uuid
+    from smartmyodoo.core.chat_repository import ChatRepository
+    from smartmyodoo.swarm.llm_client import OpenRouterClient
+    from smartmyodoo.swarm.executor import SkillExecutor, RedFlagViolation
+    from smartmyodoo.swarm.sandbox import SandboxManager
+    from smartmyodoo.swarm.skills.registry import SKILL_REGISTRY
+    from smartmyodoo.swarm.models import SkillName
+    from smartmyodoo.swarm.skills.skill_config import SkillConfig
+
+    # ── 1. Dispatch intent ──
     if req.selected_skills:
-        # Bypass Dispatcher
         category_value = "H"
         persona_value = "H"
-        recommended_model = "claude-3-opus-20240229"  # Generic fallback if we bypass
+        recommended_model = "claude-3-opus-20240229"
         selected_skills_to_use = req.selected_skills
     else:
-        # Use Dispatcher
-        result = dispatcher.classify_intent(req.message)
-        category_value = result.category.value
-        persona_value = result.persona.value if result.persona else "H"
-        recommended_model = result.recommended_model
-        selected_skills_to_use = [result.skill_name.value] if result.skill_name else []
+        dispatch_result = dispatcher.classify_intent(req.message)
+        category_value = dispatch_result.category.value
+        persona_value = (
+            dispatch_result.persona.value if dispatch_result.persona else "H"
+        )
+        recommended_model = dispatch_result.recommended_model
+        selected_skills_to_use = (
+            [dispatch_result.skill_name.value] if dispatch_result.skill_name else []
+        )
 
-    PERSONA_REPLIES = {
-        "A": "[💻 Developer] Rozumiem — chcesz napisać lub poprawić kod. Przygotowuję rozwiązanie...",
-        "B": "[🗄️ DBA] Przyjęto zapytanie. Analizuję polecenie i przygotowuję akcję na bazie Odoo...",
-        "C": "[🧪 QA] Przygotowuję testy i walidację dla Twojego żądania...",
-        "D": "[📝 Docs] Generuję dokumentację na podstawie Twojego opisu...",
-        "E": "[🔍 Scout] Rozpoczynam research — przeszukuję bazę wiedzy...",
-        "F": "[🏗️ Architect] Analizuję architekturę systemu pod kątem Twojego pytania...",
-        "G": "[📊 PM] Aktualizuję status projektu i organizuję zadania...",
-        "H": "[🤖 Asystent] {message_echo}",
-    }
+    # ── 2. Resolve OpenRouter key (Vault → ENV fallback) ──
+    vk, _, _ = auth_data
+    openrouter_key = None
+    try:
+        vault_data = vault.load_vault(vk)
+        secret = vault_data.get("OPENROUTER_KEY", {})
+        openrouter_key = (
+            secret.get("api_key") or secret.get("password") or secret.get("key")
+        )
+    except Exception:
+        pass
+    if not openrouter_key:
+        openrouter_key = os.environ.get("OPENROUTER_KEY")
 
-    reply_template = PERSONA_REPLIES.get(category_value, PERSONA_REPLIES["H"])
-    reply_text = reply_template.format(message_echo=req.message)
+    # ── 3. Build executor ──
+    chat_repo = ChatRepository(db=db)
+    llm = (
+        OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        if openrouter_key
+        else None
+    )
+    sandbox = SandboxManager()
 
-    if category_value == "B":
-        import uuid
-        import json
+    executor = SkillExecutor(
+        llm_client=llm,
+        chat_repo=chat_repo,
+        workspace_id=req.workspace_id,
+        session_id=req.session_id,
+        sandbox=sandbox,
+    )
+
+    # ── 4. Resolve skill config ──
+    skill_config = None
+    if selected_skills_to_use:
+        skill_key = selected_skills_to_use[0]
+        for key, cfg in SKILL_REGISTRY.items():
+            if key.value == skill_key:
+                skill_config = cfg
+                break
+
+    if not skill_config:
+        skill_config = SkillConfig(
+            name=SkillName.ODOO_BUSINESS_ANALYST,
+            system_prompt="Jesteś asystentem SmartMyOdoo. Odpowiadaj krótko i merytorycznie.",
+            allowed_tools=["search_knowledge_base"],
+            red_flags=[],
+            recommended_model=recommended_model,
+        )
+
+    # ── 5. Execute (async-safe) ──
+    if llm:
+        try:
+            exec_result = await asyncio.to_thread(
+                executor.execute, skill_config, req.message
+            )
+            reply_text = exec_result.get("response", "Brak odpowiedzi od agenta.")
+        except RedFlagViolation:
+            reply_text = "⛔ Zablokowano: wykryto niedozwoloną operację."
+        except Exception as e:
+            reply_text = f"Błąd agenta: {type(e).__name__}"
+    else:
+        # Fallback — brak klucza LLM
+        executor._save_chat("user", req.message)
+
+        PERSONA_REPLIES = {
+            "A": "[💻 Developer] Brak klucza OPENROUTER_KEY.",
+            "B": "[🗄️ DBA] Brak klucza OPENROUTER_KEY.",
+            "C": "[🧪 QA] Brak klucza OPENROUTER_KEY.",
+            "D": "[📝 Docs] Brak klucza OPENROUTER_KEY.",
+            "E": "[🔍 Scout] Brak klucza OPENROUTER_KEY.",
+            "F": "[🏗️ Architect] Brak klucza OPENROUTER_KEY.",
+            "G": "[📊 PM] Brak klucza OPENROUTER_KEY.",
+            "H": "[🤖 Asystent] Brak klucza OPENROUTER_KEY w Vault lub ENV.",
+        }
+        reply_prefix = PERSONA_REPLIES.get(category_value, PERSONA_REPLIES["H"])
+        reply_text = reply_prefix + " " + req.message
+        executor._save_chat("assistant", reply_text)
+
+    # ── 6. Shadow proposal (only for DBA intent without LLM) ──
+    if category_value == "B" and not llm:
+        proposal_id = str(uuid.uuid4())[:8]
         from smartmyodoo.core.models import Proposal
 
-        proposal_id = str(uuid.uuid4())[:8]
         proposal = Proposal(
             id=proposal_id,
             workspace_id=req.workspace_id,

@@ -5,7 +5,6 @@ Wzorzec: Fallback — brak klucza API = None → Dispatcher używa heurystyk.
 """
 
 import logging
-import os
 from typing import Optional, List, Dict, Any
 
 import litellm
@@ -21,8 +20,6 @@ class OpenRouterClient:
     def __init__(self, api_key: str, model: str = DEFAULT_MODEL):
         self.api_key = api_key
         self.model = model
-        # Wymagane przez litellm dla providera OpenRouter
-        os.environ["OPENROUTER_API_KEY"] = api_key
         # Dodatkowe headery
         litellm.headers = {
             "HTTP-Referer": "http://localhost:8000",
@@ -44,6 +41,7 @@ class OpenRouterClient:
                 "messages": messages,
                 "temperature": 0.1,
                 "max_tokens": 1000,
+                "api_key": self.api_key,
             }
             if tools:
                 kwargs["tools"] = tools

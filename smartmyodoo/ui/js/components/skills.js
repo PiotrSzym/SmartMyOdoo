@@ -14,6 +14,24 @@ class SkillPanel {
         ];
 
         this.selectedSkills = new Set();
+
+        if (window.AppStore) {
+            window.AppStore.subscribe((newState, oldState) => {
+                if (newState.activeTab === 'skills' && oldState.activeTab !== 'skills') {
+                    this.loadSkills();
+                }
+                if (newState.authToken !== oldState.authToken && newState.authToken) {
+                    this.loadSkills();
+                }
+                if (newState.isAuthenticated !== oldState.isAuthenticated && newState.isAuthenticated) {
+                    this.loadSkills();
+                }
+                if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'skills') {
+                    this.loadSkills();
+                }
+            });
+        }
+
         this.loadSkills();
     }
 
@@ -25,6 +43,7 @@ class SkillPanel {
             });
             if (res.ok) {
                 this.skills = await res.json();
+                console.log('[SkillPanel] Załadowano skille z API:', this.skills.length);
                 this.render();
             } else {
                 console.error('[SkillPanel] Błąd pobierania skilli:', res.status);
@@ -104,6 +123,7 @@ class SkillPanel {
             this.selectedSkills.add(id);
         }
         this.render();
+        if (window.AppChat) window.AppChat.render();
     }
 
     toggleProgram(programId) {
@@ -120,11 +140,13 @@ class SkillPanel {
         }
 
         this.render();
+        if (window.AppChat) window.AppChat.render();
     }
 
     clearAll() {
         this.selectedSkills.clear();
         this.render();
+        if (window.AppChat) window.AppChat.render();
     }
 
     getSelectedSkills() {

@@ -1,6 +1,6 @@
 from enum import Enum, auto
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 from .adp import DecisionEngine
 from .db_manager import OdooDBManager
 from .recon import EnvironmentRecon
@@ -34,11 +34,13 @@ class ExecutionPipeline:
         db_manager: OdooDBManager,
         decision_engine: DecisionEngine,
         recon_engine: Optional[EnvironmentRecon] = None,
+        executor: Optional[Any] = None,
     ):
         self.state = PipelineState.AUTH
         self.db_manager = db_manager
         self.decision_engine = decision_engine
         self.recon_engine = recon_engine
+        self.executor = executor
 
         # Kontekst wykonania
         self.original_db: str = ""
@@ -107,25 +109,41 @@ class ExecutionPipeline:
         logger.info(f"RECON EnvironmentInfo: {self.env_info}")
 
     def _execute_cognitive(self, intent: str, persona: str):
-        # Wywołanie DecisionEngine
-        logger.info("COGNITIVE: Uruchamianie protokołu ADP")
-        self.adp_plan = self.decision_engine.evaluate(persona, intent, self.env_info)
-        if "8_Plan" not in self.adp_plan:
-            logger.warning(
-                "Brak klucza 8_Plan w wyniku ADP, format może być niespójny."
+        logger.info("COGNITIVE: Uruchamianie SkillExecutor")
+        if hasattr(self, "executor") and self.executor:
+            # Zakładamy że executor to instancja SkillExecutor
+            from smartmyodoo.swarm.skills.skill_config import SkillConfig
+            from smartmyodoo.swarm.models import SkillName
+
+            config = SkillConfig(
+                name=SkillName.ODOO_DEVELOPER,
+                system_prompt="Jesteś asystentem w środowisku FSM. Context: "
+                + str(self.env_info),
+                allowed_tools=[],
+                red_flags=[],
+                recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
             )
+            self.adp_plan = self.executor.execute(config, intent)
+        elif self.decision_engine:
+            self.adp_plan = self.decision_engine.evaluate(
+                persona, intent, self.env_info
+            )
+        else:
+            self.adp_plan = {"response": "Brak silnika decyzyjnego w COGNITIVE"}
 
     def _execute_actuation(self):
-        # Wykonanie wygenerowanego kodu/narzędzi na sklonowanej bazie
         logger.info(f"ACTUATION: Aplikowanie planu na bazie {self.scratchpad_db}")
-        # Placeholder dla podłączania kodu MCP na scratchpadzie
-        pass
+        if hasattr(self, "executor") and self.executor and self.executor.sandbox:
+            logger.info(
+                "Używam SandboxManager (%s) do fazy ACTUATION.",
+                type(self.executor.sandbox).__name__,
+            )
+        else:
+            logger.info("Brak SandboxManager w ACTUATION.")
 
     def _execute_sync(self, success: bool):
-        # Integracja zmian do Live DB
         logger.info("SYNC: Zakończenie pracy i raportowanie")
         if success:
-            # Gdy akcja zakończona pomyślnie, można zmergować lub zasygnalizować sukces
             logger.info(
                 "Sukces. Środowisko robocze pozostawione do audytu przez człowieka."
             )
