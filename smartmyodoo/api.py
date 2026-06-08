@@ -218,59 +218,79 @@ async def get_skills(
             "icon": "📊",
             "name": "Business Analyst",
             "desc": "Standard First — konfiguracja",
+            "tooltip": "Skupia się na analizie biznesowej, architekturze danych i konfiguracji Standard Odoo. Powinien być używany jako pierwszy do modelowania procesów.",
         },
         "ODOO_DEVELOPER": {
             "icon": "💻",
             "name": "Developer",
             "desc": "_inherit mandatory, no core mod",
+            "tooltip": "Odpowiada za modyfikacje kodu. Przestrzega zasady braku modyfikacji core Odoo (tylko dziedziczenie _inherit). Idealny do tworzenia nowych modułów i rozszerzeń.",
         },
         "ODOO_DEVOPS_GITHUB": {
             "icon": "🚀",
             "name": "DevOps/GitHub",
             "desc": "Staging Isolation, Feature Branches",
+            "tooltip": "Zarządza infrastrukturą i wdrożeniami. Używa izolacji w środowiskach Staging oraz tworzy odpowiednie branche w repozytorium GitHub.",
         },
         "ODOO_SH_LOGS": {
             "icon": "📋",
             "name": "SH Logs",
             "desc": "Tracebacki bottom-up",
+            "tooltip": "Analizuje błędy i logi ze środowiska Odoo.sh metodą bottom-up (od dołu), szybko lokalizując przyczynę tracebacków.",
         },
         "ODOO_AUDIT_HISTORY": {
             "icon": "🔍",
             "name": "Audit History",
             "desc": "Chatter tracking via mail.message",
+            "tooltip": "Śledzi historię zmian i audyty korzystając z wbudowanego mechanizmu chattera (mail.message) w Odoo.",
         },
-        "ODOO_CRUD": {"icon": "🗄️", "name": "CRUD", "desc": "Magic Tuples (0,0,{})"},
+        "ODOO_CRUD": {
+            "icon": "🗄️",
+            "name": "CRUD",
+            "desc": "Magic Tuples (0,0,{})",
+            "tooltip": "Zarządza danymi. Zna na pamięć strukturę tzw. 'Magic Tuples' w Odoo (np. (0,0,{}), (4,id)) używanych przy relacjach One2many/Many2many.",
+        },
         "ODOO_ETL_MANAGER": {
             "icon": "📦",
             "name": "ETL Manager",
             "desc": "Batching 200 rek/req",
+            "tooltip": "Obsługuje duże importy i migracje danych. Implementuje paczkowanie (batching) np. po 200 rekordów na request, aby nie blokować pamięci.",
         },
         "FINANCIAL_AUDIT": {
             "icon": "💰",
             "name": "Financial Audit",
             "desc": "Lock Dates, Credit Note",
+            "tooltip": "Ekspert od modułu księgowości. Zajmuje się datami blokady (Lock Dates), notami kredytowymi i prawidłowością wpisów księgowych.",
         },
         "SECURITY_AUDIT": {
             "icon": "🔒",
             "name": "Security Audit",
             "desc": "PII Pseudonymization",
+            "tooltip": "Dba o bezpieczeństwo i ochronę danych (np. RODO). Specjalizuje się w anonimizacji oraz pseudonimizacji danych PII.",
         },
         "ODOO_API_EXPERT": {
             "icon": "🔌",
             "name": "API Expert",
             "desc": "API Keys, no auth=public",
+            "tooltip": "Zajmuje się zewnętrznymi integracjami via XML-RPC/JSON-RPC. Zna best practices autoryzacji (API Keys, omijanie auth=public).",
         },
         "MAGIC_FIX": {
             "icon": "🪄",
             "name": "Magic Fix",
             "desc": "Force unlock, kryzysowe",
+            "tooltip": "Agent ratunkowy do kryzysowych sytuacji. Posiada uprawnienia do tzw. force unlock (odblokowywanie zablokowanych zadań/rekordów).",
         },
     }
 
     for skill_name, config in SKILL_REGISTRY.items():
         defaults = ui_defaults.get(
             skill_name.value,
-            {"icon": "🛠️", "name": skill_name.value, "desc": "Brak opisu"},
+            {
+                "icon": "🛠️",
+                "name": skill_name.value,
+                "desc": "Brak opisu",
+                "tooltip": "Brak dodatkowego opisu dla tego skilla.",
+            },
         )
         skills.append(
             {
@@ -278,6 +298,7 @@ async def get_skills(
                 "icon": defaults["icon"],
                 "name": defaults["name"],
                 "desc": defaults["desc"],
+                "tooltip": defaults.get("tooltip", defaults["desc"]),
                 "read_only": config.read_only,
                 "shadow": config.requires_shadow_mode,
                 "human_override": config.requires_human_override,
