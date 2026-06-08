@@ -50,6 +50,30 @@ To są elementy, które aktualnie wiszą na roadmapie jako niezrealizowane i blo
 
 ---
 
+## 🔬 Analiza Wdrożeniowa dla `/api/chat` i WebSocketów
+
+Aby wdrożyć dwa ostatnie, kluczowe punkty z sekcji 7.2, musimy zastosować się do naszych dotychczasowych Decyzji Architektonicznych (ADR) oraz wypracowanych dobrych praktyk:
+
+### 1. Podpięcie LLM do `/api/chat` (HTTP POST)
+**Co musi zostać zrobione:**
+- Usunięcie hardkodowanej odpowiedzi z endpointu FastAPI.
+- Zainicjalizowanie `SkillExecutor` w kontekście żądania webowego. Endpoint musi przyjąć payload (historię czatu, zapytanie), przekazać do Orkiestratora i zaczekać na gotową odpowiedź.
+**Wymagania ADR i Dobre Praktyki:**
+- **ADR-012 (LLM Context Guardrails):** Zanim endpoint wyśle całą historię do LLM, musi oszacować wielkość promptu i upewnić się, że nie przekracza limitu modelu (np. 150k tokenów dla Sonnet) oraz nie przepala budżetu (`TokenGovernor`).
+- **ADR-011 (Logging & Sanitization):** Wszelkie błędy wykonania skilli przez agenta po stronie serwera muszą być logowane, ale z pominięciem danych wrażliwych PII. Wyjątki muszą powracać jako ustrukturyzowany JSON do klienta CLI/GUI.
+
+### 2. Architektura WebSocket / Streaming
+**Co musi zostać zrobione:**
+- Utworzenie nowego endpointu `ws://.../api/chat/stream` w FastAPI.
+- Przystosowanie `SmartMyOdooClient` (w konsoli) oraz interfejsu GUI do nawiązywania połączenia WS zamiast używania surowego `requests.post`.
+**Wymagania ADR i Dobre Praktyki:**
+- **Asynchroniczność:** Wykorzystanie w pełni asynchronicznych generatorów Pythona (Asyncio) i biblioteki do obsługi WebSockets w FastAPI (klasa `WebSocket`).
+- **Streaming Tokenów:** Wywołanie modeli z OpenRouter z flagą `stream=True`. W miarę spływania chunków tekstu, FastAPI musi natychmiast przepychać je socketem do klienta.
+- **Live Logs (Dual Stream):** Socket powinien wysyłać dwa typy wiadomości JSON: `{"type": "token", "content": "..."}` dla tekstu od LLM oraz `{"type": "log", "content": "Wywołuję funkcję odoo_search..."}` informując usera o tym, co agent robi w "czarnej skrzynce".
+- **Obsługa zerwań (Graceful Disconnect):** Endpoint musi poprawnie łapać wyjątek `WebSocketDisconnect`, aby nie crashować całego serwera, gdy klient w terminalu wciśnie `Ctrl+C`.
+
+---
+
 ## 🎯 Architektoniczna Konkluzja i Rekomendacja
 
 Architektonicznie jesteśmy na etapie, w którym GUI i narzędzia agentów wyprzedziły główny mechanizm wyzwalający. Naszym najwyższym priorytetem powinna być teraz **naprawa `/api/chat`** i przejście na **pipeline FSM (7.1 i 7.2)**, ponieważ interfejs webowy i CLI muszą przestać polegać na hardkodowanych mockach w zakresie komunikacji z LLM-em. Bez tego, mimo zaawansowanego GUI i zarejestrowanych skilli, nie mamy w pełni funkcjonalnego "Client-Server Mode".
