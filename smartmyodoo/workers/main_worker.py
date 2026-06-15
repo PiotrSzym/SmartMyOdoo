@@ -79,6 +79,7 @@ class WorkerDaemon:
                 status="failed",
                 result={"error": f"Unknown queue {queue_name}"},
             )
+            await self.queue.ack(queue_name, job_id)  # S2.4: potwierdź przetworzenie
             return
 
         try:
@@ -96,6 +97,9 @@ class WorkerDaemon:
             await self.queue.update_job(
                 job_id, status="failed", result={"error": str(e)}
             )
+        finally:
+            # S2.4: ack po przetworzeniu — usuwa z `processing` (brak ponownego dostarczenia)
+            await self.queue.ack(queue_name, job_id)
 
     async def run_queue(self, queue_name: str):
         logger.info(f"Listening on queue: {queue_name}")
