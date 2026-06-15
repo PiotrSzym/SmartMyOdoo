@@ -7,6 +7,7 @@ from fastapi import (
     FastAPI,
     Depends,
     HTTPException,
+    Request,
     Security,
     WebSocket,
     WebSocketDisconnect,
@@ -28,6 +29,7 @@ from smartmyodoo.swarm.models import (
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
 from smartmyodoo.swarm import llm_client
+from smartmyodoo.mcp.token_governor import governor as _token_governor
 from typing import List
 
 
@@ -43,12 +45,21 @@ db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
 
+# S1.3: jawna lista originów (koniec '*'+credentials, które echo'wało dowolny Origin).
+# Konfiguracja przez CORS_ALLOWED_ORIGINS (CSV); domyślnie lokalny UI.
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ALLOWED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000"
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 security = HTTPBearer()
@@ -56,6 +67,20 @@ security = HTTPBearer()
 # LLM Client: odczyt klucza z ENV (opcjonalnie wstrzyknięty przez Vault CLI)
 _llm = llm_client.create_client(api_key=os.environ.get("OPENROUTER_KEY"))
 dispatcher = Dispatcher(llm_client=_llm)
+
+# S1.1: współdzielona instancja PiiMiddleware (mapping per workspace_id), lazy by nie ładować
+# presidio przy imporcie modułu.
+_pii_singleton = None
+
+
+def _get_pii():
+    global _pii_singleton
+    if _pii_singleton is None:
+        from smartmyodoo.mcp.pii_middleware import PiiMiddleware
+
+        _pii_singleton = PiiMiddleware()
+    return _pii_singleton
+
 
 # Zastąpiono _proposals i _workspaces użyciem bazy danych.
 
@@ -101,11 +126,57 @@ async def init_api(data: schemas.InitRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class _AuthRateLimiter:
+    """S1.3: prosty rate-limit/lockout prób logowania (ochrona przed brute-force PIN)."""
+
+    def __init__(self, max_attempts: int = 5, window_seconds: int = 300):
+        self.max_attempts = max_attempts
+        self.window = window_seconds
+        self._attempts: Dict[str, Dict[str, float]] = {}
+
+    @staticmethod
+    def _now() -> float:
+        import time
+
+        return time.monotonic()
+
+    def is_locked(self, key: str) -> bool:
+        rec = self._attempts.get(key)
+        if not rec:
+            return False
+        if self._now() - rec["first"] >= self.window:
+            self._attempts.pop(key, None)
+            return False
+        return rec["count"] >= self.max_attempts
+
+    def record_failure(self, key: str) -> None:
+        now = self._now()
+        rec = self._attempts.get(key)
+        if not rec or now - rec["first"] >= self.window:
+            self._attempts[key] = {"count": 1.0, "first": now}
+        else:
+            rec["count"] += 1
+
+    def reset(self, key: str) -> None:
+        self._attempts.pop(key, None)
+
+
+_auth_limiter = _AuthRateLimiter()
+
+
 @app.post("/api/auth", response_model=schemas.AuthResponse)
-async def auth(data: schemas.AuthRequest):
+async def auth(data: schemas.AuthRequest, request: Request):
+    client = request.client.host if request.client else "unknown"
+    if _auth_limiter.is_locked(client):
+        raise HTTPException(
+            status_code=429,
+            detail="Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
+        )
     vk, role = get_auth_key(data.password)
     if vk:
+        _auth_limiter.reset(client)
         return schemas.AuthResponse(success=True, role=role)
+    _auth_limiter.record_failure(client)
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 
@@ -374,7 +445,9 @@ async def handle_chat(
     # ── 3. Build executor ──
     chat_repo = ChatRepository(db=db)
     llm = (
-        OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        OpenRouterClient(
+            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+        )
         if openrouter_key
         else None
     )
@@ -386,6 +459,7 @@ async def handle_chat(
         workspace_id=req.workspace_id,
         session_id=req.session_id,
         sandbox=sandbox,
+        pii=_get_pii(),
     )
 
     # ── 4. Resolve skill config ──
@@ -538,7 +612,11 @@ async def run_pipeline(
     if not openrouter_key:
         openrouter_key = os.environ.get("OPENROUTER_KEY")
 
-    llm = OpenRouterClient(api_key=openrouter_key) if openrouter_key else None
+    llm = (
+        OpenRouterClient(api_key=openrouter_key, governor=_token_governor)
+        if openrouter_key
+        else None
+    )
     sandbox = SandboxManager(odoo_url=odoo_url, master_password=odoo_master_pwd)
     session_id = req.session_id or str(uuid.uuid4())
 
@@ -548,6 +626,7 @@ async def run_pipeline(
         workspace_id=req.workspace_id,
         session_id=session_id,
         sandbox=sandbox,
+        pii=_get_pii(),
     )
 
     db_manager = OdooDBManager(odoo_url, odoo_master_pwd)
@@ -652,7 +731,9 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
 
         # 4. Executor
         chat_repo = ChatRepository(db=db)
-        llm = OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        llm = OpenRouterClient(
+            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+        )
         sandbox = SandboxManager()
 
         executor = SkillExecutor(
@@ -661,6 +742,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             workspace_id=workspace_id,
             session_id=session_id,
             sandbox=sandbox,
+            pii=_get_pii(),
         )
 
         skill_config = None

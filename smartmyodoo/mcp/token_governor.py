@@ -14,15 +14,16 @@ class TokenGovernor:
         self.current_spend = 0.0
         self.total_tokens = 0
 
-    def add_usage(
-        self, tokens: int, cost_per_1k: float, model: str = "unknown"
-    ) -> None:
-        """Dodaje użycie tokenów i aktualizuje koszt. Blokuje jeśli przekroczono budżet."""
-        cost = (tokens / 1000.0) * cost_per_1k
+    def record(self, tokens: int, cost: float, model: str = "unknown") -> None:
+        """Zapisuje REALNE zużycie (tokeny + koszt USD). Blokuje po przekroczeniu budżetu.
+
+        Wywoływane przez `OpenRouterClient` po każdym wywołaniu LLM (S2.2) — wcześniej
+        nigdy nie podłączone, przez co `current_spend` zawsze wynosił 0.0 (atrapa).
+        """
         self.current_spend += cost
         self.total_tokens += tokens
 
-        # Save to SQLite
+        # Save to SQLite (best-effort)
         db = SessionLocal()
         try:
             usage_log = TokenUsage(model=model, tokens_used=tokens, cost=cost)
@@ -39,6 +40,13 @@ class TokenGovernor:
                 f"Wydano: ${self.current_spend:.4f} z dozwolonych ${self.max_budget_usd:.4f}. "
                 f"Dalsze operacje na bazie danych zostały zablokowane ze względów bezpieczeństwa."
             )
+
+    def add_usage(
+        self, tokens: int, cost_per_1k: float, model: str = "unknown"
+    ) -> None:
+        """Dodaje użycie tokenów licząc koszt z ceny za 1k (kompatybilność wsteczna)."""
+        cost = (tokens / 1000.0) * cost_per_1k
+        self.record(tokens, cost, model)
 
     def get_status(self) -> dict:
         return {

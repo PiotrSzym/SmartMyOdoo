@@ -11,6 +11,12 @@ TeamEngine/
 .cursorrules
 .geminirules
 
+# Warstwa Claude Code TeamEngine (skille=junctiony do .agents, persony, README) — poza repo
+.claude/skills/
+.claude/agents/
+.claude/commands/
+.claude/README.md
+
 # ------------------------------------------------------------------------------
 # 2. Bazy Wiedzy i Decyzji (Kryptonim: LANCET, ADR, Conductor)
 # Zgodnie z polityką /arch, wiedza operacyjna, plany i architektura agentów zostają na dysku lokalnym
@@ -39,6 +45,8 @@ credentials/
 # ------------------------------------------------------------------------------
 node_modules/
 __pycache__/
+.mypy_cache/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -63,3 +71,6 @@ screenshot*.png
 diff.txt
 check_vault.py
 smartmyodoo.db*
+
+# Graphify — mapy architektury (artefakty generowane, lokalne)
+graphify-out/

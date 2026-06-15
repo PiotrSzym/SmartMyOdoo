@@ -33,9 +33,8 @@ class OdooDBManager:
                     f"Pomyślnie utworzono Scratchpad DB: {new_db} z {original_db}"
                 )
                 return True
-            logger.error(
-                f"Błąd klonowania bazy: {response.status_code} - {response.text}"
-            )
+            # S1.4: NIE logujemy response.text — body echo'wało master_pwd do logów
+            logger.error(f"Błąd klonowania bazy: HTTP {response.status_code}")
             return False
         except Exception as e:
             logger.error(f"Wyjątek podczas klonowania bazy: {str(e)}")
@@ -52,9 +51,8 @@ class OdooDBManager:
             if response.status_code in [200, 303]:
                 logger.info(f"Usunięto bazę danych: {db_name}")
                 return True
-            logger.error(
-                f"Błąd usuwania bazy: {response.status_code} - {response.text}"
-            )
+            # S1.4: NIE logujemy response.text — body echo'wało master_pwd do logów
+            logger.error(f"Błąd usuwania bazy: HTTP {response.status_code}")
             return False
         except Exception as e:
             logger.error(f"Wyjątek podczas usuwania bazy: {str(e)}")

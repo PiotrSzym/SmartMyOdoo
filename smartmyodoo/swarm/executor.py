@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 from typing import Dict, Any, Optional
 
@@ -24,12 +25,55 @@ class SkillExecutor:
         workspace_id: str = "default",
         session_id: str = "",
         sandbox: Optional[SandboxManager] = None,
+        pii: Optional[Any] = None,
     ):
         self.llm_client = llm_client
         self.chat_repo = chat_repo
         self.workspace_id = workspace_id
         self.session_id = session_id
         self.sandbox = sandbox
+        # PiiMiddleware (S1.1): pseudonimizacja PII na granicy LLM. None = brak (np. testy jednostkowe).
+        self.pii = pii
+        # S2.3: stan przekierowania bazy Odoo na scratchpad (izolacja sandbox)
+        self._saved_db: Optional[str] = None
+        self._db_redirected = False
+
+    def _anon(self, text: str) -> str:
+        """Anonimizuj tekst PRZED wysłaniem do LLM (no-op gdy brak PiiMiddleware)."""
+        if self.pii and isinstance(text, str) and text:
+            return self.pii.anonymize(text, self.workspace_id)
+        return text
+
+    def _deanon(self, text: str) -> str:
+        """Deanonimizuj tekst (tokeny → oryginał) dla użytkownika / wywołań narzędzi."""
+        if self.pii and isinstance(text, str) and text:
+            return self.pii.deanonymize(text, self.workspace_id)
+        return text
+
+    def _deanon_args(self, args: Any) -> Any:
+        """Deanonimizuj argumenty narzędzia, by realnie odpytać Odoo prawdziwymi danymi."""
+        if self.pii and isinstance(args, dict):
+            return {
+                k: (self._deanon(v) if isinstance(v, str) else v)
+                for k, v in args.items()
+            }
+        return args
+
+    def _enter_db_redirect(self, scratchpad: str) -> None:
+        """S2.3: przekieruj narzędzia Odoo na scratchpad (przez ODOO_DB), zapisując oryginał."""
+        self._saved_db = os.environ.get("ODOO_DB")
+        os.environ["ODOO_DB"] = scratchpad
+        self._db_redirected = True
+
+    def _restore_db_redirect(self) -> None:
+        """S2.3: przywróć oryginalną bazę po wyjściu z sandboxa."""
+        if not self._db_redirected:
+            return
+        if self._saved_db is None:
+            os.environ.pop("ODOO_DB", None)
+        else:
+            os.environ["ODOO_DB"] = self._saved_db
+        self._db_redirected = False
 
     def _get_audit_db(self):
         """Lazy-load DB session for audit logging."""
@@ -81,11 +125,15 @@ class SkillExecutor:
                 context = self.chat_repo.get_smart_context(
                     self.workspace_id, self.session_id
                 )
+                for m in context:
+                    if isinstance(m, dict) and isinstance(m.get("content"), str):
+                        m["content"] = self._anon(m["content"])
                 messages.extend(context)
             except Exception as e:
                 logger.warning(f"Smart Context load failed: {e}")
 
-        messages.append({"role": "user", "content": message})
+        # S1.1: do LLM trafia pseudonimizowana wiadomość; oryginał idzie do historii.
+        messages.append({"role": "user", "content": self._anon(message)})
 
         # Save user message to history
         self._save_chat("user", message)
@@ -127,8 +175,11 @@ class SkillExecutor:
                             args = json.loads(tool_call.function.arguments)
                         except Exception:
                             args = {}
+                        # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
+                        args = self._deanon_args(args)
 
-                        # ── Sandbox: auto-enter before write tools ──
+                        # ── Sandbox (S2.3): fail-closed + redirect narzędzi na scratchpad ──
+                        blocked = False
                         if (
                             self.sandbox
                             and self.sandbox.is_write_tool(func_name)
@@ -137,18 +188,38 @@ class SkillExecutor:
                             logger.info(
                                 f"🔒 Write tool detected: {func_name} — entering sandbox"
                             )
-                            self.sandbox.enter_sandbox(original_db=self._get_odoo_db())
-                            sandbox_activated = True
+                            try:
+                                scratchpad = self.sandbox.enter_sandbox(
+                                    original_db=self._get_odoo_db()
+                                )
+                            except RuntimeError as e:
+                                # np. brak ODOO_MASTER_PASSWORD — fail-closed, nie crash requestu
+                                logger.warning(f"Sandbox fail-closed: {e}")
+                                scratchpad = None
+                            if self.sandbox.enabled and not scratchpad:
+                                # FAIL-CLOSED: brak izolacji → NIE wykonuj zapisu na produkcji
+                                blocked = True
+                            else:
+                                sandbox_activated = True
+                                if scratchpad:
+                                    self._enter_db_redirect(scratchpad)
 
                         logger.info(f"Wywoływanie narzędzia: {func_name}({args})")
                         tools_used.add(func_name)
 
                         tool_result_str = ""
                         tool_success = True
-                        if func_name in TOOL_REGISTRY:
+                        if blocked:
+                            tool_result_str = (
+                                "❌ Sandbox fail-closed: nie udało się utworzyć izolacji — "
+                                "operacja zapisu zablokowana (zero zapisu na produkcji)."
+                            )
+                            tool_success = False
+                        elif func_name in TOOL_REGISTRY:
                             try:
                                 result = TOOL_REGISTRY[func_name]["callable"](**args)
-                                tool_result_str = str(result)
+                                # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
+                                tool_result_str = self._anon(str(result))
                             except Exception as e:
                                 tool_result_str = (
                                     f"Error executing {func_name}: {str(e)}"
@@ -157,6 +228,7 @@ class SkillExecutor:
                                 # ── Sandbox: rollback on error ──
                                 if sandbox_activated and self.sandbox:
                                     self.sandbox.exit_sandbox(success=False)
+                                    self._restore_db_redirect()
                                     sandbox_activated = False
                         else:
                             tool_result_str = f"Tool {func_name} not found."
@@ -197,6 +269,7 @@ class SkillExecutor:
         # ── Sandbox: exit successfully ──
         if sandbox_activated and self.sandbox:
             self.sandbox.exit_sandbox(success=True)
+            self._restore_db_redirect()
 
         # Close audit DB session
         if audit_db:
@@ -204,6 +277,9 @@ class SkillExecutor:
                 audit_db.close()
             except Exception:
                 pass
+
+        # S1.1: przywróć realne dane w odpowiedzi dla użytkownika (LLM widział tylko tokeny)
+        response_text = self._deanon(response_text)
 
         # Save assistant response to history
         self._save_chat(
@@ -264,11 +340,14 @@ class SkillExecutor:
                 context = self.chat_repo.get_smart_context(
                     self.workspace_id, self.session_id
                 )
+                for m in context:
+                    if isinstance(m, dict) and isinstance(m.get("content"), str):
+                        m["content"] = self._anon(m["content"])
                 messages.extend(context)
             except Exception as e:
                 logger.warning(f"Smart Context load failed: {e}")
 
-        messages.append({"role": "user", "content": message})
+        messages.append({"role": "user", "content": self._anon(message)})
         self._save_chat("user", message)
 
         response_text = ""
@@ -300,7 +379,8 @@ class SkillExecutor:
 
                     if getattr(delta, "content", None):
                         full_message_content += delta.content
-                        yield {"type": "token", "content": delta.content}
+                        # S1.1: deanonimizuj token przed pokazaniem użytkownikowi (best-effort)
+                        yield {"type": "token", "content": self._deanon(delta.content)}
 
                     if getattr(delta, "tool_calls", None):
                         for tc in delta.tool_calls:
@@ -382,12 +462,15 @@ class SkillExecutor:
                         args = json.loads(tc.function.arguments)
                     except Exception:
                         args = {}
+                    args = self._deanon_args(args)
 
                     yield {
                         "type": "log",
                         "content": f"Wywoływanie narzędzia: {func_name}(...)",
                     }
 
+                    # S2.3 (parytet streamingu): fail-closed + redirect na scratchpad
+                    blocked = False
                     if (
                         self.sandbox
                         and self.sandbox.is_write_tool(func_name)
@@ -397,22 +480,38 @@ class SkillExecutor:
                             "type": "log",
                             "content": f"Uruchamiam bezpieczny Sandbox dla {func_name}",
                         }
-                        self.sandbox.enter_sandbox(original_db=self._get_odoo_db())
-                        sandbox_activated = True
+                        try:
+                            scratchpad = self.sandbox.enter_sandbox(
+                                original_db=self._get_odoo_db()
+                            )
+                        except RuntimeError as e:
+                            logger.warning(f"Sandbox fail-closed: {e}")
+                            scratchpad = None
+                        if self.sandbox.enabled and not scratchpad:
+                            blocked = True
+                        else:
+                            sandbox_activated = True
+                            if scratchpad:
+                                self._enter_db_redirect(scratchpad)
 
                     tools_used.add(func_name)
 
                     tool_result_str = ""
                     tool_success = True
-                    if func_name in TOOL_REGISTRY:
+                    if blocked:
+                        tool_result_str = "❌ Sandbox fail-closed: brak izolacji — operacja zapisu zablokowana."
+                        tool_success = False
+                    elif func_name in TOOL_REGISTRY:
                         try:
                             result = TOOL_REGISTRY[func_name]["callable"](**args)
-                            tool_result_str = str(result)
+                            # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
+                            tool_result_str = self._anon(str(result))
                         except Exception as e:
                             tool_result_str = f"Error executing {func_name}: {str(e)}"
                             tool_success = False
                             if sandbox_activated and self.sandbox:
                                 self.sandbox.exit_sandbox(success=False)
+                                self._restore_db_redirect()
                                 sandbox_activated = False
                     else:
                         tool_result_str = f"Tool {func_name} not found."
@@ -450,6 +549,7 @@ class SkillExecutor:
 
         if sandbox_activated and self.sandbox:
             self.sandbox.exit_sandbox(success=True)
+            self._restore_db_redirect()
 
         if audit_db:
             try:
@@ -457,6 +557,8 @@ class SkillExecutor:
             except Exception:
                 pass
 
+        # S1.1: pełna deanonimizacja zapisanej/finalnej odpowiedzi (tokeny → oryginał)
+        response_text = self._deanon(response_text)
         self._save_chat(
             "assistant",
             response_text,
