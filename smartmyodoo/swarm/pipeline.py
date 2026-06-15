@@ -38,6 +38,7 @@ class ExecutionPipeline:
         db_session: Optional[Any] = None,
         workspace_id: str = "default",
         on_transition_callback: Optional[Any] = None,
+        dispatcher: Optional[Any] = None,
     ):
         self.state = PipelineState.AUTH
         self.db_manager = db_manager
@@ -47,6 +48,11 @@ class ExecutionPipeline:
         self.db_session = db_session
         self.workspace_id = workspace_id
         self.on_transition_callback = on_transition_callback
+        # S2.6: router intencji → dobór skilla per zadanie (koniec hardkodu ODOO_DEVELOPER)
+        self.dispatcher = dispatcher
+        self._skill_name: SkillName = SkillName.ODOO_DEVELOPER
+        self._model: str = "openrouter/meta-llama/llama-3.1-8b-instruct"
+        self._red_flags: List[str] = []
 
         # Kontekst wykonania
         self.original_db: str = ""
@@ -81,10 +87,44 @@ class ExecutionPipeline:
             return list(TOOL_REGISTRY.keys())
         return []  # COGNITIVE/AUTH/SYNC: intentionally empty — planning-only phase
 
+    def _resolve_skill(self, intent: str):
+        """S2.6: klasyfikuje intencję na właściwy SkillName + model + red_flags (z routingu).
+
+        Fallback: ODOO_DEVELOPER, gdy brak dispatchera lub kategoria bez przypisanego skilla.
+        """
+        skill_name: SkillName = SkillName.ODOO_DEVELOPER
+        model = self._model
+        if self.dispatcher:
+            try:
+                dr = self.dispatcher.classify_intent(intent)
+                if dr.skill_name:
+                    skill_name = dr.skill_name
+                if dr.recommended_model:
+                    model = dr.recommended_model
+            except Exception as e:
+                logger.warning(f"Routing classify_intent failed: {e}")
+
+        red_flags: List[str] = []
+        try:
+            from smartmyodoo.swarm.skills.registry import SKILL_REGISTRY
+
+            cfg = SKILL_REGISTRY.get(skill_name)
+            if cfg:
+                red_flags = list(cfg.red_flags)
+        except Exception as e:
+            logger.warning(f"Skill registry load failed: {e}")
+
+        return skill_name, model, red_flags
+
     def run(self, intent: str, persona: str, original_db: str, pin: str = "1111"):
         """Uruchamia pełen cykl FSM dla danego zadania."""
         self.original_db = original_db
         self.scratchpad_db = f"{original_db}_agent_scratchpad"
+        # S2.6: dobierz skill na podstawie intencji (routing zamiast hardkodu)
+        self._skill_name, self._model, self._red_flags = self._resolve_skill(intent)
+        logger.info(
+            f"ROUTING: intent → skill={self._skill_name.value}, model={self._model}"
+        )
 
         try:
             self._transition_to(PipelineState.AUTH)
@@ -204,12 +244,12 @@ class ExecutionPipeline:
             allowed_tools = self.get_allowed_tools_for_phase(self.state)
 
             config = SkillConfig(
-                name=SkillName.ODOO_DEVELOPER,
+                name=self._skill_name,
                 system_prompt="You are an assistant in FSM environment. Context: "
                 + str(self.env_info),
                 allowed_tools=allowed_tools,
-                red_flags=[],
-                recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
+                red_flags=self._red_flags,
+                recommended_model=self._model,
             )
             # LLM tworzy ADP plan
             self.adp_plan = self.executor.execute(
@@ -245,11 +285,11 @@ class ExecutionPipeline:
             sys_prompt = f"ACTUATION: Zastosuj plan na środowisku. Context: {self.env_info}. {credentials_info} Plan: {self.adp_plan}"
 
             config = SkillConfig(
-                name=SkillName.ODOO_DEVELOPER,
+                name=self._skill_name,
                 system_prompt=sys_prompt,
                 allowed_tools=allowed_tools,
-                red_flags=[],
-                recommended_model="openrouter/meta-llama/llama-3.1-8b-instruct",
+                red_flags=self._red_flags,
+                recommended_model=self._model,
             )
             # Wykonanie planu (zapis)
             result = self.executor.execute(
