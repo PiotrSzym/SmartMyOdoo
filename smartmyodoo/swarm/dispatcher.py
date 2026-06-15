@@ -3,6 +3,7 @@ from typing import Any, Dict
 import json
 
 from .models import DispatchResult, IntentCategory, Persona, SkillName
+from .model_policy import resolve_model
 
 # Wzorzec routingu (Task 1.2 & 1.3)
 ROUTING_TABLE: Dict[IntentCategory, Dict[str, Any]] = {
@@ -134,11 +135,14 @@ Zwróć TYLKO czysty JSON w następującym formacie:
                 category = IntentCategory.H_GENERAL_CHAT
 
         route = ROUTING_TABLE[category]
+        final_skill = skill_name or route.get("skill_name")
+        # K4: model dobierany po POZIOMIE skilla (tani↔drogi), nie sztywno z ROUTING_TABLE
+        recommended_model = resolve_model(final_skill.value if final_skill else None)
         return DispatchResult(
             category=category,
             persona=Persona(route["persona"]) if route.get("persona") else None,
-            skill_name=skill_name or route.get("skill_name"),
-            recommended_model=str(route["model"]),
+            skill_name=final_skill,
+            recommended_model=recommended_model,
         )
 
     def forward_message(

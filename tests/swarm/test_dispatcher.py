@@ -60,7 +60,10 @@ def test_dispatcher_llm_classification():
 
     assert res.category == IntentCategory.G_PROJECT_MANAGEMENT
     assert res.persona == Persona.PM
-    assert res.recommended_model == "meta-llama/llama-3.1-8b-instruct"
+    # K4: model dobierany po poziomie skilla (G→ODOO_BUSINESS_ANALYST→STANDARD)
+    from smartmyodoo.swarm.model_policy import resolve_model
+
+    assert res.recommended_model == resolve_model("ODOO_BUSINESS_ANALYST")
 
 
 def test_dispatcher_llm_invalid_json():
