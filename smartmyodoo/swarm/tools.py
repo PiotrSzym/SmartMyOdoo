@@ -1,5 +1,6 @@
 import inspect
 import os
+import re
 import subprocess
 from typing import Dict, Any, Callable, List
 
@@ -12,6 +13,9 @@ from smartmyodoo.mcp.server import (
 from smartmyodoo.swarm.brain.rag_api import SharedBrain
 
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {}
+
+# S1.4: dozwolona nazwa modułu Odoo (blokuje path traversal z wejścia LLM)
+_MODULE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
 
 
 def get_type_name(annotation) -> str:
@@ -126,9 +130,18 @@ def search_knowledge_base(query: str) -> str:
 def scaffold_module(module_name: str) -> str:
     """Tworzy nowy, pusty moduł Odoo w custom_addons/ za pomocą odoo-bin scaffold."""
     try:
-        addons_dir = os.path.join("custom_addons")
+        # S1.4: walidacja nazwy (małe litery/cyfry/_, start od litery) — blokada path traversal
+        if not _MODULE_NAME_RE.match(module_name or ""):
+            return (
+                "❌ Niedozwolona nazwa modułu. Dozwolone: małe litery, cyfry, '_', "
+                "start od litery (np. 'sprzedaz_raporty')."
+            )
+        addons_dir = os.path.realpath("custom_addons")
         os.makedirs(addons_dir, exist_ok=True)
-        module_dir = os.path.join(addons_dir, module_name)
+        module_dir = os.path.realpath(os.path.join(addons_dir, module_name))
+        # belt-and-suspenders: wymuś, że ścieżka pozostaje wewnątrz custom_addons/
+        if os.path.commonpath([addons_dir, module_dir]) != addons_dir:
+            return "❌ Path traversal zablokowany."
         if os.path.exists(module_dir):
             return f"❌ Moduł '{module_name}' już istnieje."
 

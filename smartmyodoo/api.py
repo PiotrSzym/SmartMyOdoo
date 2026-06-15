@@ -7,6 +7,7 @@ from fastapi import (
     FastAPI,
     Depends,
     HTTPException,
+    Request,
     Security,
     WebSocket,
     WebSocketDisconnect,
@@ -43,12 +44,21 @@ db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
 
+# S1.3: jawna lista originów (koniec '*'+credentials, które echo'wało dowolny Origin).
+# Konfiguracja przez CORS_ALLOWED_ORIGINS (CSV); domyślnie lokalny UI.
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ALLOWED_ORIGINS", "http://127.0.0.1:8000,http://localhost:8000"
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 security = HTTPBearer()
@@ -101,11 +111,57 @@ async def init_api(data: schemas.InitRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class _AuthRateLimiter:
+    """S1.3: prosty rate-limit/lockout prób logowania (ochrona przed brute-force PIN)."""
+
+    def __init__(self, max_attempts: int = 5, window_seconds: int = 300):
+        self.max_attempts = max_attempts
+        self.window = window_seconds
+        self._attempts: Dict[str, Dict[str, float]] = {}
+
+    @staticmethod
+    def _now() -> float:
+        import time
+
+        return time.monotonic()
+
+    def is_locked(self, key: str) -> bool:
+        rec = self._attempts.get(key)
+        if not rec:
+            return False
+        if self._now() - rec["first"] >= self.window:
+            self._attempts.pop(key, None)
+            return False
+        return rec["count"] >= self.max_attempts
+
+    def record_failure(self, key: str) -> None:
+        now = self._now()
+        rec = self._attempts.get(key)
+        if not rec or now - rec["first"] >= self.window:
+            self._attempts[key] = {"count": 1.0, "first": now}
+        else:
+            rec["count"] += 1
+
+    def reset(self, key: str) -> None:
+        self._attempts.pop(key, None)
+
+
+_auth_limiter = _AuthRateLimiter()
+
+
 @app.post("/api/auth", response_model=schemas.AuthResponse)
-async def auth(data: schemas.AuthRequest):
+async def auth(data: schemas.AuthRequest, request: Request):
+    client = request.client.host if request.client else "unknown"
+    if _auth_limiter.is_locked(client):
+        raise HTTPException(
+            status_code=429,
+            detail="Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
+        )
     vk, role = get_auth_key(data.password)
     if vk:
+        _auth_limiter.reset(client)
         return schemas.AuthResponse(success=True, role=role)
+    _auth_limiter.record_failure(client)
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 

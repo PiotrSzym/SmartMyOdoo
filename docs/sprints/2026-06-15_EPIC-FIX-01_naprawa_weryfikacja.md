@@ -16,10 +16,14 @@
 | **S2.6** Routing person/skilli do pipeline (koniec hardkodu ODOO_DEVELOPER) | ✅ DONE | `tests/swarm/test_pipeline_routing.py` (routed skill + fallback) |
 | **S2.5** Workery: uczciwe handlery (shadow_ops real, not_implemented zamiast fake completed) + graceful shutdown | ✅ DONE | `tests/workers/test_main_worker.py` |
 | **S2.4** JobQueue niezawodna: BLMOVE+ack+requeue_stale, TTL, atomowy update_job (guard regresji) | ✅ DONE | `tests/test_queue_reliability.py` |
-| S1.3, S1.4 (CORS/rate-limit/sekrety), S3, S5 | ⬜ TODO | — |
+| **S1.3** CORS jawne originy + rate-limit/lockout logowania | ✅ DONE | `tests/test_security_s13.py` |
+| **S1.4** path traversal `scaffold_module`, redakcja `master_pwd` w logach | ✅ DONE | `tests/test_tools_scaffold_security.py`, `tests/test_db_manager_redaction.py` |
+| S3 (api.py God Module, dedup), S5 (litellm.Router, locki, RAG) | ⬜ TODO | — |
 
-> Stan testów: **183 passed / 0 failed / 2 deselected (e2e)**.
-> ✅ **CAŁE S2 (reality-check atrap) UKOŃCZONE** — S2.1–S2.6.
+> Stan testów: **188 passed / 0 failed / 2 deselected (e2e)**.
+> ✅ **CAŁE S1 (bezpieczeństwo) i S2 (reality-check) UKOŃCZONE.**
+> Pozostały pakiety S3 (struktura/refaktor) i S5 (patterny — ulepszenia).
+> S1.4 docker-compose (hasła/Redis requirepass) — pominięte: to plik WIP F7-03 (zmiana w jego gestii).
 
 ---
 
