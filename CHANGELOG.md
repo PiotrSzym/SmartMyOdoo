@@ -2,6 +2,23 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w `docs/sprints/`.
 
+## [KEY-01] — 2026-06-15 — Typowany rejestr kluczy + routing modeli LLM
+
+> Plan: [`docs/sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md`](docs/sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md).
+> Design: [`docs/architecture/DESIGN-credentials-and-model-routing.md`](docs/architecture/DESIGN-credentials-and-model-routing.md).
+
+### Added
+- **Typowany rejestr kluczy** (K1-K3): `CredentialType` (odoo_data/odoo_timesheet/llm_provider),
+  `Credential` z walidacją per-typ, resolver (auto-tag legacy) + routing creds Odoo (timesheet→data→legacy).
+- **Routing modeli per skill** (K4): `model_policy` — tier CHEAP/STANDARD/PREMIUM (ENV-override),
+  Dispatcher dobiera model wg skilla zamiast stałej.
+- **Odporność LLM** (K5): retry + fallback model w `OpenRouterClient`; `effective_model` degraduje tier
+  przy niskim budżecie zamiast twardej blokady.
+- **UI rejestru + zakładka „Modele"** (K6): w Skarbcu dropdown **Typ** + pola dynamiczne (LLM/Odoo/timesheet)
+  i ikony typu na liście; nowa zakładka **Modele** (edycja tier→model + budżet + mapa skill→tier);
+  badge modelu przy odpowiedziach w Czacie. Backend: `GET/PUT /api/models/policy`, utrwalanie
+  `type/provider/ref` w sekrecie.
+
 ## [FIX-01] — 2026-06-15 — Remediacja audytu (bezpieczeństwo + reality-check)
 
 > Źródło: audyt 5-wymiarowy (`.agents/AUDIT_REPORT.md`, 39 znalezisk).

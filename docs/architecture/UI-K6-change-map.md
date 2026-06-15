@@ -1,7 +1,10 @@
 # 🖥️ Mapa zmian UI — K6 (rejestr kluczy + modele) w panelu graficznym
 
-> Konkretne miejsca w `smartmyodoo/ui/index.html` (+ `ui/js/`), które zmienia K6 sprintu [KEY-01](../sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md).
-> Stan obecny: zakładki **Skarbiec · Czat · Aktywność · Projekt · Skille**; formularz „Dodaj Sekret" (`#secret-modal`).
+> ✅ **ZREALIZOWANE** (PR K6). Konkretne miejsca w `smartmyodoo/ui/index.html` (+ `ui/js/`), które zmienia K6 sprintu [KEY-01](../sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md).
+> Stan po K6: zakładki **Skarbiec · Czat · Aktywność · Projekt · Skille · ⚙️ Modele**; formularz „Dodaj Sekret" (`#secret-modal`) z dropdownem **Typ**.
+>
+> **Co dostarczono:** A (formularz typowany + ikony typu) · B (zakładka „Modele" + `GET/PUT /api/models/policy`) · C (badge modelu w Czacie).
+> Backend: `SecretCreateRequest` utrwala `type/provider/default_project_ref/default_task_ref`; nowy router `api_routers/models.py`.
 
 ## A. Zakładka **Skarbiec** → formularz „Dodaj Sekret" (`#secret-modal`)
 | # | Gdzie (element/selektor) | Co się zmieni |

@@ -36,6 +36,11 @@ class SecretCreateRequest(BaseModel):
     api_key: Optional[str] = ""
     expires: Optional[str] = ""
     workspace_id: Optional[str] = "default"
+    # K6 (KEY-01): typowany rejestr — typ klucza + provider LLM + domyślne ref timesheet
+    type: Optional[str] = ""  # odoo_data | odoo_timesheet | llm_provider
+    provider: Optional[str] = ""  # openrouter | anthropic | openai (tylko llm_provider)
+    default_project_ref: Optional[str] = ""  # tylko odoo_timesheet
+    default_task_ref: Optional[str] = ""  # tylko odoo_timesheet
 
 
 class SecretResponse(BaseModel):

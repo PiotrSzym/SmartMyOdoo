@@ -8,12 +8,14 @@ class Canvas {
         this.tabActivity = document.getElementById('tab-activity');
         this.tabSettings = document.getElementById('tab-settings');
         this.tabSkills = document.getElementById('tab-skills');
+        this.tabModels = document.getElementById('tab-models');
 
         this.screenVault = document.getElementById('vault-screen');
         this.screenChat = document.getElementById('chat-screen');
         this.screenActivity = document.getElementById('activity-screen');
         this.screenSettings = document.getElementById('settings-screen');
         this.screenSkills = document.getElementById('skills-screen');
+        this.screenModels = document.getElementById('models-screen');
 
         // Definicja zakładek: { buttonEl, screenEl }
         this.tabs = [
@@ -22,12 +24,17 @@ class Canvas {
             { btn: this.tabActivity, screen: this.screenActivity, key: 'activity' },
             { btn: this.tabSettings, screen: this.screenSettings, key: 'settings' },
             { btn: this.tabSkills, screen: this.screenSkills, key: 'skills' },
+            { btn: this.tabModels, screen: this.screenModels, key: 'models' },
         ];
 
         // Subskrypcja stanu
         AppStore.subscribe((newState, oldState) => {
             if (newState.activeTab !== oldState.activeTab) {
                 this.updateTabs(newState.activeTab);
+                // K6: ładuj politykę modeli przy wejściu na zakładkę
+                if (newState.activeTab === 'models' && typeof loadModelsPolicy === 'function') {
+                    loadModelsPolicy();
+                }
             }
             if (newState.workspaceId !== oldState.workspaceId) {
                 this.handleWorkspaceChange(newState.workspaceId);

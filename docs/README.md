@@ -31,7 +31,7 @@ Centralny indeks. Linki **klikalne** (działają na GitHubie i w edytorze).
 |---|---|
 | 🟢 [EPIC-FIX-01 — Naprawa i Weryfikacja](sprints/2026-06-15_EPIC-FIX-01_naprawa_weryfikacja.md) | ✅ zakończony (S1+S2) |
 | 🟢 [SPRINT-FIX-02 — Struktura i Patterny](sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) | 🏗️ w toku (S3.1 routery) |
-| 🟢 [SPRINT-KEY-01 — Rejestr kluczy + Routing modeli](sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md) | 📋 planowany (impl. [DESIGN](architecture/DESIGN-credentials-and-model-routing.md), K1-K6) |
+| 🟢 [SPRINT-KEY-01 — Rejestr kluczy + Routing modeli](sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md) | ✅ K1-K6 dostarczone (typowany rejestr + routing + UI Modele) |
 | 🟢 [SPRINT-F7-03 — Advanced Features (Redis Queue)](sprints/2026-06-08_SPRINT-F7-03_advanced_features.md) | ✅ |
 | 🟢 [Wszystkie sprinty →](sprints/) | ~50 plików (historia F2-F7, HUB, QA, UX) |
 
