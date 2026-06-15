@@ -256,6 +256,13 @@ class ChatPanel {
             personaBadge = `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${colorClass} font-medium mb-1">${icon} ${msg.persona}</span>`;
         }
 
+        // K6: badge modelu obsługującego odpowiedź
+        let modelBadge = '';
+        if (!isUser && msg.model) {
+            const shortModel = String(msg.model).split('/').pop();
+            modelBadge = `<span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-slate-700/40 text-slate-300 border-slate-600/40 font-mono mb-1 ml-1" title="${this._escapeHtml(msg.model)}">⚙️ ${this._escapeHtml(shortModel)}</span>`;
+        }
+
         if (isUser) {
             return `
                 <div class="flex justify-end gap-3">
@@ -273,7 +280,7 @@ class ChatPanel {
                 <div class="flex justify-start gap-3">
                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white shrink-0 mt-1 shadow-lg shadow-purple-500/20">AI</div>
                     <div class="max-w-[70%]">
-                        ${personaBadge}
+                        ${personaBadge}${modelBadge}
                         <div class="bg-slate-800/60 border border-slate-700/50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-300 leading-relaxed backdrop-blur-sm">
                             ${this._escapeHtml(msg.text)}
                         </div>
@@ -440,6 +447,7 @@ class ChatPanel {
             this.addMessage('agent', data.reply || 'Brak odpowiedzi.', {
                 persona: data.persona || null,
                 category: data.category || null,
+                model: data.model || null,
                 actionType: data.action_type || 'CHAT',
                 proposalData: data.proposal_data || null,
                 proposalStatus: data.proposal_data ? 'pending' : null,

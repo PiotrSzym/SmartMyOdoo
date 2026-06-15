@@ -102,6 +102,9 @@
                     <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
                     <span class="flex items-center gap-2">🧠 Skille</span>
                 </button>
+                    <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2">⚙️ Modele</span>
+                </button>
                 </div>
                 <div class="flex-1"></div>
                 <button onclick="window.AppTheme && window.AppTheme.toggle()" id="theme-toggle-btn" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="Zmień motyw">
@@ -163,6 +166,52 @@
                 <!-- Tab: Skille -->
                 <div id="skills-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
                     <!-- Wypełniane przez skills.js -->
+                </div>
+
+                <!-- Tab: Modele (K6) -->
+                <div id="models-screen" class="w-full max-w-3xl mx-auto hidden flex-col gap-6">
+                    <div class="flex justify-between items-center">
+                        <h1 class="text-4xl font-bold text-gradient">Modele AI</h1>
+                        <button onclick="loadModelsPolicy()" class="text-slate-400 hover:text-indigo-400 transition text-sm">↻ Odśwież</button>
+                    </div>
+                    <p class="text-sm text-slate-400 -mt-2">Tani model robi proste zadania, drogi — trudne. Przy niskim budżecie system automatycznie schodzi na tańszy poziom.</p>
+
+                    <div class="glass-card p-6 space-y-4">
+                        <h2 class="text-xl font-semibold text-white">Model per poziom kosztu</h2>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">CHEAP — klasyfikacja, krótkie odpowiedzi</label>
+                            <input type="text" id="m-cheap" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">STANDARD — typowy dev/CRUD</label>
+                            <input type="text" id="m-standard" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">PREMIUM — architektura, trudny audyt</label>
+                            <input type="text" id="m-premium" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white font-mono text-sm">
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6 space-y-4">
+                        <h2 class="text-xl font-semibold text-white">Budżet sesji</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Limit (USD)</label>
+                                <input type="number" step="0.1" min="0" id="m-budget" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Wydane</label>
+                                <div id="m-spent" class="w-full bg-slate-900/50 border border-slate-800 rounded-lg p-2 text-slate-300">—</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6">
+                        <h2 class="text-xl font-semibold text-white mb-3">Mapa skill → poziom</h2>
+                        <div id="m-skill-tier" class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-300"></div>
+                    </div>
+
+                    <button onclick="saveModelsPolicy()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold">Zapisz politykę</button>
                 </div>
 
                 <!-- Tab: Aktywność -->
@@ -298,34 +347,73 @@
             <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
             <h2 id="modal-title" class="text-2xl font-bold mb-6 text-gradient">Dodaj Sekret</h2>
             <div class="space-y-4">
+                <!-- K6: Typ klucza steruje widocznością pozostałych pól -->
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Typ Klucza</label>
+                    <select id="f-type" onchange="onSecretTypeChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        <option value="llm_provider">🔑 Model AI (LLM)</option>
+                        <option value="odoo_data">🗄️ Odoo — dane</option>
+                        <option value="odoo_timesheet">⏱️ Odoo — czas pracy</option>
+                        <option value="">— inne / nieklasyfikowane —</option>
+                    </select>
+                </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Nazwa Klucza (Używana w ENV)</label>
                     <input type="text" id="f-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
                 </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Hasło / Secret Token</label>
-                    <input type="password" id="f-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
+
+                <!-- Grupa: Model AI -->
+                <div id="grp-llm" class="space-y-4">
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">Login (Opcjonalne)</label>
-                        <input type="text" id="f-login" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        <label class="block text-xs text-slate-400 mb-1">Provider</label>
+                        <select id="f-provider" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                            <option value="openrouter">openrouter</option>
+                            <option value="anthropic">anthropic</option>
+                            <option value="openai">openai</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-400 mb-1">API Key (Opcjonalne)</label>
+                        <label class="block text-xs text-slate-400 mb-1">API Key</label>
                         <input type="password" id="f-apikey" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">URL Bazy/Serwisu (Opcjonalne)</label>
-                        <input type="text" id="f-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+
+                <!-- Grupa: Odoo (dane / czas pracy) -->
+                <div id="grp-odoo" class="space-y-4 hidden">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Login</label>
+                            <input type="text" id="f-login" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Hasło / Secret Token</label>
+                            <input type="password" id="f-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs text-slate-400 mb-1">Dokładna Nazwa Bazy (Opcjonalne)</label>
-                        <input type="text" id="f-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="np. ps-myodoo-test-main">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">URL Bazy/Serwisu</label>
+                            <input type="text" id="f-url" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Dokładna Nazwa Bazy</label>
+                            <input type="text" id="f-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="np. ps-myodoo-test-main">
+                        </div>
                     </div>
                 </div>
+
+                <!-- Grupa: Odoo czas pracy (domyślne ref) -->
+                <div id="grp-timesheet" class="grid grid-cols-2 gap-4 hidden">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Domyślny Projekt (ref/ID)</label>
+                        <input type="text" id="f-project-ref" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Domyślne Zadanie (ref/ID)</label>
+                        <input type="text" id="f-task-ref" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Data Ważności (Opcjonalne)</label>
                     <input type="date" id="f-expires" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" style="color-scheme: dark;">
@@ -662,6 +750,15 @@
                 card.className = `glass-card p-5 relative group ${isGrid ? '' : 'flex flex-col md:flex-row md:items-center justify-between gap-4'}`;
                 if(isDeleted) card.classList.add('border-red-500/30', 'bg-red-900/10');
 
+                const TYPE_BADGE = {
+                    llm_provider: '🔑 LLM',
+                    odoo_data: '🗄️ Odoo dane',
+                    odoo_timesheet: '⏱️ Odoo czas'
+                };
+                const typeBadge = TYPE_BADGE[val.type]
+                    ? `<span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 whitespace-nowrap">${TYPE_BADGE[val.type]}${val.provider ? ' · ' + val.provider : ''}</span>`
+                    : '';
+
                 let detailsHtml = `
                     <div class="space-y-1 text-sm ${isDeleted ? 'text-red-300/80' : 'text-slate-300'} mt-3">
                         ${val.login ? `<div class="flex items-center gap-2"><span class="text-slate-500">Log:</span> <span class="font-medium">${val.login}</span></div>` : ''}
@@ -675,7 +772,10 @@
                 card.innerHTML = `
                     <div class="${isGrid ? 'mb-4' : 'flex-1'}">
                         <div class="flex justify-between items-start">
-                            <h3 class="font-bold text-lg ${isDeleted ? 'text-red-400 line-through' : 'text-indigo-300'} break-all">${key}</h3>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="font-bold text-lg ${isDeleted ? 'text-red-400 line-through' : 'text-indigo-300'} break-all">${key}</h3>
+                                ${typeBadge}
+                            </div>
                             ${isGrid ? `
                             <div class="flex gap-2">
                                 ${showTrash ? `
@@ -725,16 +825,32 @@
             }
         }
 
+        // K6: pokazuje pola właściwe dla wybranego typu klucza
+        function onSecretTypeChange() {
+            const t = document.getElementById('f-type').value;
+            const isLlm = t === 'llm_provider';
+            const isOdoo = t === 'odoo_data' || t === 'odoo_timesheet';
+            const isTimesheet = t === 'odoo_timesheet';
+            document.getElementById('grp-llm').classList.toggle('hidden', !isLlm);
+            document.getElementById('grp-odoo').classList.toggle('hidden', !isOdoo);
+            document.getElementById('grp-timesheet').classList.toggle('hidden', !isTimesheet);
+        }
+
         function showSecretModal() {
             document.getElementById('modal-title').innerText = "Dodaj Sekret";
             document.getElementById('f-name').value = "";
             document.getElementById('f-name').disabled = false;
+            document.getElementById('f-type').value = "llm_provider";
+            document.getElementById('f-provider').value = "openrouter";
             document.getElementById('f-password').value = "";
             document.getElementById('f-login').value = "";
             document.getElementById('f-apikey').value = "";
             document.getElementById('f-url').value = "";
             document.getElementById('f-db').value = "";
+            document.getElementById('f-project-ref').value = "";
+            document.getElementById('f-task-ref').value = "";
             document.getElementById('f-expires').value = "";
+            onSecretTypeChange();
             document.getElementById('secret-modal').classList.remove('hidden');
             document.getElementById('secret-modal').classList.add('flex');
         }
@@ -744,12 +860,17 @@
             document.getElementById('modal-title').innerText = "Edytuj Sekret";
             document.getElementById('f-name').value = keyName;
             document.getElementById('f-name').disabled = true;
+            document.getElementById('f-type').value = data.type || "";
+            document.getElementById('f-provider').value = data.provider || "openrouter";
             document.getElementById('f-password').value = data.password || "";
             document.getElementById('f-login').value = data.login || "";
             document.getElementById('f-apikey').value = data.api_key || "";
             document.getElementById('f-url').value = data.url || "";
             document.getElementById('f-db').value = data.db || "";
+            document.getElementById('f-project-ref').value = data.default_project_ref || "";
+            document.getElementById('f-task-ref').value = data.default_task_ref || "";
             document.getElementById('f-expires').value = data.expires || "";
+            onSecretTypeChange();
             document.getElementById('secret-modal').classList.remove('hidden');
             document.getElementById('secret-modal').classList.add('flex');
         }
@@ -765,7 +886,11 @@
                 url: document.getElementById('f-url').value,
                 db: document.getElementById('f-db').value,
                 expires: document.getElementById('f-expires').value,
-                workspace_id: AppStore.getState().workspaceId
+                workspace_id: AppStore.getState().workspaceId,
+                type: document.getElementById('f-type').value,
+                provider: document.getElementById('f-provider').value,
+                default_project_ref: document.getElementById('f-project-ref').value,
+                default_task_ref: document.getElementById('f-task-ref').value
             };
 
             await fetch(`/api/secrets/${keyName}`, {
@@ -779,6 +904,55 @@
 
             closeModals();
             loadSecrets();
+        }
+
+        // ===== K6: Zakładka Modele =====
+        async function loadModelsPolicy() {
+            try {
+                const res = await fetch('/api/models/policy', {
+                    headers: {'Authorization': `Bearer ${AppStore.getState().authToken}`}
+                });
+                if(!res.ok) { showToast('Nie udało się pobrać polityki modeli'); return; }
+                const p = await res.json();
+                document.getElementById('m-cheap').value = p.tiers.cheap || '';
+                document.getElementById('m-standard').value = p.tiers.standard || '';
+                document.getElementById('m-premium').value = p.tiers.premium || '';
+                document.getElementById('m-budget').value = p.budget.max_budget_usd;
+                document.getElementById('m-spent').innerText =
+                    `$${Number(p.budget.spent_usd).toFixed(4)}` + (p.budget.can_continue ? '' : ' ⚠️ wyczerpany');
+
+                const st = document.getElementById('m-skill-tier');
+                st.innerHTML = '';
+                Object.entries(p.skill_tier).forEach(([skill, tier]) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-between border-b border-slate-800/60 py-0.5';
+                    row.innerHTML = `<span class="truncate text-slate-400">${skill}</span><span class="font-mono text-indigo-300">${tier}</span>`;
+                    st.appendChild(row);
+                });
+            } catch(e) {
+                showToast('Błąd ładowania polityki: ' + e.message);
+            }
+        }
+
+        async function saveModelsPolicy() {
+            const payload = {
+                tiers: {
+                    cheap: document.getElementById('m-cheap').value,
+                    standard: document.getElementById('m-standard').value,
+                    premium: document.getElementById('m-premium').value
+                },
+                max_budget_usd: parseFloat(document.getElementById('m-budget').value)
+            };
+            const res = await fetch('/api/models/policy', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${AppStore.getState().authToken}`
+                },
+                body: JSON.stringify(payload)
+            });
+            if(res.ok) { showToast('Polityka modeli zapisana ✓'); loadModelsPolicy(); }
+            else { showToast('Błąd zapisu polityki'); }
         }
 
         async function deleteSecret(keyName) {

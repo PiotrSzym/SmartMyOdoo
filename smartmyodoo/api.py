@@ -218,6 +218,11 @@ async def add_or_update_secret(
             "api_key": secret_data.api_key,
             "expires": secret_data.expires,
             "workspace_id": secret_data.workspace_id,
+            # K6 (KEY-01): typowany rejestr — zapisujemy typ/provider/ref timesheet
+            "type": secret_data.type,
+            "provider": secret_data.provider,
+            "default_project_ref": secret_data.default_project_ref,
+            "default_task_ref": secret_data.default_task_ref,
         }
         vault.save_vault(vk, data)
         return schemas.SuccessResponse(success=True)
@@ -897,10 +902,12 @@ async def delete_secrets_by_workspace(
 from smartmyodoo.api_routers.proposals import router as proposals_router  # noqa: E402
 from smartmyodoo.api_routers.monitoring import router as monitoring_router  # noqa: E402
 from smartmyodoo.api_routers.workspaces import router as workspaces_router  # noqa: E402
+from smartmyodoo.api_routers.models import router as models_router  # noqa: E402
 
 app.include_router(proposals_router)
 app.include_router(monitoring_router)
 app.include_router(workspaces_router)  # type: ignore[has-type]  # cykl import (deps-module = S3)
+app.include_router(models_router)  # type: ignore[has-type]  # cykl import (deps-module = S3)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
