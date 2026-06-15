@@ -1,5 +1,6 @@
 import json
 import datetime
+import uuid
 from smartmyodoo.core.database import SessionLocal
 from smartmyodoo.core.models import Proposal
 
@@ -11,10 +12,21 @@ def load_proposals(workspace_id: str = "default") -> list:
         result = []
         for r in records:
             try:
-                data = json.loads(str(r.plan_json))
-                data["id"] = r.id
-                data["status"] = r.status
-                data["created_at"] = r.created_at.isoformat() if r.created_at else None
+                val_data = json.loads(str(r.values)) if r.values else {}
+                record_ids = val_data.get("record_ids", [])
+                values = val_data.get("values", {})
+
+                data = {
+                    "id": r.id,
+                    "workspace_id": r.workspace_id,
+                    "action_type": r.method,
+                    "model_name": r.odoo_model,
+                    "record_ids": record_ids,
+                    "values": values,
+                    "reason": r.reason,
+                    "status": r.status,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
                 result.append(data)
             except Exception:
                 pass
@@ -32,39 +44,45 @@ def create_proposal(
     workspace_id: str = "default",
 ) -> dict:
     """Tworzy propozycję modyfikacji w trybie Shadow Mode w SQLite (uwzględnia workspace_id)."""
-    proposal_data = {
-        "action_type": action_type,
-        "model_name": model_name,
-        "record_ids": record_ids,
-        "values": values,
-        "reason": reason,
-    }
+    proposal_id = str(uuid.uuid4())[:8]
+    val_payload = {"record_ids": record_ids, "values": values}
 
     db = SessionLocal()
     try:
         new_prop = Proposal(
+            id=proposal_id,
             status="pending",
             workspace_id=workspace_id,
-            plan_json=json.dumps(proposal_data, ensure_ascii=False),
+            odoo_model=model_name,
+            method=action_type,
+            values=json.dumps(val_payload, ensure_ascii=False),
+            reason=reason,
         )
         db.add(new_prop)
         db.commit()
         db.refresh(new_prop)
 
-        proposal_data["id"] = new_prop.id  # type: ignore
-        proposal_data["workspace_id"] = new_prop.workspace_id  # type: ignore
-        proposal_data["status"] = new_prop.status  # type: ignore
-        proposal_data["created_at"] = (
-            new_prop.created_at.isoformat()
-            if new_prop.created_at
-            else datetime.datetime.now().isoformat()
-        )
+        proposal_data = {
+            "id": new_prop.id,
+            "workspace_id": new_prop.workspace_id,
+            "action_type": new_prop.method,
+            "model_name": new_prop.odoo_model,
+            "record_ids": record_ids,
+            "values": values,
+            "reason": new_prop.reason,
+            "status": new_prop.status,
+            "created_at": (
+                new_prop.created_at.isoformat()
+                if new_prop.created_at
+                else datetime.datetime.now().isoformat()
+            ),
+        }
         return proposal_data
     finally:
         db.close()
 
 
-def accept_proposal(proposal_id: int) -> bool:
+def accept_proposal(proposal_id: str) -> bool:
     """Zmienia status propozycji na 'approved'."""
     db = SessionLocal()
     try:
@@ -78,7 +96,7 @@ def accept_proposal(proposal_id: int) -> bool:
         db.close()
 
 
-def reject_proposal(proposal_id: int) -> bool:
+def reject_proposal(proposal_id: str) -> bool:
     """Zmienia status propozycji na 'rejected'."""
     db = SessionLocal()
     try:
