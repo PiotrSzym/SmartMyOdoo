@@ -18,12 +18,20 @@ class OpenRouterClient:
     """Klient LLM wykorzystujący litellm do komunikacji (domyślnie OpenRouter)."""
 
     def __init__(
-        self, api_key: str, model: str = DEFAULT_MODEL, governor: Optional[Any] = None
+        self,
+        api_key: str,
+        model: str = DEFAULT_MODEL,
+        governor: Optional[Any] = None,
+        fallback_model: Optional[str] = None,
+        num_retries: int = 2,
     ):
         self.api_key = api_key
         self.model = model
         # S2.2: TokenGovernor podłączony — realna kontrola kosztów (pre-flight + record usage)
         self.governor = governor
+        # K5: odporność — retry + fallback na tańszy/zapasowy model
+        self.fallback_model = fallback_model
+        self.num_retries = num_retries
         # Dodatkowe headery
         litellm.headers = {
             "HTTP-Referer": "http://localhost:8000",
@@ -60,21 +68,37 @@ class OpenRouterClient:
         Zwraca pełny obiekt odpowiedzi litellm. W przypadku błędu zwraca None.
         """
         self._preflight()
-        response = None
-        try:
-            kwargs = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": 0.1,
-                "max_tokens": 1000,
-                "api_key": self.api_key,
-            }
-            if tools:
-                kwargs["tools"] = tools
+        # K5: kolejka modeli do próby — primary, potem fallback
+        models_to_try = [self.model]
+        if self.fallback_model and self.fallback_model != self.model:
+            models_to_try.append(self.fallback_model)
 
-            response = litellm.completion(**kwargs)
-        except Exception as e:
-            logger.warning(f"[LLM] Błąd komunikacji z modelem: {e}")
+        response = None
+        last_err: Optional[Exception] = None
+        for mdl in models_to_try:
+            for attempt in range(self.num_retries + 1):
+                try:
+                    kwargs = {
+                        "model": mdl,
+                        "messages": messages,
+                        "temperature": 0.1,
+                        "max_tokens": 1000,
+                        "api_key": self.api_key,
+                    }
+                    if tools:
+                        kwargs["tools"] = tools
+                    response = litellm.completion(**kwargs)
+                    break
+                except Exception as e:  # noqa: BLE001 — retry/fallback na dowolnym błędzie LLM
+                    last_err = e
+                    logger.warning(
+                        f"[LLM] próba {attempt + 1}/{self.num_retries + 1} dla '{mdl}' nieudana: {e}"
+                    )
+            if response is not None:
+                break
+
+        if response is None:
+            logger.warning(f"[LLM] wszystkie próby/fallbacki nieudane: {last_err}")
             return None
 
         # poza try: ewentualny PermissionError (przekroczony budżet) ma się propagować
