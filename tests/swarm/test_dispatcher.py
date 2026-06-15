@@ -2,12 +2,32 @@ from smartmyodoo.swarm.models import IntentCategory, Persona
 from smartmyodoo.swarm.dispatcher import Dispatcher
 
 
+class _Msg:
+    def __init__(self, content):
+        self.role = "assistant"
+        self.content = content
+
+
+class _Choice:
+    def __init__(self, content):
+        self.message = _Msg(content)
+
+
+class _Resp:
+    def __init__(self, content):
+        self.choices = [_Choice(content)]
+
+
 class MockLLMClient:
+    """Mock zgodny z REALNYM kontraktem OpenRouterClient.chat(messages) -> obiekt."""
+
     def __init__(self, response_text: str):
         self.response_text = response_text
+        self.last_messages = None
 
-    def chat(self, prompt: str) -> str:
-        return self.response_text
+    def chat(self, messages, tools=None):
+        self.last_messages = messages
+        return _Resp(self.response_text)
 
 
 def test_dispatcher_fallback_heuristics():
@@ -52,6 +72,32 @@ def test_dispatcher_llm_invalid_json():
 
     assert res.category == IntentCategory.H_GENERAL_CHAT
     assert res.persona == Persona.GENERIC
+
+
+def test_dispatcher_contract_passes_messages_list():
+    """S2.1 (dowód): dispatcher woła chat(messages=[...]), nie chat(str)."""
+    mock_client = MockLLMClient('{"category": "A"}')
+    dispatcher = Dispatcher(llm_client=mock_client)
+
+    res = dispatcher.classify_intent("napisz funkcję")
+
+    # chat() dostał listę messageów z rolą/treścią (a nie surowy string)
+    assert isinstance(mock_client.last_messages, list)
+    assert mock_client.last_messages[0]["role"] == "user"
+    assert "napisz funkcję" in mock_client.last_messages[0]["content"]
+    assert res.category == IntentCategory.A_CODE_GENERATION
+
+
+def test_dispatcher_handles_none_response_without_crash():
+    """S2.1 (dowód): gdy LLM zwróci None (błąd), brak TypeError — graceful fallback na H."""
+
+    class _NoneLLM:
+        def chat(self, messages, tools=None):
+            return None
+
+    dispatcher = Dispatcher(llm_client=_NoneLLM())
+    res = dispatcher.classify_intent("cokolwiek")
+    assert res.category == IntentCategory.H_GENERAL_CHAT
 
 
 def test_forward_message():

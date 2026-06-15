@@ -89,13 +89,19 @@ Zwróć TYLKO czysty JSON w następującym formacie:
         """
         skill_name = None
         if self.llm_client:
-            # W produkcji odpytujemy Llamę 3.1 8B (local inference lub OpenRouter)
-            response_text = self.llm_client.chat(self._build_prompt(message))
+            # S2.1: poprawny kontrakt — chat() przyjmuje messages=[...] i zwraca OBIEKT odpowiedzi,
+            # nie string. Wcześniej chat(str) → None → json.loads(None) → TypeError (crash).
+            response = self.llm_client.chat(
+                messages=[{"role": "user", "content": self._build_prompt(message)}]
+            )
+            response_text = ""
+            if response is not None and getattr(response, "choices", None):
+                response_text = response.choices[0].message.content or ""
             try:
                 data = json.loads(response_text)
                 category_val = data.get("category", "H")
                 category = IntentCategory(category_val)
-            except (json.JSONDecodeError, ValueError):
+            except (json.JSONDecodeError, ValueError, TypeError):
                 category = IntentCategory.H_GENERAL_CHAT
         else:
             # Fallback (heurystyki do testów lub gdy brak dostępu do LLM)

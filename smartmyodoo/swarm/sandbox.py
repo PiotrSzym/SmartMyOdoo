@@ -29,9 +29,9 @@ class SandboxManager:
         master_password: Optional[str] = None,
     ):
         self.odoo_url = odoo_url or os.environ.get("ODOO_URL", "http://localhost:8069")
-        self.master_password = master_password or os.environ.get(
-            "ODOO_MASTER_PASSWORD", "admin"
-        )
+        # FAIL-CLOSED: brak domyślnego 'admin'. Bez jawnego hasła master operacje na bazie
+        # są blokowane w enter_sandbox (a nie cicho wykonywane z hasłem 'admin').
+        self.master_password = master_password or os.environ.get("ODOO_MASTER_PASSWORD")
         self.db_manager = OdooDBManager(self.odoo_url, self.master_password)  # type: ignore
         self._active_scratchpad: Optional[str] = None
         self._original_db: Optional[str] = None
@@ -49,6 +49,13 @@ class SandboxManager:
         if not self.enabled:
             logger.info("Sandbox wyłączony (SANDBOX_ENABLED=false)")
             return None
+
+        # FAIL-CLOSED: bez hasła master nie wykonujemy żadnych operacji na bazie.
+        if not self.master_password:
+            raise RuntimeError(
+                "ODOO_MASTER_PASSWORD nie ustawione — sandbox fail-closed. "
+                "Zakaz domyślnego hasła 'admin' i klonowania bazy bez uwierzytelnienia."
+            )
 
         if self._active_scratchpad:
             logger.info(f"Scratchpad już aktywny: {self._active_scratchpad}")

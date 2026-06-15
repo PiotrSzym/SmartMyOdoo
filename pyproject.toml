@@ -18,7 +18,9 @@ dependencies = [
     "spacy>=3.7.0",
     "rich>=13.0",
     "prompt_toolkit>=3.0",
-    "litellm>=1.40"
+    "litellm>=1.40",
+    "redis>=5.0.0",
+    "markitdown[all]>=0.1.6"
 ]
 
 [project.scripts]
@@ -30,7 +32,8 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "bandit>=1.7.0",
-    "pytest>=8.0.0"
+    "pytest>=8.0.0",
+    "fakeredis[lua]>=2.20.0"
 ]
 
 [build-system]
@@ -40,3 +43,18 @@ build-backend = "hatchling.build"
 [tool.bandit]
 exclude_dirs = ["tests"]
 skips = ["B101", "B110", "B603", "B607", "B404"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests", "smartmyodoo"]
+# e2e wykluczone domyślnie: wymagają żywego serwera+chromium i zostawiają działającą
+# pętlę zdarzeń, która psuła kolejne testy async (test pollution). Uruchom jawnie: pytest -m e2e
+addopts = "-m 'not e2e'"
+norecursedirs = ["custom_addons", ".venv", "node_modules", "*.egg", "build", "dist"]
+markers = [
+    "e2e: testy end-to-end wymagające żywego serwera + przeglądarki (uruchamiaj jawnie: pytest -m e2e)",
+]
+
+[tool.coverage.run]
+source = ["smartmyodoo"]
+omit = ["*/test_*.py", "tests/*", "*/__main__.py"]

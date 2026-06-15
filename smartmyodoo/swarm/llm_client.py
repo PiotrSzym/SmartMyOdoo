@@ -17,14 +17,38 @@ DEFAULT_MODEL = "openrouter/meta-llama/llama-3.1-8b-instruct"
 class OpenRouterClient:
     """Klient LLM wykorzystujący litellm do komunikacji (domyślnie OpenRouter)."""
 
-    def __init__(self, api_key: str, model: str = DEFAULT_MODEL):
+    def __init__(
+        self, api_key: str, model: str = DEFAULT_MODEL, governor: Optional[Any] = None
+    ):
         self.api_key = api_key
         self.model = model
+        # S2.2: TokenGovernor podłączony — realna kontrola kosztów (pre-flight + record usage)
+        self.governor = governor
         # Dodatkowe headery
         litellm.headers = {
             "HTTP-Referer": "http://localhost:8000",
             "X-Title": "SmartMyOdoo Agent",
         }  # type: ignore
+
+    def _preflight(self) -> None:
+        """Hard-block: jeśli budżet wyczerpany, blokujemy wywołanie LLM ZANIM je wyślemy."""
+        if self.governor and not self.governor.get_status().get("can_continue", True):
+            raise PermissionError(
+                "🚨 TOKEN GOVERNOR: budżet sesji wyczerpany — wywołania LLM zablokowane."
+            )
+
+    def _record_usage(self, response: Any) -> None:
+        """Odczytuje realne zużycie z odpowiedzi i raportuje do governora (S2.2)."""
+        if not self.governor or response is None:
+            return
+        usage = getattr(response, "usage", None)
+        tokens = int(getattr(usage, "total_tokens", 0) or 0) if usage else 0
+        try:
+            cost = litellm.completion_cost(completion_response=response) or 0.0
+        except Exception:
+            cost = 0.0
+        # może podnieść PermissionError przy przekroczeniu budżetu (hard-block)
+        self.governor.record(tokens=tokens, cost=float(cost), model=self.model)
 
     def chat(
         self,
@@ -35,6 +59,8 @@ class OpenRouterClient:
         Wysyła messages do LLM via litellm. Obsługuje tool calling.
         Zwraca pełny obiekt odpowiedzi litellm. W przypadku błędu zwraca None.
         """
+        self._preflight()
+        response = None
         try:
             kwargs = {
                 "model": self.model,
@@ -47,10 +73,13 @@ class OpenRouterClient:
                 kwargs["tools"] = tools
 
             response = litellm.completion(**kwargs)
-            return response
         except Exception as e:
             logger.warning(f"[LLM] Błąd komunikacji z modelem: {e}")
             return None
+
+        # poza try: ewentualny PermissionError (przekroczony budżet) ma się propagować
+        self._record_usage(response)
+        return response
 
     def chat_stream(
         self,
@@ -62,6 +91,7 @@ class OpenRouterClient:
         Obsługuje tool calling.
         Zwraca generator obiektów chunk. W przypadku błędu zwraca wygenerowany chunk błędu.
         """
+        self._preflight()
         try:
             kwargs = {
                 "model": self.model,
@@ -70,6 +100,7 @@ class OpenRouterClient:
                 "max_tokens": 1000,
                 "api_key": self.api_key,
                 "stream": True,
+                "stream_options": {"include_usage": True},
             }
             if tools:
                 kwargs["tools"] = tools
@@ -93,14 +124,25 @@ class OpenRouterClient:
             yield _ErrorChunk()
 
 
-def create_client(api_key: Optional[str] = None) -> Optional[OpenRouterClient]:
+def create_client(
+    api_key: Optional[str] = None, governor: Optional[Any] = None
+) -> Optional[OpenRouterClient]:
     """
     Fabryka klienta LLM.
     Zwraca None jeśli brak klucza API (Dispatcher fallback na heurystyki).
+    Domyślnie podłącza globalny TokenGovernor (S2.2 — realna kontrola kosztów).
     """
     if not api_key:
         logger.info("[LLM] Brak klucza OpenRouter — tryb heurystyczny (offline).")
         return None
 
+    if governor is None:
+        try:
+            from smartmyodoo.mcp.token_governor import governor as _global_governor
+
+            governor = _global_governor
+        except Exception:
+            governor = None
+
     logger.info("[LLM] Klucz OpenRouter wykryty — tryb LLM aktywny.")
-    return OpenRouterClient(api_key=api_key)
+    return OpenRouterClient(api_key=api_key, governor=governor)
