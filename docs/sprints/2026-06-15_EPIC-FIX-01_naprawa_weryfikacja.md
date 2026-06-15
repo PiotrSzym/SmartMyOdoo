@@ -14,9 +14,10 @@
 | **S2.2** TokenGovernor podłączony do LLM (record usage + pre-flight hard-block) | ✅ DONE | `tests/swarm/test_llm_cost_governance.py` (spent≠0, hard-block) |
 | **S2.3** Sandbox: fail-closed + redirect narzędzi na scratchpad (ODOO_DB) | ✅ DONE | `tests/swarm/test_sandbox_isolation.py` (blokada write bez izolacji + redirect+restore) |
 | **S2.6** Routing person/skilli do pipeline (koniec hardkodu ODOO_DEVELOPER) | ✅ DONE | `tests/swarm/test_pipeline_routing.py` (routed skill + fallback) |
-| S1.3, S1.4, S2.4 (queue reliable), S2.5 (workery) | ⬜ TODO | — |
+| **S2.5** Workery: uczciwe handlery (shadow_ops real, not_implemented zamiast fake completed) + graceful shutdown | ✅ DONE | `tests/workers/test_main_worker.py` |
+| S1.3, S1.4, S2.4 (queue reliable) | ⬜ TODO | — |
 
-> Stan testów: **174 passed / 0 failed / 2 deselected (e2e)**.
+> Stan testów: **179 passed / 0 failed / 2 deselected (e2e)**.
 
 ---
 
