@@ -31,6 +31,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w
   (Playwright psuł testy async), coverage. Odblokowane 36 błędnych testów. [S4.1]
 - `.gitignore` domknięty: TeamEngine (`.agents/`, `.claude/` wrappery), `graphify-out/`, mypy/pytest cache.
 
+### Review hardening (bramka /review)
+- **Wpięcie produkcyjne:** `api.py` przekazuje `pii=` do każdego `SkillExecutor` i `governor=` do
+  każdego `OpenRouterClient` (chat/pipeline/WS) — wcześniej PII i kontrola kosztów były martwe na
+  żywym ruchu (zielone tylko w testach jednostkowych). Strażnik: `tests/test_api_wiring.py`.
+- **N3:** `enter_sandbox` przy braku hasła → fail-closed (try/except), nie crash requestu.
+- **N2:** `execute_stream` ma parytet S2.3 (fail-closed + redirect `ODOO_DB` na scratchpad).
+- Suite: **190 passed**.
+
 ### Not done (świadomie, poza FIX-01)
 - S3 (refaktor `api.py` God Module, dedup `execute`/`execute_stream`, konsolidacja PII), S5 (patterny).
   → następny sprint: [`FIX-02`](docs/sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md).
