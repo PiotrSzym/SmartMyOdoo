@@ -865,75 +865,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             pass
 
 
-# ── EP-Agent: Agent Status API ───────────────────────────────────────────────
-
-
-@app.get("/api/agent/status")
-async def get_agent_status(
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-):
-    """Zwraca obecny status działania agenta (mock na potrzeby UI)."""
-    return {"status": "idle", "task": None, "step": None, "elapsed_s": 0}
-
-
-# ── EP-1: Chat Sessions API ──────────────────────────────────────────────────
-
-
-@app.get("/api/chat/sessions")
-async def get_chat_sessions(
-    workspace_id: str = "default",
-    limit: int = 20,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    """Lista sesji czatu dla danego workspace (Smart Context)."""
-    from smartmyodoo.core.chat_repository import ChatRepository
-
-    repo = ChatRepository(db=db)
-    return repo.list_sessions(workspace_id, limit=limit)
-
-
-@app.get("/api/chat/sessions/{session_id}/messages")
-async def get_session_messages(
-    session_id: str,
-    limit: int = 200,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    """Pełna historia wiadomości z konkretnej sesji (on-demand load)."""
-    from smartmyodoo.core.chat_repository import ChatRepository
-
-    repo = ChatRepository(db=db)
-    return repo.get_session_messages(session_id, limit=limit)
-
-
-# ── EP-3: Audit Trail API ────────────────────────────────────────────────────
-
-
-@app.get("/api/audit")
-async def get_audit_log(
-    workspace_id: Optional[str] = None,
-    limit: int = 50,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    """Pobierz ostatnie wpisy z dziennika audytu."""
-    query = db.query(db_models.AuditLog).order_by(db_models.AuditLog.timestamp.desc())
-    if workspace_id:
-        query = query.filter(db_models.AuditLog.workspace_id == workspace_id)
-    entries = query.limit(limit).all()
-    return [
-        {
-            "id": e.id,
-            "workspace_id": e.workspace_id,
-            "timestamp": e.timestamp.isoformat() if e.timestamp else "",
-            "action": e.action,
-            "details": e.details,
-        }
-        for e in entries
-    ]
-
-
+# ── Agent status / Chat sessions / Audit → wydzielone do api_routers/monitoring.py (S3.1) ──
 # ── HUB-S3: Proposals API → wydzielone do api_routers/proposals.py (S3.1) ──
 
 
@@ -1307,8 +1239,10 @@ async def delete_secrets_by_workspace(
 # S3.1: routery domenowe wydzielone z God Module (przed catch-all mount /).
 # Late import — require_auth jest już zdefiniowane wyżej (brak cyklu).
 from smartmyodoo.api_routers.proposals import router as proposals_router  # noqa: E402
+from smartmyodoo.api_routers.monitoring import router as monitoring_router  # noqa: E402
 
 app.include_router(proposals_router)
+app.include_router(monitoring_router)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
