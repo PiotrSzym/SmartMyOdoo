@@ -188,9 +188,14 @@ class SkillExecutor:
                             logger.info(
                                 f"🔒 Write tool detected: {func_name} — entering sandbox"
                             )
-                            scratchpad = self.sandbox.enter_sandbox(
-                                original_db=self._get_odoo_db()
-                            )
+                            try:
+                                scratchpad = self.sandbox.enter_sandbox(
+                                    original_db=self._get_odoo_db()
+                                )
+                            except RuntimeError as e:
+                                # np. brak ODOO_MASTER_PASSWORD — fail-closed, nie crash requestu
+                                logger.warning(f"Sandbox fail-closed: {e}")
+                                scratchpad = None
                             if self.sandbox.enabled and not scratchpad:
                                 # FAIL-CLOSED: brak izolacji → NIE wykonuj zapisu na produkcji
                                 blocked = True
@@ -464,6 +469,8 @@ class SkillExecutor:
                         "content": f"Wywoływanie narzędzia: {func_name}(...)",
                     }
 
+                    # S2.3 (parytet streamingu): fail-closed + redirect na scratchpad
+                    blocked = False
                     if (
                         self.sandbox
                         and self.sandbox.is_write_tool(func_name)
@@ -473,14 +480,28 @@ class SkillExecutor:
                             "type": "log",
                             "content": f"Uruchamiam bezpieczny Sandbox dla {func_name}",
                         }
-                        self.sandbox.enter_sandbox(original_db=self._get_odoo_db())
-                        sandbox_activated = True
+                        try:
+                            scratchpad = self.sandbox.enter_sandbox(
+                                original_db=self._get_odoo_db()
+                            )
+                        except RuntimeError as e:
+                            logger.warning(f"Sandbox fail-closed: {e}")
+                            scratchpad = None
+                        if self.sandbox.enabled and not scratchpad:
+                            blocked = True
+                        else:
+                            sandbox_activated = True
+                            if scratchpad:
+                                self._enter_db_redirect(scratchpad)
 
                     tools_used.add(func_name)
 
                     tool_result_str = ""
                     tool_success = True
-                    if func_name in TOOL_REGISTRY:
+                    if blocked:
+                        tool_result_str = "❌ Sandbox fail-closed: brak izolacji — operacja zapisu zablokowana."
+                        tool_success = False
+                    elif func_name in TOOL_REGISTRY:
                         try:
                             result = TOOL_REGISTRY[func_name]["callable"](**args)
                             # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
@@ -490,6 +511,7 @@ class SkillExecutor:
                             tool_success = False
                             if sandbox_activated and self.sandbox:
                                 self.sandbox.exit_sandbox(success=False)
+                                self._restore_db_redirect()
                                 sandbox_activated = False
                     else:
                         tool_result_str = f"Tool {func_name} not found."
@@ -527,6 +549,7 @@ class SkillExecutor:
 
         if sandbox_activated and self.sandbox:
             self.sandbox.exit_sandbox(success=True)
+            self._restore_db_redirect()
 
         if audit_db:
             try:

@@ -29,6 +29,7 @@ from smartmyodoo.swarm.models import (
 )
 from smartmyodoo.swarm.dispatcher import Dispatcher
 from smartmyodoo.swarm import llm_client
+from smartmyodoo.mcp.token_governor import governor as _token_governor
 from typing import List
 
 
@@ -66,6 +67,20 @@ security = HTTPBearer()
 # LLM Client: odczyt klucza z ENV (opcjonalnie wstrzyknięty przez Vault CLI)
 _llm = llm_client.create_client(api_key=os.environ.get("OPENROUTER_KEY"))
 dispatcher = Dispatcher(llm_client=_llm)
+
+# S1.1: współdzielona instancja PiiMiddleware (mapping per workspace_id), lazy by nie ładować
+# presidio przy imporcie modułu.
+_pii_singleton = None
+
+
+def _get_pii():
+    global _pii_singleton
+    if _pii_singleton is None:
+        from smartmyodoo.mcp.pii_middleware import PiiMiddleware
+
+        _pii_singleton = PiiMiddleware()
+    return _pii_singleton
+
 
 # Zastąpiono _proposals i _workspaces użyciem bazy danych.
 
@@ -430,7 +445,9 @@ async def handle_chat(
     # ── 3. Build executor ──
     chat_repo = ChatRepository(db=db)
     llm = (
-        OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        OpenRouterClient(
+            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+        )
         if openrouter_key
         else None
     )
@@ -442,6 +459,7 @@ async def handle_chat(
         workspace_id=req.workspace_id,
         session_id=req.session_id,
         sandbox=sandbox,
+        pii=_get_pii(),
     )
 
     # ── 4. Resolve skill config ──
@@ -594,7 +612,11 @@ async def run_pipeline(
     if not openrouter_key:
         openrouter_key = os.environ.get("OPENROUTER_KEY")
 
-    llm = OpenRouterClient(api_key=openrouter_key) if openrouter_key else None
+    llm = (
+        OpenRouterClient(api_key=openrouter_key, governor=_token_governor)
+        if openrouter_key
+        else None
+    )
     sandbox = SandboxManager(odoo_url=odoo_url, master_password=odoo_master_pwd)
     session_id = req.session_id or str(uuid.uuid4())
 
@@ -604,6 +626,7 @@ async def run_pipeline(
         workspace_id=req.workspace_id,
         session_id=session_id,
         sandbox=sandbox,
+        pii=_get_pii(),
     )
 
     db_manager = OdooDBManager(odoo_url, odoo_master_pwd)
@@ -708,7 +731,9 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
 
         # 4. Executor
         chat_repo = ChatRepository(db=db)
-        llm = OpenRouterClient(api_key=openrouter_key, model=recommended_model)
+        llm = OpenRouterClient(
+            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+        )
         sandbox = SandboxManager()
 
         executor = SkillExecutor(
@@ -717,6 +742,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             workspace_id=workspace_id,
             session_id=session_id,
             sandbox=sandbox,
+            pii=_get_pii(),
         )
 
         skill_config = None
