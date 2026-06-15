@@ -900,7 +900,7 @@ from smartmyodoo.api_routers.workspaces import router as workspaces_router  # no
 
 app.include_router(proposals_router)
 app.include_router(monitoring_router)
-app.include_router(workspaces_router)
+app.include_router(workspaces_router)  # type: ignore[has-type]  # cykl import (deps-module = S3)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")

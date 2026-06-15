@@ -15,6 +15,8 @@ from smartmyodoo.core.database import get_db
 from smartmyodoo.core import models as db_models
 from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
+from smartmyodoo.vault.schemas import CredentialType
+from smartmyodoo.vault.resolver import resolve_credential
 from smartmyodoo.api import require_auth
 
 router = APIRouter(tags=["workspaces"])
@@ -55,9 +57,28 @@ async def get_workspaces(
 # ── EP-5.4: Project + Task Binding API ───────────────────────────────────────
 
 
-def _get_odoo_connector(vk, ws_id):
-    """Helper: pobiera OdooProjectConnector z poświadczeń Vault dla danego workspace."""
-    vault_data = vault.load_vault(vk)
+def _resolve_odoo_creds(vault_data, ws_id, prefer_timesheet=False) -> dict:
+    """K3: wybór poświadczeń Odoo po TYPIE.
+
+    Dla logowania czasu pracy preferuj `odoo_timesheet` (osobne/rozliczeniowe Odoo),
+    z fallbackiem na `odoo_data`. Dla reszty operacji — `odoo_data`.
+    Na końcu fallback legacy po nazwie `{ws}_ODOO`/`default_ODOO` (kompatybilność).
+    """
+    cred = None
+    if prefer_timesheet:
+        cred = resolve_credential(vault_data, CredentialType.ODOO_TIMESHEET, ws_id)
+    if cred is None:
+        cred = resolve_credential(vault_data, CredentialType.ODOO_DATA, ws_id)
+    if cred is not None:
+        return {
+            "url": cred.url,
+            "db": cred.db,
+            "login": cred.login,
+            "password": cred.password,
+            "default_project_ref": cred.default_project_ref,
+            "default_task_ref": cred.default_task_ref,
+        }
+    # Legacy fallback (np. niekompletne stare sekrety, których resolver nie przyjął)
     secret_key = f"{ws_id}_ODOO"
     if secret_key not in vault_data:
         secret_key = "default_ODOO"  # nosec B105
@@ -65,7 +86,13 @@ def _get_odoo_connector(vk, ws_id):
         raise HTTPException(
             status_code=400, detail="Brak poświadczeń Odoo w sejfie dla tego workspace."
         )
-    creds = vault_data[secret_key]
+    return vault_data[secret_key]
+
+
+def _get_odoo_connector(vk, ws_id, prefer_timesheet=False):
+    """Helper: pobiera OdooProjectConnector z poświadczeń Vault dla danego workspace."""
+    vault_data = vault.load_vault(vk)
+    creds = _resolve_odoo_creds(vault_data, ws_id, prefer_timesheet=prefer_timesheet)
     from smartmyodoo.core.odoo_connector import OdooProjectConnector
 
     return OdooProjectConnector(creds)
@@ -173,7 +200,8 @@ async def log_timesheet(
 
     vk, _, _ = auth_data
     try:
-        connector = _get_odoo_connector(vk, ws_id)
+        # K3: logowanie czasu używa Odoo typu 'timesheet' (fallback na 'data')
+        connector = _get_odoo_connector(vk, ws_id, prefer_timesheet=True)
 
         task_id = payload.task_id
         is_nominal = payload.is_nominal
