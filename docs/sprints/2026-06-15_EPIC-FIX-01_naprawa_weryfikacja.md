@@ -12,9 +12,10 @@
 | **S1.1** Pseudonimizacja PII na ścieżce czat/pipeline (obie: `execute` + `execute_stream`) | ✅ DONE | `tests/security/test_pii_pipeline.py` (no-leak do LLM + deanon dla usera) |
 | **S2.1** Kontrakt Dispatcher→chat() (messages=[...], choices[0].message.content) | ✅ DONE | `tests/swarm/test_dispatcher.py` (contract + None bez crasha) |
 | **S2.2** TokenGovernor podłączony do LLM (record usage + pre-flight hard-block) | ✅ DONE | `tests/swarm/test_llm_cost_governance.py` (spent≠0, hard-block) |
-| S1.3, S1.4, S2.3 (sandbox redirect), S2.4 (queue reliable), S2.5 (workery), S2.6 (routing) | ⬜ TODO | — |
+| **S2.3** Sandbox: fail-closed + redirect narzędzi na scratchpad (ODOO_DB) | ✅ DONE | `tests/swarm/test_sandbox_isolation.py` (blokada write bez izolacji + redirect+restore) |
+| S1.3, S1.4, S2.4 (queue reliable), S2.5 (workery), S2.6 (routing) | ⬜ TODO | — |
 
-> Stan testów: **169 passed / 0 failed / 2 deselected (e2e)**.
+> Stan testów: **171 passed / 0 failed / 2 deselected (e2e)**.
 
 ---
 

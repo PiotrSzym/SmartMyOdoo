@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 from typing import Dict, Any, Optional
 
@@ -33,6 +34,9 @@ class SkillExecutor:
         self.sandbox = sandbox
         # PiiMiddleware (S1.1): pseudonimizacja PII na granicy LLM. None = brak (np. testy jednostkowe).
         self.pii = pii
+        # S2.3: stan przekierowania bazy Odoo na scratchpad (izolacja sandbox)
+        self._saved_db: Optional[str] = None
+        self._db_redirected = False
 
     def _anon(self, text: str) -> str:
         """Anonimizuj tekst PRZED wysłaniem do LLM (no-op gdy brak PiiMiddleware)."""
@@ -54,6 +58,22 @@ class SkillExecutor:
                 for k, v in args.items()
             }
         return args
+
+    def _enter_db_redirect(self, scratchpad: str) -> None:
+        """S2.3: przekieruj narzędzia Odoo na scratchpad (przez ODOO_DB), zapisując oryginał."""
+        self._saved_db = os.environ.get("ODOO_DB")
+        os.environ["ODOO_DB"] = scratchpad
+        self._db_redirected = True
+
+    def _restore_db_redirect(self) -> None:
+        """S2.3: przywróć oryginalną bazę po wyjściu z sandboxa."""
+        if not self._db_redirected:
+            return
+        if self._saved_db is None:
+            os.environ.pop("ODOO_DB", None)
+        else:
+            os.environ["ODOO_DB"] = self._saved_db
+        self._db_redirected = False
 
     def _get_audit_db(self):
         """Lazy-load DB session for audit logging."""
@@ -158,7 +178,8 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
-                        # ── Sandbox: auto-enter before write tools ──
+                        # ── Sandbox (S2.3): fail-closed + redirect narzędzi na scratchpad ──
+                        blocked = False
                         if (
                             self.sandbox
                             and self.sandbox.is_write_tool(func_name)
@@ -167,15 +188,29 @@ class SkillExecutor:
                             logger.info(
                                 f"🔒 Write tool detected: {func_name} — entering sandbox"
                             )
-                            self.sandbox.enter_sandbox(original_db=self._get_odoo_db())
-                            sandbox_activated = True
+                            scratchpad = self.sandbox.enter_sandbox(
+                                original_db=self._get_odoo_db()
+                            )
+                            if self.sandbox.enabled and not scratchpad:
+                                # FAIL-CLOSED: brak izolacji → NIE wykonuj zapisu na produkcji
+                                blocked = True
+                            else:
+                                sandbox_activated = True
+                                if scratchpad:
+                                    self._enter_db_redirect(scratchpad)
 
                         logger.info(f"Wywoływanie narzędzia: {func_name}({args})")
                         tools_used.add(func_name)
 
                         tool_result_str = ""
                         tool_success = True
-                        if func_name in TOOL_REGISTRY:
+                        if blocked:
+                            tool_result_str = (
+                                "❌ Sandbox fail-closed: nie udało się utworzyć izolacji — "
+                                "operacja zapisu zablokowana (zero zapisu na produkcji)."
+                            )
+                            tool_success = False
+                        elif func_name in TOOL_REGISTRY:
                             try:
                                 result = TOOL_REGISTRY[func_name]["callable"](**args)
                                 # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
@@ -188,6 +223,7 @@ class SkillExecutor:
                                 # ── Sandbox: rollback on error ──
                                 if sandbox_activated and self.sandbox:
                                     self.sandbox.exit_sandbox(success=False)
+                                    self._restore_db_redirect()
                                     sandbox_activated = False
                         else:
                             tool_result_str = f"Tool {func_name} not found."
@@ -228,6 +264,7 @@ class SkillExecutor:
         # ── Sandbox: exit successfully ──
         if sandbox_activated and self.sandbox:
             self.sandbox.exit_sandbox(success=True)
+            self._restore_db_redirect()
 
         # Close audit DB session
         if audit_db:
