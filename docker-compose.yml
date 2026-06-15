@@ -1,12 +1,28 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    # S1.4: bind tylko do localhost (nie 0.0.0.0) — kolejka nie jest wystawiona na zewnątrz.
+    # Produkcyjnie ustaw REDIS_PASSWORD i odkomentuj `command` (patrz .env.example).
+    ports:
+      - "127.0.0.1:6379:6379"
+    # command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db:
     image: postgres:16-alpine
+    # S1.4: sekrety z ENV (.env), z domyślnymi tylko dla lokalnego dev.
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_PASSWORD=odoo
-      - POSTGRES_USER=odoo
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-odoo}
+      - POSTGRES_USER=${POSTGRES_USER:-odoo}
     volumes:
       - odoo-db-data:/var/lib/postgresql/data
 
@@ -14,14 +30,16 @@ services:
     image: odoo:16
     depends_on:
       - db
+      - redis
     ports:
       - "8069:8069"
     environment:
       - HOST=db
-      - USER=odoo
-      - PASSWORD=odoo
+      - USER=${POSTGRES_USER:-odoo}
+      - PASSWORD=${POSTGRES_PASSWORD:-odoo}
     volumes:
       - ./custom_addons:/mnt/extra-addons
 
 volumes:
   odoo-db-data:
+  redis-data:

@@ -7,7 +7,13 @@ from smartmyodoo.http_client import SmartMyOdooClient
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SmartMyOdoo CLI (Thin Client)")
+    parser = argparse.ArgumentParser(description="SmartMyOdoo CLI and Worker")
+    subparsers = parser.add_subparsers(dest="command")
+
+    # Worker subcommand
+    subparsers.add_parser("worker", help="Start background worker daemon")
+
+    # CLI arguments (backward compatibility without 'cli' subcommand)
     parser.add_argument(
         "--url",
         type=str,
@@ -15,7 +21,20 @@ def main():
         help="URL of the FastAPI server",
     )
     parser.add_argument("--workspace", type=str, default="default", help="Workspace ID")
+
     args = parser.parse_args()
+
+    if args.command == "worker":
+        import asyncio
+        import os
+        import signal
+        from smartmyodoo.workers.main_worker import main as worker_main, handle_signal
+
+        if os.name == "nt":
+            signal.signal(signal.SIGINT, handle_signal)
+            signal.signal(signal.SIGTERM, handle_signal)
+        asyncio.run(worker_main())
+        return
 
     client = SmartMyOdooClient(base_url=args.url)
 
