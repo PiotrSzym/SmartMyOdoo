@@ -934,71 +934,7 @@ async def get_audit_log(
     ]
 
 
-# ── HUB-S3: Proposals API ────────────────────────────────────────────────────
-
-
-@app.get("/api/proposals")
-async def get_proposals(
-    workspace_id: Optional[str] = None,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    query = db.query(db_models.Proposal)
-    if workspace_id:
-        query = query.filter(db_models.Proposal.workspace_id == workspace_id)
-    proposals = query.all()
-
-    res = []
-    for p in proposals:
-        res.append(
-            {
-                "id": p.id,
-                "workspace_id": p.workspace_id,
-                "odoo_model": p.odoo_model,
-                "method": p.method,
-                "values": json.loads(str(p.values)) if p.values else {},
-                "reason": p.reason,
-                "status": p.status,
-                "created_at": p.created_at.isoformat() if p.created_at else "",
-            }
-        )
-    return res
-
-
-@app.post("/api/proposals/{proposal_id}/approve")
-async def approve_proposal(
-    proposal_id: str,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    prop = (
-        db.query(db_models.Proposal)
-        .filter(db_models.Proposal.id == proposal_id)
-        .first()
-    )
-    if not prop:
-        raise HTTPException(status_code=404, detail="Proposal not found")
-    prop.status = "approved"  # type: ignore
-    db.commit()
-    return {"success": True, "status": "approved"}
-
-
-@app.post("/api/proposals/{proposal_id}/reject")
-async def reject_proposal(
-    proposal_id: str,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
-    prop = (
-        db.query(db_models.Proposal)
-        .filter(db_models.Proposal.id == proposal_id)
-        .first()
-    )
-    if not prop:
-        raise HTTPException(status_code=404, detail="Proposal not found")
-    prop.status = "rejected"  # type: ignore
-    db.commit()
-    return {"success": True, "status": "rejected"}
+# ── HUB-S3: Proposals API → wydzielone do api_routers/proposals.py (S3.1) ──
 
 
 # ── HUB-S3: Workspaces API ──────────────────────────────────────────────────────────────
@@ -1367,6 +1303,12 @@ async def delete_secrets_by_workspace(
     except vault.VaultDecryptionError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# S3.1: routery domenowe wydzielone z God Module (przed catch-all mount /).
+# Late import — require_auth jest już zdefiniowane wyżej (brak cyklu).
+from smartmyodoo.api_routers.proposals import router as proposals_router  # noqa: E402
+
+app.include_router(proposals_router)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
