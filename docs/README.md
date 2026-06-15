@@ -16,6 +16,7 @@ Centralny indeks. Linki **klikalne** (działają na GitHubie i w edytorze).
 | Dokument | Co to |
 |---|---|
 | 🟢 [DESIGN — Rejestr kluczy + Routing modeli LLM](architecture/DESIGN-credentials-and-model-routing.md) | 3 typy kluczy (odoo_data/odoo_timesheet/llm_provider) + wybór modelu (tani↔drogi) |
+| 🟢 [Mapa zmian UI — K6](architecture/UI-K6-change-map.md) | gdzie w panelu: dropdown Typ (Skarbiec), nowa zakładka „Modele", badge w Czacie |
 | 🟢 [ADR-005 — Agent Integrations](architecture/ADR-005_agent_integrations.md) | Decyzja: integracje agentów |
 | 🔴 [HLD-TECHNICAL](blueprint/tom2-architektura/HLD-TECHNICAL.md) | High-Level Design techniczny (C1-C3, FSM, dispatcher, role) — *lokalny* |
 | 🔴 [HLD-BUSINESS](blueprint/tom2-architektura/HLD-BUSINESS.md) | Jak działa produkt (biznes, koszty, FAQ) — *lokalny* |
