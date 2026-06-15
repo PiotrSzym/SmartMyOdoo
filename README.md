@@ -10,7 +10,7 @@ SmartMyOdoo to inteligentny asystent AI do zarządzania, automatyzacji i audytow
   - **`vault/`** — Moduł menedżera kluczy z lokalnym sejfem kryptograficznym chroniącym dostępy do baz danych, tokeny LLM (OpenRouter) oraz dane krytyczne.
   - **`mcp/`** — Serwer integracyjny MCP umożliwiający modelom językowym bezpośrednią konwersację i wykonywanie zdarzeń z bazą Odoo.
   - **`core/`** — Rdzeń aplikacji z bazą SQLite (z obsługą WAL), modelami danych (Pydantic, SQLAlchemy) oraz logiką autoryzacyjną dla serwera FastAPI.
-- **`docs/`** — Katalog z pełną dokumentacją projektową (HLD, Business, Architektura oraz ADR-y).
+- **📚 [`docs/`](docs/README.md)** — Pełna dokumentacja projektowa. **Zacznij od [mapy dokumentacji →](docs/README.md)** (klikalny indeks: CHANGELOG, Architektura/Design, Przewodniki, Sprinty, HLD, ADR).
 - **`conductor/`** — System do zwinnego zarządzania pracą i sprintami, zawierający Tracki (Epic/Features) oraz definicje projektu.
 
 ---
