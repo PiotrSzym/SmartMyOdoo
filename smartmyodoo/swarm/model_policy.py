@@ -6,7 +6,7 @@ Tani model robi proste rzeczy (klasyfikacja, audyt-history), drogi tylko trudne
 
 import os
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 
 class ModelTier(str, Enum):
@@ -60,4 +60,34 @@ def resolve_model(
     if model_override:
         return model_override
     tier = tier_override or SKILL_TIER.get(skill or "", DEFAULT_TIER)
+    return MODEL_POLICY[tier]
+
+
+_DOWNGRADE = {
+    ModelTier.PREMIUM: ModelTier.STANDARD,
+    ModelTier.STANDARD: ModelTier.CHEAP,
+}
+
+
+def effective_model(
+    skill: Optional[str] = None,
+    governor: Optional[Any] = None,
+    low_ratio: float = 0.15,
+    tier_override: Optional[ModelTier] = None,
+    model_override: Optional[str] = None,
+) -> str:
+    """K5: jak resolve_model, ale przy NISKIM budżecie degraduje tier o jeden poziom
+    (graceful degradation — tańszy model zamiast twardej blokady)."""
+    if model_override:
+        return model_override
+    tier = tier_override or SKILL_TIER.get(skill or "", DEFAULT_TIER)
+    if governor is not None:
+        try:
+            st = governor.get_status()
+            maxb = float(st.get("max_budget_usd", 0) or 0)
+            spent = float(st.get("spent_usd", 0) or 0)
+            if maxb > 0 and (maxb - spent) / maxb <= low_ratio and tier in _DOWNGRADE:
+                tier = _DOWNGRADE[tier]
+        except Exception:
+            pass
     return MODEL_POLICY[tier]
