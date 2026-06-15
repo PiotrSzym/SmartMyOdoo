@@ -8,12 +8,10 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
-    Security,
     WebSocket,
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -62,7 +60,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-security = HTTPBearer()
+# FIX-02 S3.4: auth deps wydzielone do api_deps (zrywa cykl importów z routerami).
+# Re-eksport dla kompatybilności wstecznej (kod robi `from smartmyodoo.api import require_auth`).
+from smartmyodoo.api_deps import (  # noqa: E402  (import po stworzeniu `app`, świadomie)
+    get_auth_key,
+    require_auth,
+)
 
 # LLM Client: odczyt klucza z ENV (opcjonalnie wstrzyknięty przez Vault CLI)
 _llm = llm_client.create_client(api_key=os.environ.get("OPENROUTER_KEY"))
@@ -83,29 +86,7 @@ def _get_pii():
 
 
 # Zastąpiono _proposals i _workspaces użyciem bazy danych.
-
-
-def get_auth_key(pwd: str) -> Tuple[Optional[bytes], Optional[str]]:
-    try:
-        vk = vault.get_vault_key_from_master(pwd, exit_on_fail=False)
-        return vk, "admin"
-    except (vault.InvalidToken, ValueError):
-        pass
-    try:
-        vk = vault.get_vault_key_from_pin(pwd, exit_on_fail=False)
-        return vk, "user"
-    except (vault.InvalidToken, ValueError):
-        return None, None
-
-
-def require_auth(
-    credentials: HTTPAuthorizationCredentials = Security(security),
-) -> Tuple[bytes, str, str]:
-    pwd = credentials.credentials
-    vk, role = get_auth_key(pwd)
-    if not vk:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return vk, str(role), pwd
+# get_auth_key / require_auth / security: patrz smartmyodoo.api_deps (re-eksport wyżej).
 
 
 @app.get("/api/status")
@@ -898,7 +879,7 @@ async def delete_secrets_by_workspace(
 
 
 # S3.1: routery domenowe wydzielone z God Module (przed catch-all mount /).
-# Late import — require_auth jest już zdefiniowane wyżej (brak cyklu).
+# FIX-02 S3.4: routery importują auth z api_deps — cykl zerwany, brak `# type: ignore`.
 from smartmyodoo.api_routers.proposals import router as proposals_router  # noqa: E402
 from smartmyodoo.api_routers.monitoring import router as monitoring_router  # noqa: E402
 from smartmyodoo.api_routers.workspaces import router as workspaces_router  # noqa: E402
@@ -906,8 +887,8 @@ from smartmyodoo.api_routers.models import router as models_router  # noqa: E402
 
 app.include_router(proposals_router)
 app.include_router(monitoring_router)
-app.include_router(workspaces_router)  # type: ignore[has-type]  # cykl import (deps-module = S3)
-app.include_router(models_router)  # type: ignore[has-type]  # cykl import (deps-module = S3)
+app.include_router(workspaces_router)
+app.include_router(models_router)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")

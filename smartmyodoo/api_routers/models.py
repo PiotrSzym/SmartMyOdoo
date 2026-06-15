@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends
 from smartmyodoo.swarm import model_policy
 from smartmyodoo.swarm.model_policy import ModelTier
 from smartmyodoo.mcp.token_governor import governor
-from smartmyodoo.api import require_auth
+from smartmyodoo.api_deps import require_auth
 
 router = APIRouter(tags=["models"])
 

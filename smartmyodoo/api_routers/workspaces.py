@@ -17,7 +17,7 @@ from smartmyodoo.vault import vault
 from smartmyodoo.vault import schemas
 from smartmyodoo.vault.schemas import CredentialType
 from smartmyodoo.vault.resolver import resolve_credential
-from smartmyodoo.api import require_auth
+from smartmyodoo.api_deps import require_auth
 
 router = APIRouter(tags=["workspaces"])
 
