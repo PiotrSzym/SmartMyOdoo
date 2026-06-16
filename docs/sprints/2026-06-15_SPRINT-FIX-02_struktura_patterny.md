@@ -75,7 +75,7 @@ S5.1 (litellm.Router)  S5.2 (distributed lock)  S5.3 (RAG overlap)
 
 | # | Zadanie | Pliki | RED → GREEN (test dowodowy) | Status |
 |---|---------|-------|------------------------------|--------|
-| S5.1 | `litellm.Router` z retry/backoff + fallback model + cache (Redis); `temperature`/`max_tokens` z `SkillConfig` | `swarm/llm_client.py` | RED: mock litellm rzuca 429 → klient retry’uje i zwraca sukces; fallback gdy model down | ⬜ |
+| S5.1 | Gateway LLM: retry/backoff + fallback (K5) + **cache** (`core/llm_cache.py`: InMemory/Redis) + `temperature`/`max_tokens` konfigurowalne. Decyzja: klient+backoff zamiast `litellm.Router` (patrz [art.](2026-06-16_SPRINT-FIX-02-S5.1_llm_router_cache.md)) | `swarm/llm_client.py`, `core/llm_cache.py` | ✅ `tests/test_llm_cache.py` (cache hit/miss, backoff, parametry) + `test_llm_resilience`; suita 231 | ✅ |
 | S5.2 | Distributed lock (`SET NX PX`) dla `execute_approved_proposals` / approve; rate-limit endpointów LLM | `core/queue.py`/`core/lock.py`, `api/routers/proposals.py` | RED: dwa równoległe approve tego samego proposala → tylko JEDNO wykonanie | ⬜ |
 | S5.3 | RAG: chunking z overlapem po granicach zdań; próg `distance` + opcjonalny re-ranker; mock RAG **sygnalizuje degradację** (flaga), nie fabrykuje kontekstu | `swarm/brain/rag_api.py`, `swarm/brain/lancedb_client.py` | RED: tekst > 1 chunk → sąsiednie chunki mają overlap; mock zwraca `degraded=True` zamiast zmyślonego kontekstu | ⬜ |
 

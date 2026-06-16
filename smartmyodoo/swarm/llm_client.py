@@ -5,9 +5,12 @@ Wzorzec: Fallback — brak klucza API = None → Dispatcher używa heurystyk.
 """
 
 import logging
+import time
 from typing import Optional, List, Dict, Any
 
 import litellm
+
+from smartmyodoo.core.llm_cache import make_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +27,10 @@ class OpenRouterClient:
         governor: Optional[Any] = None,
         fallback_model: Optional[str] = None,
         num_retries: int = 2,
+        cache: Optional[Any] = None,
+        temperature: float = 0.1,
+        max_tokens: int = 1000,
+        backoff_base: float = 0.0,
     ):
         self.api_key = api_key
         self.model = model
@@ -32,6 +39,13 @@ class OpenRouterClient:
         # K5: odporność — retry + fallback na tańszy/zapasowy model
         self.fallback_model = fallback_model
         self.num_retries = num_retries
+        # S5.1: cache odpowiedzi (opcjonalny), parametry z SkillConfig, backoff między retry
+        self.cache = cache
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.backoff_base = (
+            backoff_base  # 0.0 = bez czekania (domyślnie); prod >0 = exp backoff
+        )
         # Dodatkowe headery
         litellm.headers = {
             "HTTP-Referer": "http://localhost:8000",
@@ -68,6 +82,16 @@ class OpenRouterClient:
         Zwraca pełny obiekt odpowiedzi litellm. W przypadku błędu zwraca None.
         """
         self._preflight()
+
+        # S5.1: cache — identyczne wejście => zwróć zapisaną odpowiedź (bez kosztu LLM)
+        cache_key = None
+        if self.cache is not None:
+            cache_key = make_cache_key(self.model, messages, tools)
+            cached = self.cache.get(cache_key)
+            if cached is not None:
+                logger.info("[LLM] trafienie w cache — pomijam wywołanie modelu.")
+                return cached
+
         # K5: kolejka modeli do próby — primary, potem fallback
         models_to_try = [self.model]
         if self.fallback_model and self.fallback_model != self.model:
@@ -81,8 +105,8 @@ class OpenRouterClient:
                     kwargs = {
                         "model": mdl,
                         "messages": messages,
-                        "temperature": 0.1,
-                        "max_tokens": 1000,
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens,
                         "api_key": self.api_key,
                     }
                     if tools:
@@ -94,6 +118,9 @@ class OpenRouterClient:
                     logger.warning(
                         f"[LLM] próba {attempt + 1}/{self.num_retries + 1} dla '{mdl}' nieudana: {e}"
                     )
+                    # S5.1: exponential backoff między próbami (pomijamy po ostatniej)
+                    if self.backoff_base > 0 and attempt < self.num_retries:
+                        time.sleep(self.backoff_base * (2**attempt))
             if response is not None:
                 break
 
@@ -103,6 +130,9 @@ class OpenRouterClient:
 
         # poza try: ewentualny PermissionError (przekroczony budżet) ma się propagować
         self._record_usage(response)
+        # S5.1: zapis do cache po udanym wywołaniu
+        if cache_key is not None:
+            self.cache.set(cache_key, response)
         return response
 
     def chat_stream(
@@ -120,8 +150,8 @@ class OpenRouterClient:
             kwargs = {
                 "model": self.model,
                 "messages": messages,
-                "temperature": 0.1,
-                "max_tokens": 1000,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
                 "api_key": self.api_key,
                 "stream": True,
                 "stream_options": {"include_usage": True},
