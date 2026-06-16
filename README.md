@@ -24,6 +24,19 @@ SmartMyOdoo to inteligentny asystent AI do zarządzania, automatyzacji i audytow
 
 ---
 
+## 🤝 Współdzielenie wiedzy i poświadczeń
+
+Przekazujesz aplikację innej osobie/zespołowi? Wiedza zespołowa jedzie jako tekst
+w gicie (folder [`knowledge/`](knowledge/)), a indeks wektorowy i sekrety zostają
+lokalne. Po klonie odbuduj indeks: `python -m smartmyodoo seed --shared knowledge/`.
+
+Trzy ścieżki dla sekretów (zespół = własny vault / migracja same-person = export /
+organizacja = menedżer sekretów) opisuje przewodnik:
+**[docs/guides/sharing_knowledge_and_secrets.md →](docs/guides/sharing_knowledge_and_secrets.md)**
+(decyzja: [ADR-015](docs/adr/ADR-015-Knowledge-As-Source-Secrets-Stay-Local.md)).
+
+---
+
 ## 🛡️ Bezpieczeństwo
 SmartMyOdoo kładzie główny nacisk na bezpieczeństwo. Cały kod został poddany twardej weryfikacji — nie używa bezpośrednio kluczy w locie i stosuje model **Shadow Mode** (operacje są rejestrowane w bazie danych SQLite i muszą być zatwierdzone przez użytkownika zanim wejdą na produkcyjne Odoo). Posiada rygorystyczny `Token Governor` oraz lokalną bazę logów audytowych.
 

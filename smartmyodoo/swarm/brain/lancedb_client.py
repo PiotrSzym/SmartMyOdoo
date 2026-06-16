@@ -1,8 +1,11 @@
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# Warstwa współdzielona (ADR-015): rekordy bez jawnego workspace_id.
+SHARED_WORKSPACE = "__shared__"
 
 
 class LanceDBClient:
@@ -13,9 +16,15 @@ class LanceDBClient:
 
     def __init__(
         self,
-        db_path: str = ".agents/lancedb_store",
+        db_path: Optional[str] = None,
         model_name: str = "all-MiniLM-L6-v2",
     ):
+        # ADR-015: ścieżka indeksu jest lokalna/gitignored. Pozwalamy nadpisać
+        # ją zmienną środowiskową (np. seed w Dockerze/CLI na izolowany store).
+        if db_path is None:
+            db_path = os.environ.get(
+                "SMARTMYODOO_LANCEDB_PATH", ".agents/lancedb_store"
+            )
         self.db_path = db_path
         self.model_name = model_name
         self._db = None
@@ -44,6 +53,9 @@ class LanceDBClient:
 
             if table_name in self._db.table_names():
                 self._table = self._db.open_table(table_name)
+                # Backward-compat (ADR-015): stara tabela bez `workspace_id`
+                # → dodaj kolumnę z defaultem SHARED_WORKSPACE, bez utraty wierszy.
+                self._migrate_workspace_column()
             else:
                 schema = pa.schema(
                     [
@@ -51,6 +63,7 @@ class LanceDBClient:
                         pa.field("vector", pa.list_(pa.float32(), 384)),
                         pa.field("text", pa.string()),
                         pa.field("source", pa.string()),
+                        pa.field("workspace_id", pa.string()),
                     ]
                 )
                 self._table = self._db.create_table(table_name, schema=schema)
@@ -60,6 +73,29 @@ class LanceDBClient:
             logger.warning(
                 f"Zależności do wektoryzacji nie są zainstalowane: {e}. Klient w trybie Mock."
             )
+
+    def _migrate_workspace_column(self):
+        """Backward-compat (ADR-015): dodaj `workspace_id` do starej tabeli.
+
+        Stary schemat to `{id, vector, text, source}` bez izolacji warstw.
+        Po migracji wszystkie istniejące wiersze należą do warstwy współdzielonej
+        (`SHARED_WORKSPACE`), zgodnie z zasadą „braki = __shared__". Operacja jest
+        idempotentna — gdy kolumna już istnieje, nic nie robimy.
+        """
+        if self._table is None:
+            return
+        try:
+            field_names = {f.name for f in self._table.schema}
+            if "workspace_id" in field_names:
+                return
+            # LanceDB add_columns: nowa kolumna z wartością domyślną (SQL literal).
+            self._table.add_columns({"workspace_id": f"'{SHARED_WORKSPACE}'"})
+            logger.info(
+                "Migracja: dodano kolumnę 'workspace_id' "
+                f"(default '{SHARED_WORKSPACE}') do tabeli knowledge_base."
+            )
+        except Exception as e:  # pragma: no cover - zależne od wersji lancedb
+            logger.warning(f"Migracja workspace_id nieudana: {e}")
 
     def add_texts(
         self, texts: List[str], metadatas: List[Dict[str, Any]], ids: List[str]
@@ -80,6 +116,8 @@ class LanceDBClient:
                     "vector": embeddings[i].tolist(),
                     "text": text,
                     "source": metadatas[i].get("source", "unknown"),
+                    # ADR-015: brak workspace_id w metadanych = warstwa współdzielona.
+                    "workspace_id": metadatas[i].get("workspace_id", SHARED_WORKSPACE),
                 }
             )
 
@@ -96,8 +134,24 @@ class LanceDBClient:
         """
         return self._table is None or self._model is None
 
-    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _escape_ws(workspace: str) -> str:
+        """Sanityzacja wartości workspace dla klauzuli LanceDB `.where()`.
+
+        Wartość trafia do literału SQL w pojedynczych apostrofach. Zgodnie z
+        SQL escapujemy apostrof przez jego podwojenie (`'` → `''`), co zapobiega
+        wstrzyknięciu (np. `ws' OR '1'='1`). Nie pozwalamy ominąć izolacji warstw.
+        """
+        return str(workspace).replace("'", "''")
+
+    def search(
+        self, query: str, top_k: int = 3, workspace: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Przeszukuje bazę po podobieństwie semantycznym.
+
+        ADR-015: gdy podano `workspace`, zwracamy wyłącznie warstwę współdzieloną
+        (`SHARED_WORKSPACE`) ∪ rekordy bieżącego `workspace` — NIGDY cudze prywatne.
+        Domyślnie (`workspace=None`) zachowujemy backward-compat: brak filtra.
 
         S5.3: w trybie zdegradowanym (Mock — brak bazy/modelu) zwraca PUSTĄ listę,
         zamiast fabrykować fałszywy kontekst ('Mocked RAG response'). Sygnalizację
@@ -109,5 +163,14 @@ class LanceDBClient:
 
         assert self._model is not None and self._table is not None  # nosec B101
         query_vector = self._model.encode([query])[0]
-        results = self._table.search(query_vector.tolist()).limit(top_k).to_list()
+        search_q = self._table.search(query_vector.tolist())
+
+        if workspace is not None:
+            ws = self._escape_ws(workspace)
+            shared = self._escape_ws(SHARED_WORKSPACE)
+            search_q = search_q.where(
+                f"workspace_id = '{shared}' OR workspace_id = '{ws}'"
+            )
+
+        results = search_q.limit(top_k).to_list()
         return results
