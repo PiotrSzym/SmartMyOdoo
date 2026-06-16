@@ -18,6 +18,15 @@ db_models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
 
+
+@app.on_event("startup")
+async def _log_backend_modes() -> None:
+    """Na starcie: jasny log trybu współdzielonego stanu (Redis vs proces-lokalny)."""
+    from smartmyodoo.core.runtime_info import log_backend_modes
+
+    log_backend_modes()
+
+
 # S1.3: jawna lista originów (koniec '*'+credentials, które echo'wało dowolny Origin).
 # Konfiguracja przez CORS_ALLOWED_ORIGINS (CSV); domyślnie lokalny UI.
 _cors_origins = [
