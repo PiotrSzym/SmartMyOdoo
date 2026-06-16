@@ -68,7 +68,7 @@
             <p class="text-slate-400 text-sm mb-6">Wykryto pierwsze uruchomienie. Zabezpiecz swój nowy skarbiec.</p>
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Nowy PIN (dla botów i CLI)</label>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="pin.newPin">Nowy PIN (dla botów i CLI)</label>
                     <input type="password" id="init-pin" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500">
                 </div>
                 <div>
@@ -211,7 +211,7 @@
                     </div>
 
                     <div class="glass-card p-6 space-y-4">
-                        <h2 class="text-xl font-semibold text-white">Budżet sesji</h2>
+                        <h2 class="text-xl font-semibold text-white" data-i18n="models.budget">Budżet sesji</h2>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs text-slate-400 mb-1">Limit (USD)</label>
@@ -229,7 +229,7 @@
                         <div id="m-skill-tier" class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-slate-300"></div>
                     </div>
 
-                    <button onclick="saveModelsPolicy()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold">Zapisz politykę</button>
+                    <button onclick="saveModelsPolicy()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold" data-i18n="models.save">Zapisz politykę</button>
                 </div>
 
                 <!-- Tab: Aktywność -->
@@ -243,7 +243,7 @@
 
                     <!-- STAN 1: Poświadczenia (widoczny jeśli brak default_ODOO) -->
                     <div id="project-state-1" class="glass-card p-6 block">
-                        <h2 class="text-xl font-semibold text-white mb-4">Połączenie z Odoo</h2>
+                        <h2 class="text-xl font-semibold text-white mb-4" data-i18n="project.connHeader">Połączenie z Odoo</h2>
                         <form id="project-credentials-form" onsubmit="connectProject(event)" class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-400 mb-1">URL Odoo</label>
@@ -350,7 +350,7 @@
 
             <div class="flex gap-2 mb-4 shrink-0">
                 <input type="text" id="task-search-input" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="Szukaj po nazwie zadania..." onkeydown="if(event.key === 'Enter') searchTasks()">
-                <button onclick="searchTasks()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg transition">Szukaj</button>
+                <button onclick="searchTasks()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg transition" data-i18n="common.search">Szukaj</button>
             </div>
 
             <div id="task-search-results" class="flex-1 overflow-y-auto space-y-2 pr-2">
@@ -367,7 +367,7 @@
             <div class="space-y-4">
                 <!-- K6: Typ klucza steruje widocznością pozostałych pól -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Typ Klucza</label>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="secret.type">Typ Klucza</label>
                     <select id="f-type" onchange="onSecretTypeChange()" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
                         <option value="llm_provider">🔑 Model AI (LLM)</option>
                         <option value="odoo_data">🗄️ Odoo — dane</option>
@@ -376,7 +376,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Nazwa Klucza (Używana w ENV)</label>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="secret.name">Nazwa Klucza (Używana w ENV)</label>
                     <input type="text" id="f-name" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
                 </div>
 
@@ -456,7 +456,7 @@
     <div id="workspace-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
         <div class="glass-card w-full max-w-md p-6 relative">
             <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
-            <h2 class="text-2xl font-bold mb-6 text-gradient">Nowa Przestrzeń Robocza</h2>
+            <h2 class="text-2xl font-bold mb-6 text-gradient" data-i18n="ws.newTitle">Nowa Przestrzeń Robocza</h2>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">ID Przestrzeni (np. staging)</label>
@@ -537,7 +537,7 @@
             </div>
 
             <div class="flex gap-3">
-                <button onclick="closeModals()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-lg text-sm font-medium transition">Anuluj</button>
+                <button onclick="closeModals()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2.5 rounded-lg text-sm font-medium transition" data-i18n="common.cancel">Anuluj</button>
                 <button onclick="confirmDeleteWorkspace()" class="flex-1 bg-red-600 hover:bg-red-500 py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">🗑️ Potwierdź</button>
             </div>
         </div>
