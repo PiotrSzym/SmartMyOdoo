@@ -11,6 +11,7 @@ Centralny indeks. Linki **klikalne** (działają na GitHubie i w edytorze).
 | 🟢 [CHANGELOG](../CHANGELOG.md) | Co się zmieniło (FIX-01: audyt+hardening, F7-03) |
 | 🟢 [Roadmap](blueprint/tom2-architektura/roadmap.md) | Co kiedy dostarczamy |
 | 🟢 [README projektu](../README.md) | Opis, uruchomienie, bezpieczeństwo |
+| 🟢 [Centrum Dokumentacji (w aplikacji)](sprints/2026-06-16_SPRINT-DOC-01_centrum_dokumentacji.md) | Zakładka **📖 Dokumentacja** w panelu: 8 sekcji + wyszukiwarka + kompendium (DOC-01) |
 
 ## 🏛️ Architektura & Design
 | Dokument | Co to |
