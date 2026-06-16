@@ -53,8 +53,17 @@ def test_docs_lists_all_11_agents():
 def test_nav_uses_lucide_icons():
     assert 'data-lucide="message-circle"' in _INDEX  # Czat
     assert 'data-lucide="activity"' in _INDEX  # Aktywność
-    assert "unpkg.com/lucide" in _INDEX  # CDN Lucide
+    assert "js/vendor/lucide" in _INDEX  # Lucide hostowane LOKALNIE (nie CDN)
+    assert "unpkg.com" not in _INDEX  # brak zależności od CDN
     assert "createIcons" in _INDEX  # init ikon
+
+
+def test_lucide_vendored_locally():
+    """Plik Lucide jest w repo (offline-first), poprawny UMD."""
+    f = _UI / "js" / "vendor" / "lucide.min.js"
+    assert f.exists(), "brak lokalnego lucide.min.js"
+    head = f.read_text(encoding="utf-8", errors="ignore")[:300]
+    assert "lucide" in head.lower()
 
 
 def test_docs_uses_correct_port():
