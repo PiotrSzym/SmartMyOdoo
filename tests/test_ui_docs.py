@@ -25,21 +25,61 @@ def test_stale_modal_removed():
 
 
 def test_docs_has_all_sections_and_search():
+    # DOC-02: usunięto „Sprinty & Roadmap"; dodano Funkcje + Agenci (na bazie sprintów).
     for sid in [
         "start",
+        "features",
         "arch",
+        "agents",
         "sec",
         "vault",
         "models",
-        "skills",
-        "sprints",
         "kb",
     ]:
         assert f'id: "{sid}"' in _DOCS, f"brak sekcji {sid}"
+    assert 'id: "sprints"' not in _DOCS, "sekcja Sprinty powinna być usunięta"
     assert "docs-search" in _DOCS  # wyszukiwarka
     assert "Centrum Dokumentacji" in _DOCS
     assert "Kompendium wiedzy" in _DOCS
 
 
+def test_docs_lists_all_11_agents():
+    """Dokumentacja oddaje realny zakres: 11 wyspecjalizowanych agentów."""
+    assert _DOCS.count('["') >= 11 or _DOCS.count('["') >= 11
+    for agent in ["Business Analyst", "Magic Fix", "Security Audit", "ETL Manager"]:
+        assert agent in _DOCS, f"brak agenta {agent}"
+
+
+def test_nav_uses_lucide_icons():
+    assert 'data-lucide="message-circle"' in _INDEX  # Czat
+    assert 'data-lucide="activity"' in _INDEX  # Aktywność
+    assert "unpkg.com/lucide" in _INDEX  # CDN Lucide
+    assert "createIcons" in _INDEX  # init ikon
+
+
 def test_docs_uses_correct_port():
     assert "127.0.0.1:8000" in _DOCS  # aktualny port serwera
+
+
+# ── I18N-01: wielojęzyczność ──
+_I18N = (_UI / "js" / "i18n.js").read_text(encoding="utf-8")
+
+
+def test_i18n_framework_present():
+    assert "js/i18n.js" in _INDEX  # załadowany
+    assert 'id="lang-switch"' in _INDEX  # przełącznik w nav
+    assert "pl:" in _I18N and "en:" in _I18N  # oba języki
+    assert "function t(" in _I18N and "applyI18n" in _I18N
+
+
+def test_nav_has_i18n_keys():
+    for key in ["nav.vault", "nav.chat", "nav.docs"]:
+        assert f'data-i18n="{key}"' in _INDEX, f"brak data-i18n {key}"
+    assert "data-i18n-title=" in _INDEX  # tooltipy tłumaczone
+
+
+def test_docs_is_bilingual():
+    # treść dokumentacji ma wariant PL i EN
+    assert "What is SmartMyOdoo" in _DOCS  # EN
+    assert "Czym jest SmartMyOdoo" in _DOCS  # PL
+    assert "Knowledge base" in _DOCS and "Kompendium wiedzy" in _DOCS

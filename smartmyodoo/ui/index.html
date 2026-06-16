@@ -40,7 +40,10 @@
         .delete-option input[type="radio"] { accent-color: #818cf8; }
     </style>
     <link rel="stylesheet" href="css/theme.css">
+    <!-- Lucide icons (CDN, bez builda) — UMD wystawia window.lucide.createIcons() -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
     <script src="js/store.js"></script>
+    <script src="js/i18n.js?v=1" defer></script>
     <script src="js/components/theme.js" defer></script>
     <script src="js/components/sidebar.js?v=2" defer></script>
     <script src="js/components/canvas.js" defer></script>
@@ -48,7 +51,13 @@
     <script src="js/components/activity.js" defer></script>
     <script src="js/components/project.js?v=4" defer></script>
     <script src="js/components/skills.js" defer></script>
-    <script src="js/components/docs.js" defer></script>
+    <script src="js/components/docs.js?v=3" defer></script>
+    <!-- DOC-02: render statycznych ikon Lucide (nav) po załadowaniu DOM -->
+    <script defer>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+        });
+    </script>
 </head>
 <body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
@@ -75,10 +84,10 @@
     <div id="login-screen" class="absolute inset-0 flex flex-col items-center justify-center hidden z-50">
         <div class="w-full max-w-md glass-card p-8 text-center">
             <h1 class="text-3xl font-bold mb-6 text-gradient">SmartMyOdoo</h1>
-            <p class="text-slate-400 text-sm mb-8">Wprowadź PIN lub Master Password aby odblokować.</p>
+            <p class="text-slate-400 text-sm mb-8" data-i18n="login.subtitle">Wprowadź PIN lub Master Password aby odblokować.</p>
             <input type="password" id="auth-password" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white mb-4 focus:outline-none focus:border-indigo-500" placeholder="••••••••" onkeydown="if(event.key === 'Enter') login()">
-            <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg transition">Odblokuj</button>
-            <p id="login-error" class="text-red-400 text-sm mt-4 hidden">Nieprawidłowe hasło</p>
+            <button onclick="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-lg transition" data-i18n="login.unlock">Odblokuj</button>
+            <p id="login-error" class="text-red-400 text-sm mt-4 hidden" data-i18n="login.error">Nieprawidłowe hasło</p>
         </div>
     </div>
 
@@ -94,25 +103,27 @@
             <!-- ZONA 2: Tab Bar -->
             <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm w-full">
                 <div class="flex items-center gap-2">
-                    <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
-                    <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">💬 Czat</button>
-                    <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
-                    <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
-                    <span class="flex items-center gap-2">⚙️ Projekt</span>
+                    <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" data-i18n-title="tip.vault" title="Skarbiec — szyfrowane sekrety i klucze (Vault)" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition"><span class="flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4"></i> <span data-i18n="nav.vault">Skarbiec</span></span></button>
+                    <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" data-i18n-title="tip.chat" title="Czat z agentami AI (z odpowiedziami na żywo)" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition"><span class="flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4"></i> <span data-i18n="nav.chat">Czat</span></span></button>
+                    <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" data-i18n-title="tip.activity" title="Aktywność — oś czasu wywołań narzędzi i audyt" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition"><span class="flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> <span data-i18n="nav.activity">Aktywność</span></span></button>
+                    <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" data-i18n-title="tip.project" title="Projekt — połączenie z Odoo/Jira, Task Picker, czas pracy" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
+                    <span class="flex items-center gap-2"><i data-lucide="folder-kanban" class="w-4 h-4"></i> <span data-i18n="nav.project">Projekt</span></span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">🧠 Skille</span>
+                    <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" data-i18n-title="tip.skills" title="Skille — ręczny wybór wyspecjalizowanych agentów" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="brain" class="w-4 h-4"></i> <span data-i18n="nav.skills">Skille</span></span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">⚙️ Modele</span>
+                    <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" data-i18n-title="tip.models" title="Modele AI — tiery kosztów, budżet, routing per skill" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i> <span data-i18n="nav.models">Modele</span></span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">📖 Dokumentacja</span>
+                    <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" data-i18n-title="tip.docs" title="Dokumentacja — sekcje, wyszukiwarka, kompendium" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4"></i> <span data-i18n="nav.docs">Dokumentacja</span></span>
                 </button>
                 </div>
                 <div class="flex-1"></div>
-                <button onclick="window.AppTheme && window.AppTheme.toggle()" id="theme-toggle-btn" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="Zmień motyw">
-                    ☀️
+                <!-- I18N-01: przełącznik języka -->
+                <div id="lang-switch" class="flex items-center gap-1 mr-2"></div>
+                <button onclick="window.AppTheme && window.AppTheme.toggle()" id="theme-toggle-btn" data-i18n-title="tip.theme" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="Zmień motyw">
+                    <i data-lucide="sun" class="w-4 h-4"></i>
                 </button>
             </nav>
 
@@ -124,10 +135,10 @@
             <h1 class="text-4xl font-bold text-gradient">SmartMyOdoo</h1>
             <div class="flex gap-4 items-center">
                 <button onclick="AppStore.setState({ activeTab: 'docs' })" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-2 text-sm font-medium">
-                    <span>📖</span> Dokumentacja
+                    <i data-lucide="book-open" class="w-4 h-4"></i> <span data-i18n="vault.docs">Dokumentacja</span>
                 </button>
-                <button id="btn-change-pin" onclick="showChangePinModal()" class="hidden border border-slate-600 hover:border-slate-400 text-slate-300 py-2 px-4 rounded-lg transition text-sm">Resetuj PIN (Admin)</button>
-                <button onclick="logout()" class="border border-red-900 hover:border-red-600 text-red-400 py-2 px-4 rounded-lg transition text-sm">Zablokuj Sejf</button>
+                <button id="btn-change-pin" onclick="showChangePinModal()" class="hidden border border-slate-600 hover:border-slate-400 text-slate-300 py-2 px-4 rounded-lg transition text-sm" data-i18n="vault.changePin">Resetuj PIN (Admin)</button>
+                <button onclick="logout()" class="border border-red-900 hover:border-red-600 text-red-400 py-2 px-4 rounded-lg transition text-sm" data-i18n="vault.logout">Zablokuj Sejf</button>
             </div>
         </div>
 
@@ -425,7 +436,7 @@
                     <label class="block text-xs text-slate-400 mb-1">Data Ważności (Opcjonalne)</label>
                     <input type="date" id="f-expires" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" style="color-scheme: dark;">
                 </div>
-                <button onclick="saveSecret()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold mt-4">Zapisz do Skarbca</button>
+                <button onclick="saveSecret()" class="w-full bg-purple-600 hover:bg-purple-500 py-3 rounded-lg font-semibold mt-4" data-i18n="secret.save">Zapisz do Skarbca</button>
             </div>
         </div>
     </div>
