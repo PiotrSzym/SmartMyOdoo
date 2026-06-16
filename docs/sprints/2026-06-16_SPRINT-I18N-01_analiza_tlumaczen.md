@@ -19,7 +19,7 @@ tags: ["i18n", "ux", "analiza", "frontend"]
 > - **I18N-01a (framework)** ✅ — `ui/js/i18n.js`: słownik PL/EN, `t()`, `applyI18n()` (skan `data-i18n`/`-title`/`-ph`), `AppStore.lang` + `localStorage`, **przełącznik PL/EN w nav** (`#lang-switch`).
 > - **I18N-01b (statyczny HTML)** 🏗️ częściowo — przetłumaczone: pasek nav (etykiety + tooltipy), ekran logowania, przyciski Skarbca (Dokumentacja/Reset PIN/Zablokuj), zapis sekretu. Reszta modali/etykiet — do dokończenia.
 > - **I18N-01d (dokumentacja)** ✅ — Centrum Dokumentacji **w pełni dwujęzyczne** (8 sekcji + 11 agentów PL/EN), przełącza się z językiem.
-> - **I18N-01c (komponenty JS)** 🏗️ w toku — ✅ `chat` + `activity` (kluczowe stringi → `t()` + re-render na zmianę języka). ⬜ pozostają `skills` + `project`.
+> - **I18N-01c (komponenty JS)** ✅ — `chat`, `activity`, `skills`, `project` (kluczowe stringi → `t()` + re-render na zmianę języka). Pozostają głębokie komunikaty błędów/placeholdery (iteracyjnie).
 > - **I18N-01e/f** ⬜ — backend (opisy person/błędy), daty/`Intl`, testy Playwright przełączenia języka.
 >
 > Dowód na żywo: przełączenie EN → nav „Czat"→„Chat", docs h1 „Documentation Center", `lang` w store + localStorage.
