@@ -8,7 +8,7 @@ client = TestClient(app)
 
 
 def test_websocket_stream_invalid_auth():
-    with patch("smartmyodoo.api.get_auth_key") as mock_auth:
+    with patch("smartmyodoo.api_routers.chat.get_auth_key") as mock_auth:
         mock_auth.return_value = (None, None)
 
         with client.websocket_connect("/api/chat/stream") as websocket:
@@ -20,8 +20,8 @@ def test_websocket_stream_invalid_auth():
 
 
 def test_websocket_stream_no_llm_key():
-    with patch("smartmyodoo.api.get_auth_key") as mock_auth, patch(
-        "smartmyodoo.api.vault.load_vault"
+    with patch("smartmyodoo.api_routers.chat.get_auth_key") as mock_auth, patch(
+        "smartmyodoo.api_routers.chat.vault.load_vault"
     ) as mock_vault, patch.dict("os.environ", {}, clear=True):
         mock_auth.return_value = (b"testkey", "admin")
         mock_vault.return_value = {}  # No OPENROUTER_KEY
@@ -36,8 +36,8 @@ def test_websocket_stream_no_llm_key():
 
 @pytest.mark.asyncio
 async def test_websocket_stream_success():
-    with patch("smartmyodoo.api.get_auth_key") as mock_auth, patch(
-        "smartmyodoo.api.vault.load_vault"
+    with patch("smartmyodoo.api_routers.chat.get_auth_key") as mock_auth, patch(
+        "smartmyodoo.api_routers.chat.vault.load_vault"
     ) as mock_vault, patch.dict(
         "os.environ", {"OPENROUTER_KEY": "test_llm_key"}
     ), patch("smartmyodoo.swarm.executor.SkillExecutor.execute_stream") as mock_exec:

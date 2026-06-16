@@ -1,11 +1,11 @@
 # 🛤️ Roadmap (Smart Odoo AI Agent)
 
-> ## 👉 OD CZEGO ZACZĄĆ NASTĘPNYM RAZEM (stan: 2026-06-15)
+> ## 👉 OD CZEGO ZACZĄĆ NASTĘPNYM RAZEM (stan: 2026-06-16)
 > **Bieżący sprint:** [FIX-02 — Struktura i Patterny](../../sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) (Faza 8 niżej).
-> **Ostatnio zrobione:** ✅ KEY-01 (K1-K6, zmergowane) · ✅ FIX-02 **S3.4** deps-module (PR #14, czeka na merge).
-> **➡️ Następny krok wykonawczy:** **S3.2** — deduplikacja `execute`/`execute_stream` w `swarm/executor.py` (wspólne helpery red-flags/tools/PII).
-> **Kolejka FIX-02:** S3.2 → S3.1 (dokończyć rozbicie `api.py`: `auth`/`secrets`/`chat`) → S3.3 (konsolidacja PII) → **BRAMKA S3** → S5.1 (`litellm.Router`+cache) → S5.2 (distributed lock) → S5.3 (RAG overlap).
-> **Stan testów:** 218 passed / 0 failed (`pytest -q`). **Start serwera:** `python -m uvicorn smartmyodoo.api:app` (port 8000).
+> **Ostatnio zrobione:** ✅ KEY-01 (K1-K6) · ✅ **CAŁA FAZA S3 zamknięta** (S3.1a/b auth+secrets+chat, S3.2 dedup executor, S3.3 PII, S3.4 deps-module). `api.py` 712→95 l.
+> **➡️ Następny krok wykonawczy:** **FAZA S5 → S5.1** `litellm.Router` + cache (Redis) w `swarm/llm_client.py` (retry/fallback już z K5; zostaje Router+cache).
+> **Kolejka S5:** S5.1 (Router+cache) → S5.2 (distributed lock `SET NX PX` na approve) → S5.3 (RAG chunking z overlapem + sygnalizacja degradacji).
+> **Stan testów:** 226 passed / 0 failed (`pytest -q`). **Start serwera:** `python -m uvicorn smartmyodoo.api:app` (port 8000).
 
 ## Faza 0: Infrastruktura i Procedury (✅ Wdrożone / ⏳ W trakcie)
 - **TeamEngine v5.0:** Orkiestracja farmy agentów (Scout, Pol, Dev, QA, Arch).
