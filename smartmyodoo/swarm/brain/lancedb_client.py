@@ -65,7 +65,8 @@ class LanceDBClient:
         self, texts: List[str], metadatas: List[Dict[str, Any]], ids: List[str]
     ):
         """Wektoryzuje teksty i dodaje do LanceDB."""
-        if not self._table or not self._model:
+        # is None (NIE truthiness) — pusta tabela LanceDB ma len==0 i była mylona z atrapą.
+        if self._table is None or self._model is None:
             logger.warning("Mock: add_texts called.")
             return
 
@@ -87,8 +88,13 @@ class LanceDBClient:
 
     @property
     def degraded(self) -> bool:
-        """True gdy brak realnej bazy/modelu (tryb Mock) — retrieval niedostępny."""
-        return not self._table or not self._model
+        """True TYLKO gdy brak realnej bazy/modelu (np. brak zależności) — tryb Mock.
+
+        Używamy `is None`, NIE truthiness: pusta tabela LanceDB (0 wierszy) ma len==0,
+        więc `not self._table` błędnie raportowało brak połączenia dla niezasianej bazy.
+        Pusta baza = połączona, search zwraca [] (brak wiedzy), to NIE degradacja.
+        """
+        return self._table is None or self._model is None
 
     def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """Przeszukuje bazę po podobieństwie semantycznym.
