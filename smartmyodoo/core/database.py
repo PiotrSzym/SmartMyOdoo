@@ -13,6 +13,9 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
+        # FIX-02 S5.2: pisarze czekają (do 5s) zamiast zwracać "database is locked"
+        # — odporność przy współbieżnych zapisach (np. równoległe approve pod lockiem).
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
 
