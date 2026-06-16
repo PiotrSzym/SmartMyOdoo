@@ -19,7 +19,7 @@ from smartmyodoo.core.odoo_connector import sanitize_db_name
 from smartmyodoo.vault import vault
 from smartmyodoo.vault.resolver import resolve_llm_key
 from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
-from smartmyodoo.swarm.model_policy import effective_model
+from smartmyodoo.swarm.model_policy import effective_model, MODEL_POLICY, ModelTier
 from smartmyodoo.mcp.token_governor import governor as _token_governor
 from smartmyodoo.api_deps import require_auth, get_auth_key
 from smartmyodoo.chat_deps import dispatcher, get_pii as _get_pii, get_llm_cache
@@ -197,7 +197,11 @@ async def handle_chat(
     chat_repo = ChatRepository(db=db)
     llm = (
         OpenRouterClient(
-            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+            api_key=openrouter_key,
+            model=recommended_model,
+            governor=_token_governor,
+            # FIX: gdy tier (np. PREMIUM) padnie/404 — degraduj do STANDARD zamiast błędu
+            fallback_model=MODEL_POLICY[ModelTier.STANDARD],
         )
         if openrouter_key
         else None
@@ -489,7 +493,12 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
         # 4. Executor
         chat_repo = ChatRepository(db=db)
         llm = OpenRouterClient(
-            api_key=openrouter_key, model=recommended_model, governor=_token_governor
+            api_key=openrouter_key,
+            model=recommended_model,
+            governor=_token_governor,
+            fallback_model=MODEL_POLICY[
+                ModelTier.STANDARD
+            ],  # FIX: degradacja zamiast 404
         )
         sandbox = SandboxManager()
 

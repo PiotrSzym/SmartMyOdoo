@@ -24,7 +24,10 @@ MODEL_POLICY = {
         "MODEL_TIER_STANDARD", "openrouter/anthropic/claude-3.5-haiku"
     ),
     ModelTier.PREMIUM: os.environ.get(
-        "MODEL_TIER_PREMIUM", "openrouter/anthropic/claude-3.5-sonnet"
+        # FIX: claude-3.5-sonnet wycofany na OpenRouter (404 "No endpoints found").
+        # Aktualny stabilny sonnet (zweryfikowany przez litellm 2026-06-16).
+        "MODEL_TIER_PREMIUM",
+        "openrouter/anthropic/claude-sonnet-4.5",
     ),
 }
 
