@@ -1,14 +1,17 @@
-"""Strażnik wpięcia zależności bezpieczeństwa w api.py (regresja B1/B2 z /review).
+"""Strażnik wpięcia zależności bezpieczeństwa (regresja B1/B2 z /review).
 
 /review wykrył, że PII (S1.1) i TokenGovernor (S2.2) były zaimplementowane, ale NIE wpięte
 w produkcyjne ścieżki — testy jednostkowe przechodziły tylko bo wstrzykiwały zależność ręcznie.
 Ten test pilnuje, by każdy produkcyjny SkillExecutor dostawał pii=, a każdy OpenRouterClient governor=.
+
+FIX-02 S3.1b: ścieżki chatu (SkillExecutor/OpenRouterClient) przeniesione z api.py do
+api_routers/chat.py — strażnik skanuje teraz produkcyjny router chatu.
 """
 
 import re
 from pathlib import Path
 
-_SRC = Path(__file__).resolve().parents[1] / "smartmyodoo" / "api.py"
+_SRC = Path(__file__).resolve().parents[1] / "smartmyodoo" / "api_routers" / "chat.py"
 
 
 def _calls(source: str, name: str):
