@@ -2,6 +2,26 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w `docs/sprints/`.
 
+## [FIX-02] — 2026-06-16 — Struktura i Patterny (dług po audycie)
+
+> Plan: [`docs/sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md`](docs/sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) + artefakty S3.x/S5.x.
+> Zasada: **NO BEHAVIOR CHANGE** (refaktory) / **Evidence Before Claims**. Suita: 207 → **240 passed**.
+
+### Changed — Struktura (FAZA S3)
+- **God Module `api.py` rozłożony** (712 → 95 l.): domeny `auth`/`secrets`/`chat` wydzielone do
+  `api_routers/*` (obok proposals/monitoring/workspaces/models) + deps-module `api_deps.py`/`chat_deps.py`. [S3.1]
+- **`api_deps` zrywa cykl importów** `api ↔ routery` — `python -m smartmyodoo.api` startuje bez ImportError. [S3.4]
+- **Dedup `execute`/`execute_stream`** — 7 wspólnych helperów polityk (red-flag/tools/PII/sandbox/audit). [S3.2]
+- **Konsolidacja PII** — jedna kanoniczna warstwa w `security/pii/`; `mcp/pii_*` = shimy. [S3.3]
+
+### Added — Patterny (FAZA S5)
+- **Gateway LLM**: cache odpowiedzi (`core/llm_cache.py` In-Memory/Redis) + exp backoff + `temperature`/`max_tokens` z konfiguracji (retry/fallback już z K5). [S5.1]
+- **Distributed lock** (`core/lock.py`, `SET NX PX` + fallback proces-lokalny) + idempotencja approve propozycji — anty-TOCTOU; `PRAGMA busy_timeout`. [S5.2]
+- **Jakość RAG**: chunking z overlapem po granicach zdań; mock **sygnalizuje degradację** (`degraded=True`) zamiast fabrykować kontekst. [S5.3]
+
+### Follow-up (nie blokują)
+rate-limit endpointów LLM · pełny `litellm.Router` · NIP z myślnikami · wpięcie cache/`effective_model` w handlery.
+
 ## [KEY-01] — 2026-06-15 — Typowany rejestr kluczy + routing modeli LLM
 
 > Plan: [`docs/sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md`](docs/sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md).

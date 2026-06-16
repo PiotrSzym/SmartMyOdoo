@@ -85,12 +85,23 @@ class LanceDBClient:
         self._table.add(data)
         logger.info(f"Dodano {len(data)} rekordów do LanceDB.")
 
-    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
-        """Przeszukuje bazę po podobieństwie semantycznym."""
-        if not self._table or not self._model:
-            logger.warning("Mock: search called.")
-            return [{"text": "Mocked RAG response", "source": "mock"}]
+    @property
+    def degraded(self) -> bool:
+        """True gdy brak realnej bazy/modelu (tryb Mock) — retrieval niedostępny."""
+        return not self._table or not self._model
 
+    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+        """Przeszukuje bazę po podobieństwie semantycznym.
+
+        S5.3: w trybie zdegradowanym (Mock — brak bazy/modelu) zwraca PUSTĄ listę,
+        zamiast fabrykować fałszywy kontekst ('Mocked RAG response'). Sygnalizację
+        degradacji niesie właściwość `degraded` (sprawdzana wyżej w SharedBrain.retrieve).
+        """
+        if self.degraded:
+            logger.warning("[RAG] tryb zdegradowany — brak retrievalu (zwracam []).")
+            return []
+
+        assert self._model is not None and self._table is not None  # nosec B101
         query_vector = self._model.encode([query])[0]
         results = self._table.search(query_vector.tolist()).limit(top_k).to_list()
         return results
