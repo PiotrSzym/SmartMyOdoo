@@ -1,9 +1,9 @@
 ---
 sprint_id: "FIX-02"
 workspace: "SmartMyOdoo"
-status: "PLANNED"
+status: "DONE"
 created: 2026-06-15
-closed: null
+closed: 2026-06-16
 goal: "Spłacić dług strukturalny (api.py God Module, duplikacje) i wdrożyć brakujące wzorce stacku (litellm.Router, distributed lock, RAG) — BEZ zmiany zachowania"
 prefix: "FIX"
 complexity: 4
@@ -77,7 +77,7 @@ S5.1 (litellm.Router)  S5.2 (distributed lock)  S5.3 (RAG overlap)
 |---|---------|-------|------------------------------|--------|
 | S5.1 | Gateway LLM: retry/backoff + fallback (K5) + **cache** (`core/llm_cache.py`: InMemory/Redis) + `temperature`/`max_tokens` konfigurowalne. Decyzja: klient+backoff zamiast `litellm.Router` (patrz [art.](2026-06-16_SPRINT-FIX-02-S5.1_llm_router_cache.md)) | `swarm/llm_client.py`, `core/llm_cache.py` | ✅ `tests/test_llm_cache.py` (cache hit/miss, backoff, parametry) + `test_llm_resilience`; suita 231 | ✅ |
 | S5.2 | Distributed lock (`SET NX PX`) + idempotencja na approve propozycji; fallback proces-lokalny. Szczegóły: [art.](2026-06-16_SPRINT-FIX-02-S5.2_distributed_lock.md). (rate-limit LLM = follow-up) | `core/lock.py`, `api_routers/proposals.py` | ✅ `tests/test_proposal_lock.py` (8 równoległych approve → 1 przejście; mutual exclusion; timeout) | ✅ |
-| S5.3 | RAG: chunking z overlapem po granicach zdań; próg `distance` + opcjonalny re-ranker; mock RAG **sygnalizuje degradację** (flaga), nie fabrykuje kontekstu | `swarm/brain/rag_api.py`, `swarm/brain/lancedb_client.py` | RED: tekst > 1 chunk → sąsiednie chunki mają overlap; mock zwraca `degraded=True` zamiast zmyślonego kontekstu | ⬜ |
+| S5.3 | RAG: chunking z overlapem po granicach zdań; mock **sygnalizuje degradację** (`degraded=True`) zamiast fabrykować kontekst. Szczegóły: [art.](2026-06-16_SPRINT-FIX-02-S5.3_rag_quality.md) | `swarm/brain/rag_api.py`, `swarm/brain/lancedb_client.py` | ✅ `tests/swarm/test_rag_quality.py` (overlap, max_length, twarde cięcie, degradacja bez fabrykacji) | ✅ |
 
 ---
 
