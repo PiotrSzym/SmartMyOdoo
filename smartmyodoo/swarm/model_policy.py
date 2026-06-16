@@ -21,7 +21,12 @@ MODEL_POLICY = {
         "MODEL_TIER_CHEAP", "openrouter/meta-llama/llama-3.1-8b-instruct"
     ),
     ModelTier.STANDARD: os.environ.get(
-        "MODEL_TIER_STANDARD", "openrouter/anthropic/claude-3.5-haiku"
+        # Domyślny model interaktywnego czatu. claude-3.5-haiku był zbyt słaby
+        # (mylił filtry domeny, mieszał nazwy rekordów). claude-sonnet-4.5 —
+        # zweryfikowany na OpenRouter, 200k kontekstu (duże wyniki Odoo), precyzyjny.
+        # Dial-back: ENV MODEL_TIER_STANDARD=openrouter/anthropic/claude-3.5-haiku.
+        "MODEL_TIER_STANDARD",
+        "openrouter/anthropic/claude-sonnet-4.5",
     ),
     ModelTier.PREMIUM: os.environ.get(
         # FIX: claude-3.5-sonnet wycofany na OpenRouter (404 "No endpoints found").
