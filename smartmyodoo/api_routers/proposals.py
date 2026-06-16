@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core import models as db_models
+from smartmyodoo.core.lock import proposal_lock
 from smartmyodoo.api_deps import require_auth
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
@@ -52,16 +53,21 @@ async def approve_proposal(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    prop = (
-        db.query(db_models.Proposal)
-        .filter(db_models.Proposal.id == proposal_id)
-        .first()
-    )
-    if not prop:
-        raise HTTPException(status_code=404, detail="Proposal not found")
-    prop.status = "approved"  # type: ignore
-    db.commit()
-    return {"success": True, "status": "approved"}
+    # S5.2: distributed lock + idempotencja — równoległe approve tej samej propozycji
+    # serializują się, a przejście pending→approved (i ew. egzekucja) zachodzi DOKŁADNIE raz.
+    with proposal_lock.acquire(f"proposal:approve:{proposal_id}"):
+        prop = (
+            db.query(db_models.Proposal)
+            .filter(db_models.Proposal.id == proposal_id)
+            .first()
+        )
+        if not prop:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+        already = str(prop.status) == "approved"
+        if not already:
+            prop.status = "approved"  # type: ignore
+            db.commit()
+        return {"success": True, "status": "approved", "already": already}
 
 
 @router.post("/{proposal_id}/reject")
