@@ -74,6 +74,12 @@ const I18N = {
         "project.errTasks": "Błąd ładowania zadań.",
         "project.errConn": "Błąd połączenia z Odoo.",
         "project.errConn2": "Błąd połączenia.",
+        "common.cancel": "Anuluj",
+        "common.search": "Szukaj",
+        "pin.newPin": "Nowy PIN (dla botów i CLI)",
+        "models.budget": "Budżet sesji",
+        "project.connHeader": "Połączenie z Odoo",
+        "ws.newTitle": "Nowa Przestrzeń Robocza",
     },
     en: {
         "nav.vault": "Vault",
@@ -136,6 +142,12 @@ const I18N = {
         "project.errTasks": "Error loading tasks.",
         "project.errConn": "Odoo connection error.",
         "project.errConn2": "Connection error.",
+        "common.cancel": "Cancel",
+        "common.search": "Search",
+        "pin.newPin": "New PIN (for bots & CLI)",
+        "models.budget": "Session budget",
+        "project.connHeader": "Odoo connection",
+        "ws.newTitle": "New Workspace",
     },
 };
 

@@ -92,3 +92,26 @@ def test_docs_is_bilingual():
     assert "What is SmartMyOdoo" in _DOCS  # EN
     assert "Czym jest SmartMyOdoo" in _DOCS  # PL
     assert "Knowledge base" in _DOCS and "Kompendium wiedzy" in _DOCS
+
+
+def test_i18n_static_coverage_baseline():
+    """I18N-02: kluczowe statyczne elementy mają data-i18n (guard przed regresją).
+
+    Nie wymusza 100% pokrycia (głębokie placeholdery iteracyjnie), ale pilnuje, by
+    najważniejsze modale/ekrany pozostały przetłumaczalne.
+    """
+    must = [
+        'data-i18n="pin.newPin"',  # zmiana PIN
+        'data-i18n="models.budget"',  # zakładka Modele
+        'data-i18n="models.save"',
+        'data-i18n="project.connHeader"',  # ekran Projekt
+        'data-i18n="secret.name"',  # modal sekretu
+        'data-i18n="secret.type"',
+        'data-i18n="ws.newTitle"',  # nowy workspace
+        'data-i18n="common.cancel"',
+        'data-i18n="common.search"',
+    ]
+    for m in must:
+        assert m in _INDEX, f"brak {m} (regresja i18n statycznego HTML)"
+    # ≥ ~25 atrybutów data-i18n łącznie (nav + login + modale + ekrany)
+    assert _INDEX.count("data-i18n") >= 25
