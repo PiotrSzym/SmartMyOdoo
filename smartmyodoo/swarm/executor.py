@@ -84,26 +84,26 @@ class SkillExecutor:
         except Exception:
             return None
 
-    def execute(
-        self,
-        skill_config: SkillConfig,
-        message: str,
-        phase_restrictions: Optional[list] = None,
-    ) -> Dict[str, Any]:
-        """
-        Executes a given message against the skill configuration.
-        Integrates: Chat History, Audit Trail, Sandbox.
-        """
-        # 1. Red Flag Detection
+    # ── S3.2: WSPÓLNE HELPERY POLITYK (SSoT dla execute i execute_stream) ──
+    # Caller decyduje o PREZENTACJI (raise/yield, logger/yield); polityka jest jedna.
+
+    def _first_red_flag(self, skill_config: SkillConfig, message: str) -> Optional[str]:
+        """Zwraca pierwszą dopasowaną red flag (lub None). Detektor — bez efektów ubocznych."""
         for flag in skill_config.red_flags:
             if re.search(flag, message, re.IGNORECASE):
-                raise RedFlagViolation(f"Red flag triggered: {flag}")
+                return flag
+        return None
 
-        # 2. Filter Tools
+    def _prepare_tools(
+        self, skill_config: SkillConfig, phase_restrictions: Optional[list]
+    ) -> tuple:
+        """Filtr narzędzi (read_only zdejmuje odoo_create + restrykcje fazy) + budowa schematów.
+
+        Zwraca (allowed_tools, tools_schemas) — identycznie dla obu ścieżek.
+        """
         allowed_tools = list(skill_config.allowed_tools)
         if skill_config.read_only and "odoo_create" in allowed_tools:
             allowed_tools.remove("odoo_create")
-
         if phase_restrictions is not None:
             allowed_tools = [t for t in allowed_tools if t in phase_restrictions]
 
@@ -113,13 +113,13 @@ class SkillExecutor:
                 tools_schemas.append(TOOL_REGISTRY[tool_name]["schema"])
             else:
                 logger.warning(f"Narzędzie '{tool_name}' nie istnieje w TOOL_REGISTRY.")
+        return allowed_tools, tools_schemas
 
-        # 3. Build messages with Smart Context
+    def _build_initial_messages(self, skill_config: SkillConfig, message: str) -> list:
+        """System prompt + Smart Context (anonimizowany) + wiadomość user (anon) + zapis do historii."""
         messages = [
             {"role": "system", "content": skill_config.system_prompt},
         ]
-
-        # Smart Context: załaduj skróty z poprzednich sesji
         if self.chat_repo and self.session_id:
             try:
                 context = self.chat_repo.get_smart_context(
@@ -134,9 +134,113 @@ class SkillExecutor:
 
         # S1.1: do LLM trafia pseudonimizowana wiadomość; oryginał idzie do historii.
         messages.append({"role": "user", "content": self._anon(message)})
-
-        # Save user message to history
         self._save_chat("user", message)
+        return messages
+
+    def _should_sandbox(self, func_name: str, sandbox_activated: bool) -> bool:
+        """Czy dla tego narzędzia trzeba (i można) wejść w sandbox — predykat."""
+        return bool(
+            self.sandbox
+            and self.sandbox.is_write_tool(func_name)
+            and not sandbox_activated
+        )
+
+    def _enter_sandbox_fail_closed(self) -> tuple:
+        """S2.3: wejście w sandbox z fail-closed + redirect ODOO_DB na scratchpad.
+
+        Zwraca (blocked, sandbox_activated). blocked=True → brak izolacji przy włączonym
+        sandboxie (zapis MA być zablokowany, zero zapisu na produkcji).
+        Wołane tylko po _should_sandbox()==True (gwarantuje self.sandbox is not None).
+        """
+        sandbox = self.sandbox
+        if sandbox is None:  # obrona; nie powinno się zdarzyć (guard w _should_sandbox)
+            return False, False
+        try:
+            scratchpad = sandbox.enter_sandbox(original_db=self._get_odoo_db())
+        except RuntimeError as e:
+            # np. brak ODOO_MASTER_PASSWORD — fail-closed, nie crash requestu
+            logger.warning(f"Sandbox fail-closed: {e}")
+            scratchpad = None
+        if sandbox.enabled and not scratchpad:
+            return True, False  # FAIL-CLOSED: brak izolacji → nie wykonuj zapisu
+        if scratchpad:
+            self._enter_db_redirect(scratchpad)
+        return False, True
+
+    def _invoke_tool(
+        self, func_name: str, args: Any, blocked: bool, sandbox_activated: bool
+    ) -> tuple:
+        """Wywołanie narzędzia z TOOL_REGISTRY + anonimizacja wyniku + rollback na błędzie.
+
+        Zwraca (tool_result_str, tool_success, sandbox_activated).
+        """
+        if blocked:
+            return (
+                "❌ Sandbox fail-closed: nie udało się utworzyć izolacji — "
+                "operacja zapisu zablokowana (zero zapisu na produkcji).",
+                False,
+                sandbox_activated,
+            )
+        if func_name in TOOL_REGISTRY:
+            try:
+                result = TOOL_REGISTRY[func_name]["callable"](**args)
+                # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
+                return self._anon(str(result)), True, sandbox_activated
+            except Exception as e:
+                # ── Sandbox: rollback on error ──
+                if sandbox_activated and self.sandbox:
+                    self.sandbox.exit_sandbox(success=False)
+                    self._restore_db_redirect()
+                    sandbox_activated = False
+                return (
+                    f"Error executing {func_name}: {str(e)}",
+                    False,
+                    sandbox_activated,
+                )
+        return f"Tool {func_name} not found.", False, sandbox_activated
+
+    def _audit_tool_call(
+        self, audit_db: Any, func_name: str, args: Any, result: str, success: bool
+    ) -> None:
+        """Audit Trail: zapis każdego wywołania narzędzia (best-effort)."""
+        if not audit_db:
+            return
+        try:
+            from smartmyodoo.core.audit import log_tool_call
+
+            log_tool_call(
+                db=audit_db,
+                workspace_id=self.workspace_id,
+                tool_name=func_name,
+                args=args,
+                result=result,
+                success=success,
+            )
+        except Exception as e:
+            logger.warning(f"Audit log failed: {e}")
+
+    def execute(
+        self,
+        skill_config: SkillConfig,
+        message: str,
+        phase_restrictions: Optional[list] = None,
+    ) -> Dict[str, Any]:
+        """
+        Executes a given message against the skill configuration.
+        Integrates: Chat History, Audit Trail, Sandbox.
+        """
+        # 1. Red Flag Detection (S3.2: wspólny detektor; tu prezentacja = raise)
+        flag = self._first_red_flag(skill_config, message)
+        if flag:
+            raise RedFlagViolation(f"Red flag triggered: {flag}")
+
+        # 2. Filter Tools (S3.2: wspólny helper)
+        allowed_tools, tools_schemas = self._prepare_tools(
+            skill_config, phase_restrictions
+        )
+
+        # 3. Build messages with Smart Context (S3.2: wspólny helper)
+        messages = self._build_initial_messages(skill_config, message)
 
         # 4. Call LLM
         response_text = ""
@@ -178,77 +282,28 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
-                        # ── Sandbox (S2.3): fail-closed + redirect narzędzi na scratchpad ──
+                        # ── Sandbox (S2.3): fail-closed + redirect (S3.2: wspólne helpery) ──
                         blocked = False
-                        if (
-                            self.sandbox
-                            and self.sandbox.is_write_tool(func_name)
-                            and not sandbox_activated
-                        ):
+                        if self._should_sandbox(func_name, sandbox_activated):
                             logger.info(
                                 f"🔒 Write tool detected: {func_name} — entering sandbox"
                             )
-                            try:
-                                scratchpad = self.sandbox.enter_sandbox(
-                                    original_db=self._get_odoo_db()
-                                )
-                            except RuntimeError as e:
-                                # np. brak ODOO_MASTER_PASSWORD — fail-closed, nie crash requestu
-                                logger.warning(f"Sandbox fail-closed: {e}")
-                                scratchpad = None
-                            if self.sandbox.enabled and not scratchpad:
-                                # FAIL-CLOSED: brak izolacji → NIE wykonuj zapisu na produkcji
-                                blocked = True
-                            else:
-                                sandbox_activated = True
-                                if scratchpad:
-                                    self._enter_db_redirect(scratchpad)
+                            blocked, sandbox_activated = (
+                                self._enter_sandbox_fail_closed()
+                            )
 
                         logger.info(f"Wywoływanie narzędzia: {func_name}({args})")
                         tools_used.add(func_name)
 
-                        tool_result_str = ""
-                        tool_success = True
-                        if blocked:
-                            tool_result_str = (
-                                "❌ Sandbox fail-closed: nie udało się utworzyć izolacji — "
-                                "operacja zapisu zablokowana (zero zapisu na produkcji)."
+                        tool_result_str, tool_success, sandbox_activated = (
+                            self._invoke_tool(
+                                func_name, args, blocked, sandbox_activated
                             )
-                            tool_success = False
-                        elif func_name in TOOL_REGISTRY:
-                            try:
-                                result = TOOL_REGISTRY[func_name]["callable"](**args)
-                                # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
-                                tool_result_str = self._anon(str(result))
-                            except Exception as e:
-                                tool_result_str = (
-                                    f"Error executing {func_name}: {str(e)}"
-                                )
-                                tool_success = False
-                                # ── Sandbox: rollback on error ──
-                                if sandbox_activated and self.sandbox:
-                                    self.sandbox.exit_sandbox(success=False)
-                                    self._restore_db_redirect()
-                                    sandbox_activated = False
-                        else:
-                            tool_result_str = f"Tool {func_name} not found."
-                            tool_success = False
+                        )
 
-                        # ── Audit Trail: log every tool call ──
-                        if audit_db:
-                            try:
-                                from smartmyodoo.core.audit import log_tool_call
-
-                                log_tool_call(
-                                    db=audit_db,
-                                    workspace_id=self.workspace_id,
-                                    tool_name=func_name,
-                                    args=args,
-                                    result=tool_result_str,
-                                    success=tool_success,
-                                )
-                            except Exception as e:
-                                logger.warning(f"Audit log failed: {e}")
+                        self._audit_tool_call(
+                            audit_db, func_name, args, tool_result_str, tool_success
+                        )
 
                         messages.append(
                             {
@@ -309,46 +364,19 @@ class SkillExecutor:
         """
         import asyncio
 
-        # 1. Red Flag Detection
-        for flag in skill_config.red_flags:
-            if re.search(flag, message, re.IGNORECASE):
-                yield {"type": "error", "content": f"Red flag triggered: {flag}"}
-                return
+        # 1. Red Flag Detection (S3.2: wspólny detektor; tu prezentacja = yield error)
+        flag = self._first_red_flag(skill_config, message)
+        if flag:
+            yield {"type": "error", "content": f"Red flag triggered: {flag}"}
+            return
 
-        # 2. Filter Tools
-        allowed_tools = list(skill_config.allowed_tools)
-        if skill_config.read_only and "odoo_create" in allowed_tools:
-            allowed_tools.remove("odoo_create")
+        # 2. Filter Tools (S3.2: wspólny helper)
+        allowed_tools, tools_schemas = self._prepare_tools(
+            skill_config, phase_restrictions
+        )
 
-        if phase_restrictions is not None:
-            allowed_tools = [t for t in allowed_tools if t in phase_restrictions]
-
-        tools_schemas = []
-        for tool_name in allowed_tools:
-            if tool_name in TOOL_REGISTRY:
-                tools_schemas.append(TOOL_REGISTRY[tool_name]["schema"])
-            else:
-                logger.warning(f"Narzędzie '{tool_name}' nie istnieje w TOOL_REGISTRY.")
-
-        # 3. Build messages with Smart Context
-        messages = [
-            {"role": "system", "content": skill_config.system_prompt},
-        ]
-
-        if self.chat_repo and self.session_id:
-            try:
-                context = self.chat_repo.get_smart_context(
-                    self.workspace_id, self.session_id
-                )
-                for m in context:
-                    if isinstance(m, dict) and isinstance(m.get("content"), str):
-                        m["content"] = self._anon(m["content"])
-                messages.extend(context)
-            except Exception as e:
-                logger.warning(f"Smart Context load failed: {e}")
-
-        messages.append({"role": "user", "content": self._anon(message)})
-        self._save_chat("user", message)
+        # 3. Build messages with Smart Context (S3.2: wspólny helper)
+        messages = self._build_initial_messages(skill_config, message)
 
         response_text = ""
         tools_used = set()
@@ -469,68 +497,24 @@ class SkillExecutor:
                         "content": f"Wywoływanie narzędzia: {func_name}(...)",
                     }
 
-                    # S2.3 (parytet streamingu): fail-closed + redirect na scratchpad
+                    # S2.3 (parytet streamingu): fail-closed + redirect (S3.2: wspólne helpery)
                     blocked = False
-                    if (
-                        self.sandbox
-                        and self.sandbox.is_write_tool(func_name)
-                        and not sandbox_activated
-                    ):
+                    if self._should_sandbox(func_name, sandbox_activated):
                         yield {
                             "type": "log",
                             "content": f"Uruchamiam bezpieczny Sandbox dla {func_name}",
                         }
-                        try:
-                            scratchpad = self.sandbox.enter_sandbox(
-                                original_db=self._get_odoo_db()
-                            )
-                        except RuntimeError as e:
-                            logger.warning(f"Sandbox fail-closed: {e}")
-                            scratchpad = None
-                        if self.sandbox.enabled and not scratchpad:
-                            blocked = True
-                        else:
-                            sandbox_activated = True
-                            if scratchpad:
-                                self._enter_db_redirect(scratchpad)
+                        blocked, sandbox_activated = self._enter_sandbox_fail_closed()
 
                     tools_used.add(func_name)
 
-                    tool_result_str = ""
-                    tool_success = True
-                    if blocked:
-                        tool_result_str = "❌ Sandbox fail-closed: brak izolacji — operacja zapisu zablokowana."
-                        tool_success = False
-                    elif func_name in TOOL_REGISTRY:
-                        try:
-                            result = TOOL_REGISTRY[func_name]["callable"](**args)
-                            # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
-                            tool_result_str = self._anon(str(result))
-                        except Exception as e:
-                            tool_result_str = f"Error executing {func_name}: {str(e)}"
-                            tool_success = False
-                            if sandbox_activated and self.sandbox:
-                                self.sandbox.exit_sandbox(success=False)
-                                self._restore_db_redirect()
-                                sandbox_activated = False
-                    else:
-                        tool_result_str = f"Tool {func_name} not found."
-                        tool_success = False
+                    tool_result_str, tool_success, sandbox_activated = (
+                        self._invoke_tool(func_name, args, blocked, sandbox_activated)
+                    )
 
-                    if audit_db:
-                        try:
-                            from smartmyodoo.core.audit import log_tool_call
-
-                            log_tool_call(
-                                db=audit_db,
-                                workspace_id=self.workspace_id,
-                                tool_name=func_name,
-                                args=args,
-                                result=tool_result_str,
-                                success=tool_success,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Audit log failed: {e}")
+                    self._audit_tool_call(
+                        audit_db, func_name, args, tool_result_str, tool_success
+                    )
 
                     messages.append(
                         {
