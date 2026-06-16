@@ -9,6 +9,7 @@ class Canvas {
         this.tabSettings = document.getElementById('tab-settings');
         this.tabSkills = document.getElementById('tab-skills');
         this.tabModels = document.getElementById('tab-models');
+        this.tabDocs = document.getElementById('tab-docs');
 
         this.screenVault = document.getElementById('vault-screen');
         this.screenChat = document.getElementById('chat-screen');
@@ -16,6 +17,7 @@ class Canvas {
         this.screenSettings = document.getElementById('settings-screen');
         this.screenSkills = document.getElementById('skills-screen');
         this.screenModels = document.getElementById('models-screen');
+        this.screenDocs = document.getElementById('docs-screen');
 
         // Definicja zakładek: { buttonEl, screenEl }
         this.tabs = [
@@ -25,6 +27,7 @@ class Canvas {
             { btn: this.tabSettings, screen: this.screenSettings, key: 'settings' },
             { btn: this.tabSkills, screen: this.screenSkills, key: 'skills' },
             { btn: this.tabModels, screen: this.screenModels, key: 'models' },
+            { btn: this.tabDocs, screen: this.screenDocs, key: 'docs' },
         ];
 
         // Subskrypcja stanu

@@ -48,6 +48,7 @@
     <script src="js/components/activity.js" defer></script>
     <script src="js/components/project.js?v=4" defer></script>
     <script src="js/components/skills.js" defer></script>
+    <script src="js/components/docs.js" defer></script>
 </head>
 <body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
@@ -105,6 +106,9 @@
                     <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
                     <span class="flex items-center gap-2">⚙️ Modele</span>
                 </button>
+                    <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2">📖 Dokumentacja</span>
+                </button>
                 </div>
                 <div class="flex-1"></div>
                 <button onclick="window.AppTheme && window.AppTheme.toggle()" id="theme-toggle-btn" class="p-2 text-slate-400 hover:text-indigo-400 transition" title="Zmień motyw">
@@ -119,7 +123,7 @@
         <div class="flex justify-between items-center">
             <h1 class="text-4xl font-bold text-gradient">SmartMyOdoo</h1>
             <div class="flex gap-4 items-center">
-                <button onclick="showDocsModal()" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-2 text-sm font-medium">
+                <button onclick="AppStore.setState({ activeTab: 'docs' })" class="text-slate-400 hover:text-indigo-400 transition flex items-center gap-2 text-sm font-medium">
                     <span>📖</span> Dokumentacja
                 </button>
                 <button id="btn-change-pin" onclick="showChangePinModal()" class="hidden border border-slate-600 hover:border-slate-400 text-slate-300 py-2 px-4 rounded-lg transition text-sm">Resetuj PIN (Admin)</button>
@@ -167,6 +171,9 @@
                 <div id="skills-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
                     <!-- Wypełniane przez skills.js -->
                 </div>
+
+                <!-- Tab: Dokumentacja (DOC-01) — wypełniane przez docs.js -->
+                <div id="docs-screen" class="w-full hidden flex-col gap-6"></div>
 
                 <!-- Tab: Modele (K6) -->
                 <div id="models-screen" class="w-full max-w-3xl mx-auto hidden flex-col gap-6">
@@ -432,36 +439,7 @@
         </div>
     </div>
 
-    <div id="docs-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
-        <div class="glass-card w-full max-w-2xl p-8 relative max-h-[85vh] overflow-y-auto">
-            <button onclick="closeModals()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl">✕</button>
-            <h2 class="text-2xl font-bold mb-6 text-gradient">Architektura Bezpieczeństwa & Dokumentacja</h2>
-
-            <div class="space-y-6 text-sm text-slate-300 leading-relaxed">
-                <div>
-                    <h3 class="text-lg font-semibold text-white flex items-center gap-2">🤔 Jak i dlaczego to działa?</h3>
-                    <p class="mt-2">Skarbiec opiera się na kryptografii wielowarstwowej z tzw. <b>Key Encrypting Key (KEK)</b>. Zamiast szyfrować dane bezpośrednio Twoim hasłem, system generuje losowy, super-silny klucz główny (Vault Key) algorytmem AES-128-CBC (Fernet). Następnie ten Vault Key jest w locie dwukrotnie kopiowany i szyfrowany osobno: raz przez Twój 4-cyfrowy <code>PIN</code> (w pliku <code>.pin_key</code>), a drugi raz przez długie <code>Master Password</code> (w pliku <code>.master_key</code>).</p>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-emerald-400 flex items-center gap-2">✅ Co jest w pełni BEZPIECZNE?</h3>
-                    <ul class="list-disc pl-5 mt-2 space-y-2">
-                        <li><b>Hasła leżące na dysku:</b> Plik <code>.vault_data</code> to kompletny bełkot kryptograficzny. Nawet jak haker wykradnie cały folder <code>smart_vault</code> (wraz ze wszystkimi solami i kluczami), bez poprawnego PINu lub Master Password nie zrekonstruuje klucza głównego i nie odczyta nawet jednej litery.</li>
-                        <li><b>Bezgłośny Schowek:</b> Kopiowanie hasła w GUI pomija konsolę systemową. Kliknięcie używa natywnego <code>Clipboard API</code> w przeglądarce, maskując wartości gwiazdkami. AI podglądające terminal nie ma szans na przeczytanie kopiowanego hasła.</li>
-                        <li><b>Izolacja ENV w Dockerze:</b> Komenda <code>python vault.py run docker-compose up</code> wstrzykuje sekrety do środowiska powłoki jako zmienne w locie, dzięki czemu Twoje pliki `docker-compose.yml` pozostają wolne od wycieków z na sztywno wpisanymi tokenami.</li>
-                    </ul>
-                </div>
-
-                <div class="bg-red-900/20 border border-red-500/30 p-4 rounded-lg">
-                    <h3 class="text-lg font-semibold text-red-400 flex items-center gap-2">⚠️ Co NIE JEST bezpieczne (Na co uważać)?</h3>
-                    <ul class="list-disc pl-5 mt-2 space-y-2 text-red-200/80">
-                        <li><b>Zgubienie OBU poświadczeń:</b> Zgubienie PINu to żaden problem (zresetujesz go używając Master Password). Jednak zapomnienie Master Password przy jednoczesnej utracie PINu oznacza <b>TRWAŁĄ I BEZPOWROTNĄ utratę dostępu</b> do wszystkich haseł. Kryptografia AES-128 nie ma "tylnej furtki".</li>
-                        <li><b>Działający serwer GUI w tle:</b> Skarbiec API działa na protokole HTTP (<code>localhost:5050</code>). Ogranicza go to do komunikacji lokalnej, ale złośliwy program na Twoim komputerze mógłby teoretycznie odpytać port 5050 gdy panel jest odblokowany. Dlatego zalecamy używać opcji <b class="text-red-400">Zablokuj Sejf</b> lub ubijać terminal w IDE po zakończeniu pracy, co zamyka okno autoryzacji.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- DOC-01: dawny #docs-modal (statyczny, port 5050) usunięty — treść w zakładce 📖 Dokumentacja (docs.js) -->
 
     <!-- Modal: Nowa Przestrzeń Robocza (HUB-S3) -->
     <div id="workspace-modal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
@@ -1012,18 +990,11 @@
             }
         }
 
-        function showDocsModal() {
-            document.getElementById('docs-modal').classList.remove('hidden');
-            document.getElementById('docs-modal').classList.add('flex');
-        }
-
         function closeModals() {
             document.getElementById('secret-modal').classList.add('hidden');
             document.getElementById('secret-modal').classList.remove('flex');
             document.getElementById('pin-modal').classList.add('hidden');
             document.getElementById('pin-modal').classList.remove('flex');
-            document.getElementById('docs-modal').classList.add('hidden');
-            document.getElementById('docs-modal').classList.remove('flex');
             document.getElementById('workspace-modal').classList.add('hidden');
             document.getElementById('workspace-modal').classList.remove('flex');
             document.getElementById('delete-ws-modal').classList.add('hidden');
