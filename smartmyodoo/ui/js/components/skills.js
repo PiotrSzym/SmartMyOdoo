@@ -29,6 +29,9 @@ class SkillPanel {
                 if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'skills') {
                     this.loadSkills();
                 }
+                if (newState.lang !== oldState.lang) {
+                    this.render();  // I18N-01c
+                }
             });
         }
 
@@ -59,7 +62,7 @@ class SkillPanel {
         let programsHtml = this.programs.map(p => `
             <button onclick="window.AppSkills.toggleProgram('${p.id}')" class="flex flex-col items-center gap-2 p-4 glass-card hover:bg-indigo-500/10 border border-slate-700/50 hover:border-indigo-500/50 transition-all rounded-xl group text-center">
                 <span class="text-3xl group-hover:scale-110 transition-transform">${p.icon}</span>
-                <span class="text-sm font-semibold text-slate-300 group-hover:text-indigo-300">${p.name}</span>
+                <span class="text-sm font-semibold text-slate-300 group-hover:text-indigo-300">${window.t ? window.t('prog.'+p.id) : p.name}</span>
             </button>
         `).join('');
 
@@ -102,14 +105,14 @@ class SkillPanel {
 
         this.container.innerHTML = `
             <div class="flex justify-between items-center mb-2 mt-4">
-                <h1 class="text-3xl font-bold text-gradient">Panel Kompetencji AI</h1>
+                <h1 class="text-3xl font-bold text-gradient">${window.t ? window.t('skills.title') : 'Panel Kompetencji AI'}</h1>
                 <div class="flex gap-3">
-                    <button onclick="window.AppSkills.clearAll()" class="px-4 py-2 text-sm text-slate-400 hover:text-red-400 transition">Wyczyść wszystko</button>
+                    <button onclick="window.AppSkills.clearAll()" class="px-4 py-2 text-sm text-slate-400 hover:text-red-400 transition">${window.t ? window.t('skills.clearAll') : 'Wyczyść wszystko'}</button>
                 </div>
             </div>
 
             <div class="mb-8">
-                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Szybkie Programy</h2>
+                <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">${window.t ? window.t('skills.programs') : 'Szybkie Programy'}</h2>
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     ${programsHtml}
                 </div>
@@ -117,7 +120,7 @@ class SkillPanel {
 
             <div>
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Manualny Wybór Skilli</h2>
+                    <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">${window.t ? window.t('skills.manual') : 'Manualny Wybór Skilli'}</h2>
                     <span class="text-xs text-indigo-400 font-mono bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">
                         Wybrano: ${this.selectedSkills.size}
                     </span>

@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'settings') {
                 renderProjectTab();
             }
+            if (newState.lang !== oldState.lang && newState.activeTab === 'settings') {
+                renderProjectTab();  // I18N-01c
+            }
         });
     }
 });
@@ -57,7 +60,7 @@ async function renderProjectTab() {
         // STAN 3: Projekt wybrany → Task Picker + Timesheet
         showState(3);
         document.getElementById('active-project-name').innerText = ws.project_name || `Projekt ID: ${ws.project_ref}`;
-        document.getElementById('active-task-name').innerText = ws.task_name || 'Brak domyślnego zadania';
+        document.getElementById('active-task-name').innerText = ws.task_name || (window.t ? window.t('project.noTask') : 'Brak domyślnego zadania');
         loadProjectTasks(ws.project_ref);
     } else {
         // Sprawdź czy mamy credentials w sejfie (default_ODOO)
@@ -161,7 +164,7 @@ async function loadProjectList() {
         window._currentProjectList = await res.json();
         renderProjectList(window._currentProjectList);
     } catch (e) {
-        listEl.innerHTML = '<div class="text-center py-4 text-red-400">Błąd połączenia z Odoo.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errConn') : 'Błąd połączenia z Odoo.'}</div>`;
     }
 }
 
@@ -170,7 +173,7 @@ function renderProjectList(projects, filterQuery = '') {
     if (!listEl) return;
 
     if (!projects || projects.length === 0) {
-        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak projektów w Odoo.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-slate-500">${window.t ? window.t('project.noProjects') : 'Brak projektów w Odoo.'}</div>`;
         return;
     }
 
@@ -178,7 +181,7 @@ function renderProjectList(projects, filterQuery = '') {
     const filtered = projects.filter(p => p.name.toLowerCase().includes(query));
 
     if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak wyników.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-slate-500">${window.t ? window.t('project.noResults') : 'Brak wyników.'}</div>`;
         return;
     }
 
@@ -194,7 +197,7 @@ function renderProjectList(projects, filterQuery = '') {
                         <div class="text-xs text-slate-500">ID: ${safeId}</div>
                     </div>
                 </div>
-                <span class="text-indigo-400 opacity-0 group-hover:opacity-100 transition">Wybierz →</span>
+                <span class="text-indigo-400 opacity-0 group-hover:opacity-100 transition">${window.t ? window.t('project.select') : 'Wybierz →'}</span>
             </button>
         `;
     }).join('');
@@ -255,10 +258,10 @@ async function loadProjectTasks(projectId) {
             window._currentProjectTasks = await res.json();
             renderTaskList(window._currentProjectTasks);
         } else {
-            listEl.innerHTML = '<div class="text-center py-4 text-red-400">Błąd ładowania zadań.</div>';
+            listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errTasks') : 'Błąd ładowania zadań.'}</div>`;
         }
     } catch (e) {
-        listEl.innerHTML = '<div class="text-center py-4 text-red-400">Błąd połączenia.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errConn2') : 'Błąd połączenia.'}</div>`;
     }
 }
 
@@ -266,7 +269,7 @@ function renderTaskList(tasks, filterQuery = '') {
     const listEl = document.getElementById('proj-task-list');
 
     if (!tasks || tasks.length === 0) {
-        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak zadań w projekcie.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-slate-500">${window.t ? window.t('project.noTasks') : 'Brak zadań w projekcie.'}</div>`;
         return;
     }
 
@@ -274,7 +277,7 @@ function renderTaskList(tasks, filterQuery = '') {
     const filtered = tasks.filter(t => t.name.toLowerCase().includes(query));
 
     if (filtered.length === 0) {
-        listEl.innerHTML = '<div class="text-center py-4 text-slate-500">Brak wyników.</div>';
+        listEl.innerHTML = `<div class="text-center py-4 text-slate-500">${window.t ? window.t('project.noResults') : 'Brak wyników.'}</div>`;
         return;
     }
 
