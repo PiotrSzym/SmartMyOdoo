@@ -44,3 +44,21 @@ def test_dispatcher_uses_tiered_model():
     # "napisz kod" → ODOO_DEVELOPER → STANDARD
     dev = d.classify_intent("napisz funkcję w module")
     assert dev.recommended_model == MODEL_POLICY[ModelTier.STANDARD]
+
+
+# FIX (2026-06-16): claude-3.5-sonnet wycofany na OpenRouter (404). Guard przed powrotem.
+def test_premium_model_not_deprecated():
+    from smartmyodoo.swarm.model_policy import MODEL_POLICY, ModelTier
+
+    prem = MODEL_POLICY[ModelTier.PREMIUM]
+    assert prem.endswith("claude-3.5-sonnet") is False, "PREMIUM = wycofany model (404)"
+    assert "sonnet" in prem or "opus" in prem  # nadal model premium
+
+
+def test_chat_uses_fallback_model():
+    from pathlib import Path
+
+    src = (
+        Path(__file__).resolve().parents[1] / "smartmyodoo" / "api_routers" / "chat.py"
+    ).read_text(encoding="utf-8")
+    assert "fallback_model=MODEL_POLICY[ModelTier.STANDARD]" in src
