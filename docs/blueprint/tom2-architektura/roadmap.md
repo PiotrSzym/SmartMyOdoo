@@ -1,11 +1,13 @@
 # 🛤️ Roadmap (Smart Odoo AI Agent)
 
 > ## 👉 OD CZEGO ZACZĄĆ NASTĘPNYM RAZEM (stan: 2026-06-16)
-> **Bieżący sprint:** [FIX-02 — Struktura i Patterny](../../sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) (Faza 8 niżej).
-> **Ostatnio zrobione:** ✅ KEY-01 (K1-K6) · ✅ **CAŁA FAZA S3 zamknięta** (S3.1a/b auth+secrets+chat, S3.2 dedup executor, S3.3 PII, S3.4 deps-module). `api.py` 712→95 l.
-> **➡️ Następny krok wykonawczy:** **FAZA S5 → S5.1** `litellm.Router` + cache (Redis) w `swarm/llm_client.py` (retry/fallback już z K5; zostaje Router+cache).
-> **Kolejka S5:** S5.1 (Router+cache) → S5.2 (distributed lock `SET NX PX` na approve) → S5.3 (RAG chunking z overlapem + sygnalizacja degradacji).
-> **Stan testów:** 226 passed / 0 failed (`pytest -q`). **Start serwera:** `python -m uvicorn smartmyodoo.api:app` (port 8000).
+> **✅ FIX-02 KOMPLETNY** — [Struktura i Patterny](../../sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md): FAZA S3 (S3.1/2/3/4) + FAZA S5 (S5.1/2/3). `api.py` 712→95 l. Suita 207 → **240 passed**.
+> **➡️ Następny krok:** wybór — **follow-upy FIX-02** (nie blokują) lub nowy epik. Follow-upy:
+>   1. rate-limit endpointów LLM (`/api/chat`) — jak `_AuthRateLimiter`;
+>   2. wpięcie cache (`InMemoryLLMCache`/Redis) i `effective_model` do handlerów chatu (S5.1/K5 gotowe, niewpięte);
+>   3. pełny `litellm.Router` (load-balancing); 4. NIP z myślnikami (lepszy recognizer, zmiana detekcji).
+> **PR-y:** wszystkie zmergowane (#14–#21) — całe FIX-02 w `main`.
+> **Stan testów:** 240 passed / 0 failed (`pytest -q`). **Start serwera:** `python -m uvicorn smartmyodoo.api:app` (port 8000).
 
 ## Faza 0: Infrastruktura i Procedury (✅ Wdrożone / ⏳ W trakcie)
 - **TeamEngine v5.0:** Orkiestracja farmy agentów (Scout, Pol, Dev, QA, Arch).

@@ -26,6 +26,7 @@ Centralny indeks. Linki **klikalne** (działają na GitHubie i w edytorze).
 | Dokument | Co to |
 |---|---|
 | 🟢 [Odoo: Docker / Edycje / Hosting](guides/odoo_docker_environment.md) | Stawianie Odoo, wersje 16/18/19, Community vs Enterprise, SaaS/sh/OnPrem, pułapki |
+| 🟢 [Produkcja: Redis i wiele workerów (`REDIS_URL`)](guides/production_redis.md) | Kiedy/jak włączyć Redis — rate-limit/cache/lock/queue między procesami |
 
 ## 🏃 Sprinty — aktualne
 | Dokument | Status |

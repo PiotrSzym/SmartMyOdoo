@@ -5,6 +5,9 @@ services:
     image: redis:7-alpine
     # S1.4: bind tylko do localhost (nie 0.0.0.0) — kolejka nie jest wystawiona na zewnątrz.
     # Produkcyjnie ustaw REDIS_PASSWORD i odkomentuj `command` (patrz .env.example).
+    # APLIKACJA: ustaw REDIS_URL=redis://localhost:6379/0, aby rate-limit/cache/lock działały
+    # między procesami (wiele workerów). Bez tego = tryb proces-lokalny.
+    # Szczegóły: docs/guides/production_redis.md
     ports:
       - "127.0.0.1:6379:6379"
     # command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
