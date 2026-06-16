@@ -1,13 +1,10 @@
 import os
-import datetime
 import json
-from typing import Dict, Any, Tuple, Optional
+from typing import Tuple
 from pydantic import BaseModel
 from fastapi import (
     FastAPI,
     Depends,
-    HTTPException,
-    Request,
     WebSocket,
     WebSocketDisconnect,
 )
@@ -19,7 +16,6 @@ from smartmyodoo.core.database import get_db, engine
 from smartmyodoo.core import models as db_models
 
 from smartmyodoo.vault import vault
-from smartmyodoo.vault import schemas
 from smartmyodoo.swarm.models import (
     ChatRequest,
     ChatResponse,
@@ -87,196 +83,6 @@ def _get_pii():
 
 # Zastąpiono _proposals i _workspaces użyciem bazy danych.
 # get_auth_key / require_auth / security: patrz smartmyodoo.api_deps (re-eksport wyżej).
-
-
-@app.get("/api/status")
-async def status():
-    is_init = os.path.exists(vault.VAULT_DATA_FILE)
-    return {"initialized": is_init}
-
-
-@app.post("/api/init", response_model=schemas.SuccessResponse)
-async def init_api(data: schemas.InitRequest):
-    if os.path.exists(vault.VAULT_DATA_FILE):
-        raise HTTPException(status_code=400, detail="Already initialized")
-
-    try:
-        vault.init_vault_core(data.pin, data.master)
-        return schemas.SuccessResponse(success=True)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-class _AuthRateLimiter:
-    """S1.3: prosty rate-limit/lockout prób logowania (ochrona przed brute-force PIN)."""
-
-    def __init__(self, max_attempts: int = 5, window_seconds: int = 300):
-        self.max_attempts = max_attempts
-        self.window = window_seconds
-        self._attempts: Dict[str, Dict[str, float]] = {}
-
-    @staticmethod
-    def _now() -> float:
-        import time
-
-        return time.monotonic()
-
-    def is_locked(self, key: str) -> bool:
-        rec = self._attempts.get(key)
-        if not rec:
-            return False
-        if self._now() - rec["first"] >= self.window:
-            self._attempts.pop(key, None)
-            return False
-        return rec["count"] >= self.max_attempts
-
-    def record_failure(self, key: str) -> None:
-        now = self._now()
-        rec = self._attempts.get(key)
-        if not rec or now - rec["first"] >= self.window:
-            self._attempts[key] = {"count": 1.0, "first": now}
-        else:
-            rec["count"] += 1
-
-    def reset(self, key: str) -> None:
-        self._attempts.pop(key, None)
-
-
-_auth_limiter = _AuthRateLimiter()
-
-
-@app.post("/api/auth", response_model=schemas.AuthResponse)
-async def auth(data: schemas.AuthRequest, request: Request):
-    client = request.client.host if request.client else "unknown"
-    if _auth_limiter.is_locked(client):
-        raise HTTPException(
-            status_code=429,
-            detail="Zbyt wiele nieudanych prób logowania. Spróbuj ponownie później.",
-        )
-    vk, role = get_auth_key(data.password)
-    if vk:
-        _auth_limiter.reset(client)
-        return schemas.AuthResponse(success=True, role=role)
-    _auth_limiter.record_failure(client)
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
-
-@app.get("/api/secrets", response_model=Dict[str, Any])
-async def get_secrets(
-    workspace_id: Optional[str] = None,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-):
-    vk, _, _ = auth_data
-    try:
-        data = vault.get_secrets(vk)
-        if workspace_id:
-            filtered_data = {
-                k: v
-                for k, v in data.items()
-                if isinstance(v, dict)
-                and v.get("workspace_id", "default") == workspace_id
-            }
-            return filtered_data
-        return data
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/secrets/{key_name}", response_model=schemas.SuccessResponse)
-async def add_or_update_secret(
-    key_name: str,
-    secret_data: schemas.SecretCreateRequest,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-):
-    vk, _, _ = auth_data
-    try:
-        data = vault.load_vault(vk)
-        data[key_name] = {
-            "password": secret_data.password,
-            "login": secret_data.login,
-            "url": secret_data.url,
-            "db": secret_data.db,
-            "api_key": secret_data.api_key,
-            "expires": secret_data.expires,
-            "workspace_id": secret_data.workspace_id,
-            # K6 (KEY-01): typowany rejestr — zapisujemy typ/provider/ref timesheet
-            "type": secret_data.type,
-            "provider": secret_data.provider,
-            "default_project_ref": secret_data.default_project_ref,
-            "default_task_ref": secret_data.default_task_ref,
-        }
-        vault.save_vault(vk, data)
-        return schemas.SuccessResponse(success=True)
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/api/secrets/{key_name}", response_model=schemas.SuccessResponse)
-async def delete_secret(
-    key_name: str, auth_data: Tuple[bytes, str, str] = Depends(require_auth)
-):
-    vk, _, _ = auth_data
-    try:
-        data = vault.load_vault(vk)
-        if key_name in data:
-            data[key_name]["deleted_at"] = datetime.datetime.now().isoformat()
-            vault.save_vault(vk, data)
-            return schemas.SuccessResponse(success=True)
-        raise HTTPException(status_code=404, detail="Not found")
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/secrets/{key_name}/restore", response_model=schemas.SuccessResponse)
-async def restore_secret(
-    key_name: str, auth_data: Tuple[bytes, str, str] = Depends(require_auth)
-):
-    vk, _, _ = auth_data
-    try:
-        data = vault.load_vault(vk)
-        if (
-            key_name in data
-            and isinstance(data[key_name], dict)
-            and "deleted_at" in data[key_name]
-        ):
-            del data[key_name]["deleted_at"]
-            vault.save_vault(vk, data)
-            return schemas.SuccessResponse(success=True)
-        raise HTTPException(status_code=404, detail="Not found or not deleted")
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.delete("/api/secrets/{key_name}/permanent", response_model=schemas.SuccessResponse)
-async def permanent_delete_secret(
-    key_name: str, auth_data: Tuple[bytes, str, str] = Depends(require_auth)
-):
-    vk, _, _ = auth_data
-    try:
-        data = vault.load_vault(vk)
-        if key_name in data:
-            del data[key_name]
-            vault.save_vault(vk, data)
-            return schemas.SuccessResponse(success=True)
-        raise HTTPException(status_code=404, detail="Not found")
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/change-pin", response_model=schemas.SuccessResponse)
-async def change_pin(
-    req: schemas.ChangePinRequest,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-):
-    vk, role, _ = auth_data
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Admin role required to change PIN")
-
-    try:
-        vault.update_pin(vk, req.new_pin)
-        return schemas.SuccessResponse(success=True, message="PIN zaktualizowany")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/skills")
@@ -858,37 +664,24 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
 # ── HUB-S3: Workspaces API ──────────────────────────────────────────────────────────────
 
 
-@app.delete("/api/secrets/by-workspace/{ws_id}")
-async def delete_secrets_by_workspace(
-    ws_id: str,
-    auth_data: Tuple[bytes, str, str] = Depends(require_auth),
-):
-    vk, _, _ = auth_data
-    try:
-        vault_data = vault.load_vault(vk)
-        removed = 0
-        for key, val in list(vault_data.items()):
-            if isinstance(val, dict) and val.get("workspace_id") == ws_id:
-                vault_data[key]["deleted_at"] = datetime.datetime.now().isoformat()
-                removed += 1
-        if removed > 0:
-            vault.save_vault(vk, vault_data)
-        return {"success": True, "secrets_removed": removed}
-    except vault.VaultDecryptionError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # S3.1: routery domenowe wydzielone z God Module (przed catch-all mount /).
 # FIX-02 S3.4: routery importują auth z api_deps — cykl zerwany, brak `# type: ignore`.
 from smartmyodoo.api_routers.proposals import router as proposals_router  # noqa: E402
 from smartmyodoo.api_routers.monitoring import router as monitoring_router  # noqa: E402
 from smartmyodoo.api_routers.workspaces import router as workspaces_router  # noqa: E402
 from smartmyodoo.api_routers.models import router as models_router  # noqa: E402
+from smartmyodoo.api_routers.secrets import router as secrets_router  # noqa: E402
+from smartmyodoo.api_routers.auth import router as auth_router  # noqa: E402
+
+# FIX-02 S3.1: re-eksport dla kompatybilności (tests/test_security_s13.py importuje stąd).
+from smartmyodoo.api_routers.auth import _AuthRateLimiter  # noqa: E402,F401
 
 app.include_router(proposals_router)
 app.include_router(monitoring_router)
 app.include_router(workspaces_router)
 app.include_router(models_router)
+app.include_router(secrets_router)
+app.include_router(auth_router)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
