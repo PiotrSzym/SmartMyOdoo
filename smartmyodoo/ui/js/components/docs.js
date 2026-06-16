@@ -85,7 +85,7 @@ function _sections(lang) {
         ] },
         { id: "kb", lucide: "book-open", title: "Kompendium wiedzy", entries: [
             { title: "Odoo: edycje i hosting", body: `<ul class="list-disc pl-5 space-y-1"><li>Community vs Enterprise.</li><li>SaaS / Odoo.sh / On-Premise.</li><li>Wersje 16/17/18/19 — zgodność modułów.</li></ul>` },
-            { title: "Pułapki Odoo", body: `<ul class="list-disc pl-5 space-y-1"><li>Nie modyfikuj rdzenia — <code>_inherit</code>.</li><li>Magic Tuples: <code>(0,0,{})</code>, <code>(4,id)</code>, <code>(6,0,[ids])</code>.</li><li>Lock Dates — używaj not kredytowych.</li><li>Batching importu (200/req).</li></ul>` },
+            { title: "Pułapki Odoo", body: `<ul class="list-disc pl-5 space-y-1"><li>Nie modyfikuj rdzenia — <code>_inherit</code>.</li><li>Magic Tuples: <code>(0,0,{})</code>, <code>(4,id)</code>, <code>(6,0,[ids])</code>.</li><li>Lock Dates — używaj not kredytowych.</li><li>Batching importu (200/req).</li><li><b>Odoo.sh — nazwa bazy:</b> wpisuj SAM slug (np. <code>myodoo-...-master-6970793</code>), <b>bez</b> etykiety <code>[branch/version]</code> — inaczej <code>database "... [production/16.0]" does not exist</code>.</li></ul>` },
             { title: "FAQ", body: `<ul class="list-disc pl-5 space-y-1"><li><b>AI widzi hasła?</b> Nie.</li><li><b>Port?</b> <code>:8000</code>.</li><li><b>Brak klucza?</b> tryb heurystyczny.</li><li><a class="text-indigo-400 underline" target="_blank" href="${REPO}/docs/README.md">repo docs/</a></li></ul>` },
         ] },
     ];
@@ -132,7 +132,7 @@ function _sections(lang) {
         ] },
         { id: "kb", lucide: "book-open", title: "Knowledge base", entries: [
             { title: "Odoo: editions & hosting", body: `<ul class="list-disc pl-5 space-y-1"><li>Community vs Enterprise.</li><li>SaaS / Odoo.sh / On-Premise.</li><li>Versions 16/17/18/19 — module compatibility.</li></ul>` },
-            { title: "Odoo pitfalls", body: `<ul class="list-disc pl-5 space-y-1"><li>Don't modify core — use <code>_inherit</code>.</li><li>Magic Tuples: <code>(0,0,{})</code>, <code>(4,id)</code>, <code>(6,0,[ids])</code>.</li><li>Lock Dates — use credit notes.</li><li>Import batching (200/req).</li></ul>` },
+            { title: "Odoo pitfalls", body: `<ul class="list-disc pl-5 space-y-1"><li>Don't modify core — use <code>_inherit</code>.</li><li>Magic Tuples: <code>(0,0,{})</code>, <code>(4,id)</code>, <code>(6,0,[ids])</code>.</li><li>Lock Dates — use credit notes.</li><li>Import batching (200/req).</li><li><b>Odoo.sh — DB name:</b> enter the bare slug (e.g. <code>myodoo-...-master-6970793</code>), <b>without</b> the <code>[branch/version]</code> label — otherwise <code>database "... [production/16.0]" does not exist</code>.</li></ul>` },
             { title: "FAQ", body: `<ul class="list-disc pl-5 space-y-1"><li><b>Does AI see passwords?</b> No.</li><li><b>Port?</b> <code>:8000</code>.</li><li><b>No key?</b> heuristic mode.</li><li><a class="text-indigo-400 underline" target="_blank" href="${REPO}/docs/README.md">repo docs/</a></li></ul>` },
         ] },
     ];

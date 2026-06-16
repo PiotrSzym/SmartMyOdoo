@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core.ratelimit import chat_limiter
+from smartmyodoo.core.odoo_connector import sanitize_db_name
 from smartmyodoo.vault import vault
 from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
 from smartmyodoo.swarm.model_policy import effective_model
@@ -373,6 +374,7 @@ async def run_pipeline(
         pass
     if not openrouter_key:
         openrouter_key = os.environ.get("OPENROUTER_KEY")
+    odoo_db_name = sanitize_db_name(odoo_db_name)  # utnij etykietę Odoo.sh
 
     llm = (
         OpenRouterClient(api_key=openrouter_key, governor=_token_governor)
@@ -581,6 +583,9 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             except Exception:
                 pass
 
+            ws_odoo_db_name = sanitize_db_name(
+                ws_odoo_db_name
+            )  # utnij etykietę Odoo.sh
             db_manager = OdooDBManager(ws_odoo_url, ws_odoo_master_pwd)
             decision_engine = DecisionEngine(llm_client=llm)
             recon_engine = EnvironmentRecon(db_manager)

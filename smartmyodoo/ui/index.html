@@ -52,7 +52,7 @@
     <script src="js/components/activity.js?v=1" defer></script>
     <script src="js/components/project.js?v=5" defer></script>
     <script src="js/components/skills.js?v=2" defer></script>
-    <script src="js/components/docs.js?v=3" defer></script>
+    <script src="js/components/docs.js?v=4" defer></script>
     <!-- DOC-02: render statycznych ikon Lucide (nav) po załadowaniu DOM -->
     <script defer>
         document.addEventListener('DOMContentLoaded', function () {
@@ -252,7 +252,8 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-400 mb-1">Nazwa Bazy Danych</label>
-                                <input type="text" id="proj-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. smartmyodoo_dev" required>
+                                <input type="text" id="proj-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white" placeholder="np. smartmyodoo_dev (bez „[production/16.0]”)" required>
+                                <p class="text-[11px] text-amber-400/80 mt-1">⚠️ Odoo.sh: wpisz sam slug bazy, bez etykiety <code>[branch/version]</code>.</p>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
@@ -416,7 +417,8 @@
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Dokładna Nazwa Bazy</label>
-                            <input type="text" id="f-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="np. ps-myodoo-test-main">
+                            <input type="text" id="f-db" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white" placeholder="np. ps-myodoo-test-main (bez „[production/16.0]”)">
+                            <p class="text-[11px] text-amber-400/80 mt-1">⚠️ Odoo.sh: sam slug, bez <code>[branch/version]</code>.</p>
                         </div>
                     </div>
                 </div>

@@ -1,3 +1,4 @@
+import re
 import xmlrpc.client  # nosec B411
 from typing import List, Dict, Any, Optional
 
@@ -6,12 +7,26 @@ class OdooProjectConnectorError(Exception):
     pass
 
 
+def sanitize_db_name(name: str) -> str:
+    """Czyści nazwę bazy Odoo z etykiety środowiska Odoo.sh.
+
+    Panel Odoo.sh wyświetla bazę jako `slug [branch/version]` (np.
+    `myodoo-...-master-6970793 [production/16.0]`), ale do XML-RPC idzie SAM slug.
+    Wklejenie pełnej etykiety = `database "... [production/16.0]" does not exist`.
+    Obcinamy wszystko od pierwszego ` [` oraz białe znaki (częsta pułapka).
+    """
+    if not name:
+        return name
+    return re.split(r"\s*\[", name, maxsplit=1)[0].strip()
+
+
 class OdooProjectConnector:
     """Connector to Odoo for Project, Task, and Timesheet operations."""
 
     def __init__(self, credentials: Dict[str, Any]):
         self.url = credentials.get("url", "").rstrip("/")
-        self.db = credentials.get("db", "")
+        # Defensywnie: utnij etykietę Odoo.sh `[branch/version]` z nazwy bazy.
+        self.db = sanitize_db_name(credentials.get("db", ""))
         self.username = credentials.get("login", "")
         # Odoo API keys act as passwords
         self.password = credentials.get("api_key") or credentials.get("password", "")
