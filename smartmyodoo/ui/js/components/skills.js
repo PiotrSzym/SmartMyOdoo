@@ -61,7 +61,7 @@ class SkillPanel {
 
         let programsHtml = this.programs.map(p => `
             <button onclick="window.AppSkills.toggleProgram('${p.id}')" class="flex flex-col items-center gap-2 p-4 glass-card hover:bg-indigo-500/10 border border-slate-700/50 hover:border-indigo-500/50 transition-all rounded-xl group text-center">
-                <span class="text-3xl group-hover:scale-110 transition-transform">${p.icon}</span>
+                <span class="group-hover:scale-110 transition-transform text-indigo-300">${window.programIcon ? window.programIcon(p.id) : p.icon}</span>
                 <span class="text-sm font-semibold text-slate-300 group-hover:text-indigo-300">${window.t ? window.t('prog.'+p.id) : p.name}</span>
             </button>
         `).join('');
@@ -77,7 +77,7 @@ class SkillPanel {
                 <!-- Tooltip -->
                 <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-96 p-3 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] z-50 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-300 backdrop-blur-md bg-slate-900/95 border border-indigo-500/40 text-sm pointer-events-none">
                     <div class="flex items-center gap-2 mb-1.5 border-b border-slate-700/50 pb-1.5">
-                        <span class="text-base">${s.icon}</span>
+                        <span class="text-indigo-300">${window.skillIcon ? window.skillIcon(s.id, s.icon) : s.icon}</span>
                         <span class="font-bold text-indigo-300">${s.name}</span>
                     </div>
                     <p class="text-xs leading-relaxed text-slate-300">${s.tooltip || s.desc}</p>
@@ -91,7 +91,7 @@ class SkillPanel {
                 </div>
                 <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-lg">${s.icon}</span>
+                        <span class="text-indigo-300">${window.skillIcon ? window.skillIcon(s.id, s.icon) : s.icon}</span>
                         <span class="font-semibold text-white text-sm">${s.name}</span>
                     </div>
                     <p class="text-xs text-slate-400 mb-2 leading-relaxed">${s.desc}</p>
@@ -130,6 +130,7 @@ class SkillPanel {
                 </div>
             </div>
         `;
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
     }
 
     toggleSkill(id) {
