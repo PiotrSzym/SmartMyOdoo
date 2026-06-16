@@ -44,16 +44,17 @@ def _inject_odoo_creds(vault_data: dict, workspace_id: str) -> None:
     kontekstu żądania, aby narzędzia agenta (odoo_search/schema) łączyły się BEZ ENV/`vault run`."""
     cred = resolve_credential(vault_data, CredentialType.ODOO_DATA, workspace_id)
     if cred and cred.url and cred.db:
-        set_odoo_creds(
-            {
-                workspace_id: {
-                    "url": cred.url,
-                    "db": sanitize_db_name(cred.db),
-                    "username": cred.login or "",
-                    "password": cred.api_key or cred.password or "",
-                }
-            }
-        )
+        creds = {
+            "url": cred.url,
+            "db": sanitize_db_name(cred.db),
+            "username": cred.login or "",
+            "password": cred.api_key or cred.password or "",
+        }
+        # KEY-02-3: zapisz pod realnym workspace ORAZ pod "default". Narzędzia (odoo_search/
+        # schema/create) NIE przekazują workspace_id z LLM → trafiają na OdooClient("default").
+        # Kontekst jest per-żądanie (jeden workspace), więc "default" == ten workspace. Bez tego
+        # creds wstrzyknięte pod np. "myodooTest" nie byłyby widoczne dla wywołań "default".
+        set_odoo_creds({workspace_id: creds, "default": creds})
 
 
 class PipelineRunRequest(BaseModel):
@@ -249,8 +250,15 @@ async def handle_chat(
     if not skill_config:
         skill_config = SkillConfig(
             name=SkillName.ODOO_BUSINESS_ANALYST,
-            system_prompt="Jesteś asystentem SmartMyOdoo. Odpowiadaj krótko i merytorycznie.",
-            allowed_tools=["search_knowledge_base"],
+            system_prompt=(
+                "Jesteś asystentem SmartMyOdoo. Odpowiadaj krótko i merytorycznie. "
+                "Gdy pytanie dotyczy danych w Odoo (liczby rekordów, lista, pola), "
+                "użyj narzędzia odoo_search (do liczby rekordów użyj pola 'count' z "
+                "wyniku) lub odoo_schema. Nie odsyłaj użytkownika do ręcznego logowania."
+            ),
+            # Domyślny asystent (gdy UI nie wybrał skilla) MUSI móc odpytać Odoo
+            # read-only — inaczej "ile mamy projektów?" kończy się odmową.
+            allowed_tools=["search_knowledge_base", "odoo_search", "odoo_schema"],
             red_flags=[],
             recommended_model=recommended_model,
         )

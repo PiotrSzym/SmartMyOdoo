@@ -131,14 +131,24 @@ def search_odoo_records(
         domain_list = json.loads(domain) if domain else []
         fields_list = json.loads(fields) if fields else []
         target_odoo = get_odoo_client(workspace_id)
+        # 'count' = PRAWDZIWA liczba dopasowań (search_count), nie rozmiar strony.
+        # Inaczej "ile rekordów?" zwracało domyślny limit (np. 10) zamiast sumy.
+        total = target_odoo.search_count(model_name, domain_list)
         records = target_odoo.search_read(model_name, domain_list, fields_list, limit)
+
+        # ADR-012: NIE wkładaj setek pełnych rekordów Odoo do kontekstu LLM. Model
+        # potrafi poprosić o limit=1000000 i wszystkie pola → JSON przepełnia okno
+        # ("Input too long"). 'count' zostaje DOKŁADNY; do kontekstu trafia próbka.
+        # Bonus: ogranicza liczbę wywołań PII (spacy) do MAX_EMBED.
+        MAX_EMBED = 50
+        embed = records[:MAX_EMBED]
 
         # PII: anonimizuj WARTOŚCI pól (string), NIE zserializowany JSON. Puszczanie
         # Presidio na całym blobie JSON psuło strukturę (wykrywał URL/DATE obejmujące
         # cudzysłowy/przecinki i podmiana usuwała znaki struktury → json.loads padał).
         if is_pii_enabled(workspace_id):
             pii = get_pii_middleware()
-            records = [
+            embed = [
                 {
                     k: (
                         pii.anonymize(v, workspace_id=workspace_id)
@@ -147,10 +157,17 @@ def search_odoo_records(
                     )
                     for k, v in rec.items()
                 }
-                for rec in records
+                for rec in embed
             ]
 
-        return {"records": records, "count": len(records)}
+        out: dict = {"records": embed, "count": total}
+        if len(embed) < total:
+            out["truncated"] = True
+            out["note"] = (
+                f"Zwrócono próbkę {len(embed)} z {total} rekordów. "
+                "Pole 'count' to PEŁNA liczba dopasowań (użyj go do odpowiedzi 'ile')."
+            )
+        return out
     except Exception as e:
         logger.error("Błąd w search_odoo_records dla %s: %s", model_name, str(e))
         return {
