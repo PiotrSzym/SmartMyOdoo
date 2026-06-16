@@ -20,6 +20,7 @@ Centralny indeks. Linki **klikalne** (działają na GitHubie i w edytorze).
 | 🟢 [Mapa zmian UI — K6](architecture/UI-K6-change-map.md) | gdzie w panelu: dropdown Typ (Skarbiec), nowa zakładka „Modele", badge w Czacie |
 | 🟢 [ADR-005 — Agent Integrations](architecture/ADR-005_agent_integrations.md) | Decyzja: integracje agentów |
 | 🟢 [ADR-006 — Ikony UI z jednego źródła (Lucide)](architecture/ADR-006_ui_icons_single_source.md) | Decyzja: ikony z `ui/js/icons.js` (skill/program ID → Lucide), prezentacja ≠ backend |
+| 🟢 [ADR-007 — Jedna ścieżka poświadczeń (resolver)](architecture/ADR-007_credential_resolution_single_path.md) | Decyzja: klucze po typie/provider/workspace (resolver), nie po nazwie; nazwa/ENV = fallback |
 | 🔴 [HLD-TECHNICAL](blueprint/tom2-architektura/HLD-TECHNICAL.md) | High-Level Design techniczny (C1-C3, FSM, dispatcher, role) — *lokalny* |
 | 🔴 [HLD-BUSINESS](blueprint/tom2-architektura/HLD-BUSINESS.md) | Jak działa produkt (biznes, koszty, FAQ) — *lokalny* |
 

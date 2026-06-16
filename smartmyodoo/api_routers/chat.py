@@ -17,6 +17,7 @@ from smartmyodoo.core.database import get_db
 from smartmyodoo.core.ratelimit import chat_limiter
 from smartmyodoo.core.odoo_connector import sanitize_db_name
 from smartmyodoo.vault import vault
+from smartmyodoo.vault.resolver import resolve_llm_key
 from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
 from smartmyodoo.swarm.model_policy import effective_model
 from smartmyodoo.mcp.token_governor import governor as _token_governor
@@ -184,19 +185,13 @@ async def handle_chat(
     _skill_for_model = selected_skills_to_use[0] if selected_skills_to_use else None
     recommended_model = effective_model(_skill_for_model, governor=_token_governor)
 
-    # ── 2. Resolve OpenRouter key (Vault → ENV fallback) ──
+    # ── 2. Resolve OpenRouter key (KEY-02: resolver typowany → ENV; ADR-007) ──
     vk, _, _ = auth_data
-    openrouter_key = None
     try:
         vault_data = vault.load_vault(vk)
-        secret = vault_data.get("OPENROUTER_KEY", {})
-        openrouter_key = (
-            secret.get("api_key") or secret.get("password") or secret.get("key")
-        )
     except Exception:
-        pass
-    if not openrouter_key:
-        openrouter_key = os.environ.get("OPENROUTER_KEY")
+        vault_data = {}
+    openrouter_key = resolve_llm_key(vault_data, req.workspace_id)
 
     # ── 3. Build executor ──
     chat_repo = ChatRepository(db=db)
@@ -348,16 +343,11 @@ async def run_pipeline(
 
     # -- Resolve secrets from Vault (SEC-01/SEC-02) --
     vault_data = {}
-    openrouter_key = None
     odoo_url = os.environ.get("ODOO_URL", "http://localhost:8069")
     odoo_master_pwd = os.environ.get("ODOO_MASTER_PASSWORD", "")
     odoo_db_name = os.environ.get("ODOO_DB", "odoo_prod")
     try:
         vault_data = vault.load_vault(vk)
-        secret = vault_data.get("OPENROUTER_KEY", {})
-        openrouter_key = (
-            secret.get("api_key") or secret.get("password") or secret.get("key")
-        )
         # Odoo connection from Vault
         odoo_secret = vault_data.get("ODOO", vault_data.get("ODOO_URL", {}))
         if isinstance(odoo_secret, dict):
@@ -372,8 +362,8 @@ async def run_pipeline(
             odoo_db_name = db_secret
     except Exception:
         pass
-    if not openrouter_key:
-        openrouter_key = os.environ.get("OPENROUTER_KEY")
+    # KEY-02: klucz LLM po typie (resolver) → ENV
+    openrouter_key = resolve_llm_key(vault_data, req.workspace_id)
     odoo_db_name = sanitize_db_name(odoo_db_name)  # utnij etykietę Odoo.sh
 
     llm = (
@@ -479,18 +469,12 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
         _skill_for_model = selected_skills_to_use[0] if selected_skills_to_use else None
         recommended_model = effective_model(_skill_for_model, governor=_token_governor)
 
-        # 3. LLM Key
-        openrouter_key = None
+        # 3. LLM Key (KEY-02: resolver typowany → ENV; ADR-007)
         try:
             vault_data = vault.load_vault(vk)
-            secret = vault_data.get("OPENROUTER_KEY", {})
-            openrouter_key = (
-                secret.get("api_key") or secret.get("password") or secret.get("key")
-            )
         except Exception:
-            pass
-        if not openrouter_key:
-            openrouter_key = os.environ.get("OPENROUTER_KEY")
+            vault_data = {}
+        openrouter_key = resolve_llm_key(vault_data, workspace_id)
 
         if not openrouter_key:
             await websocket.send_json(

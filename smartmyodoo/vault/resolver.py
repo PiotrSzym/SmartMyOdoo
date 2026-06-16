@@ -9,6 +9,7 @@
 preferując dopasowanie do workspace nad `default`.
 """
 
+import os
 from typing import Any, Dict, Optional
 
 from smartmyodoo.vault.schemas import Credential, CredentialType
@@ -82,3 +83,21 @@ def resolve_credential(
     # preferuj dopasowanie do workspace nad 'default'
     candidates.sort(key=lambda c: 0 if c.workspace_id == workspace_id else 1)
     return candidates[0] if candidates else None
+
+
+def resolve_llm_key(
+    vault_data: Dict[str, Any],
+    workspace_id: str = "default",
+    provider: str = "openrouter",
+) -> Optional[str]:
+    """KEY-02: klucz API modelu po TYPIE (llm_provider) — nie po sztywnej nazwie.
+
+    Kolejność: resolver (typowany sekret O DOWOLNEJ NAZWIE + legacy `OPENROUTER_KEY` przez
+    auto-tag w to_credential) → ENV `OPENROUTER_KEY`. ADR-007.
+    """
+    cred = resolve_credential(
+        vault_data, CredentialType.LLM_PROVIDER, workspace_id, provider
+    )
+    if cred and cred.api_key:
+        return cred.api_key
+    return os.environ.get("OPENROUTER_KEY")
