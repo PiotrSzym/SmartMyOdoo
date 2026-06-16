@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core.ratelimit import chat_limiter
 from smartmyodoo.core.odoo_connector import sanitize_db_name
+from smartmyodoo.mcp.odoo_client import set_odoo_creds
 from smartmyodoo.vault import vault
-from smartmyodoo.vault.resolver import resolve_llm_key
+from smartmyodoo.vault.resolver import resolve_llm_key, resolve_credential
+from smartmyodoo.vault.schemas import CredentialType
 from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
 from smartmyodoo.swarm.model_policy import effective_model, MODEL_POLICY, ModelTier
 from smartmyodoo.mcp.token_governor import governor as _token_governor
@@ -34,6 +36,23 @@ def _enforce_chat_rate(workspace_id: str) -> None:
             status_code=429,
             detail="Zbyt wiele żądań — spróbuj ponownie za chwilę.",
             headers={"Retry-After": str(chat_limiter.retry_after)},
+        )
+
+
+def _inject_odoo_creds(vault_data: dict, workspace_id: str) -> None:
+    """KEY-02-3 (ADR-007): wstrzyknij poświadczenia Odoo ze Skarbca (per workspace) do
+    kontekstu żądania, aby narzędzia agenta (odoo_search/schema) łączyły się BEZ ENV/`vault run`."""
+    cred = resolve_credential(vault_data, CredentialType.ODOO_DATA, workspace_id)
+    if cred and cred.url and cred.db:
+        set_odoo_creds(
+            {
+                workspace_id: {
+                    "url": cred.url,
+                    "db": sanitize_db_name(cred.db),
+                    "username": cred.login or "",
+                    "password": cred.api_key or cred.password or "",
+                }
+            }
         )
 
 
@@ -192,6 +211,7 @@ async def handle_chat(
     except Exception:
         vault_data = {}
     openrouter_key = resolve_llm_key(vault_data, req.workspace_id)
+    _inject_odoo_creds(vault_data, req.workspace_id)  # KEY-02-3: Odoo ze Skarbca
 
     # ── 3. Build executor ──
     chat_repo = ChatRepository(db=db)
@@ -479,6 +499,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
         except Exception:
             vault_data = {}
         openrouter_key = resolve_llm_key(vault_data, workspace_id)
+        _inject_odoo_creds(vault_data, workspace_id)  # KEY-02-3: Odoo ze Skarbca
 
         if not openrouter_key:
             await websocket.send_json(
