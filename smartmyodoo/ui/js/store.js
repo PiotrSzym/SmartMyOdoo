@@ -10,7 +10,8 @@ class Store {
             workspaceId: 'default', // Domyślna przestrzeń robocza
             activeTab: 'chat',  // Domyślna zakładka
             authToken: '',
-            isAuthenticated: false
+            isAuthenticated: false,
+            lang: 'pl'  // I18N-01: język interfejsu (pl|en)
         };
         this.listeners = [];
         console.log('[Store] Zainicjalizowano z domyślnym stanem:', this.state);

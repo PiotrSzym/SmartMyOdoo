@@ -59,3 +59,27 @@ def test_nav_uses_lucide_icons():
 
 def test_docs_uses_correct_port():
     assert "127.0.0.1:8000" in _DOCS  # aktualny port serwera
+
+
+# ── I18N-01: wielojęzyczność ──
+_I18N = (_UI / "js" / "i18n.js").read_text(encoding="utf-8")
+
+
+def test_i18n_framework_present():
+    assert "js/i18n.js" in _INDEX  # załadowany
+    assert 'id="lang-switch"' in _INDEX  # przełącznik w nav
+    assert "pl:" in _I18N and "en:" in _I18N  # oba języki
+    assert "function t(" in _I18N and "applyI18n" in _I18N
+
+
+def test_nav_has_i18n_keys():
+    for key in ["nav.vault", "nav.chat", "nav.docs"]:
+        assert f'data-i18n="{key}"' in _INDEX, f"brak data-i18n {key}"
+    assert "data-i18n-title=" in _INDEX  # tooltipy tłumaczone
+
+
+def test_docs_is_bilingual():
+    # treść dokumentacji ma wariant PL i EN
+    assert "What is SmartMyOdoo" in _DOCS  # EN
+    assert "Czym jest SmartMyOdoo" in _DOCS  # PL
+    assert "Knowledge base" in _DOCS and "Kompendium wiedzy" in _DOCS

@@ -11,9 +11,18 @@ roadmap_ref: "Faza 8 — UX/i18n"
 tags: ["i18n", "ux", "analiza", "frontend"]
 ---
 
-# 🌍 Sprint (analiza): I18N-01 — Wielojęzyczność aplikacji
+# 🌍 Sprint: I18N-01 — Wielojęzyczność aplikacji
 
-> **Architekt:** /arch | **Tryb:** najpierw ANALIZA (ten dokument), potem implementacja per faza | **Data:** 2026-06-16
+> **Architekt:** /arch | **Data:** 2026-06-16
+>
+> ## ✅ Status implementacji (PL + EN)
+> - **I18N-01a (framework)** ✅ — `ui/js/i18n.js`: słownik PL/EN, `t()`, `applyI18n()` (skan `data-i18n`/`-title`/`-ph`), `AppStore.lang` + `localStorage`, **przełącznik PL/EN w nav** (`#lang-switch`).
+> - **I18N-01b (statyczny HTML)** 🏗️ częściowo — przetłumaczone: pasek nav (etykiety + tooltipy), ekran logowania, przyciski Skarbca (Dokumentacja/Reset PIN/Zablokuj), zapis sekretu. Reszta modali/etykiet — do dokończenia.
+> - **I18N-01d (dokumentacja)** ✅ — Centrum Dokumentacji **w pełni dwujęzyczne** (8 sekcji + 11 agentów PL/EN), przełącza się z językiem.
+> - **I18N-01c (komponenty JS)** ⬜ — `chat/skills/activity/project` mają jeszcze stringi PL na sztywno (re-render na zmianę języka działa; trzeba podmienić literały na `t()`). Następna faza.
+> - **I18N-01e/f** ⬜ — backend (opisy person/błędy), daty/`Intl`, testy Playwright przełączenia języka.
+>
+> Dowód na żywo: przełączenie EN → nav „Czat"→„Chat", docs h1 „Documentation Center", `lang` w store + localStorage.
 
 ---
 
