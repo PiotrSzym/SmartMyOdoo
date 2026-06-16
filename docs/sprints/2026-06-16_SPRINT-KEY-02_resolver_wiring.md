@@ -1,7 +1,7 @@
 ---
 sprint_id: "KEY-02"
 workspace: "SmartMyOdoo"
-status: "PLANNED"
+status: "IN_PROGRESS"
 created: 2026-06-16
 closed: null
 goal: "Wpiąć typowany resolver poświadczeń do handlerów czatu/pipeline — klucz LLM i Odoo rozwiązywane po typie/provider/workspace, nie po sztywnej nazwie (z fallbackiem)"
@@ -43,10 +43,10 @@ Klucz OpenRouter dodany przez UI (K6: `type=llm_provider, provider=openrouter`) 
 
 | # | Zadanie | Pliki | Test dowodowy |
 |---|---------|-------|---------------|
-| KEY-02-1 | Helper `resolve_llm_key(vault_data, workspace_id)` — `resolve_credential(LLM_PROVIDER, ws, 'openrouter')` → `api_key`; fallback `OPENROUTER_KEY` (name) → ENV | `chat_deps.py` lub `vault/resolver.py` | typed (dowolna nazwa) zwraca klucz; brak → None |
-| KEY-02-2 | `handle_chat` + `chat_stream` + `run_pipeline`: użyj `resolve_llm_key` zamiast `get("OPENROUTER_KEY")` | `api_routers/chat.py` | nazwany `OPENROUTER_KEY` dalej działa; typed `llm_provider/openrouter` o innej nazwie też |
-| KEY-02-3 | Odoo w chat/pipeline przez `resolve_credential(ODOO_DATA/TIMESHEET, ws)` (jak w `workspaces`) + fallback nazw/ENV; nazwa bazy przez `sanitize_db_name` | `api_routers/chat.py` | spójność z `workspaces._resolve_odoo_creds`; preferencja workspace |
-| KEY-02-4 | Test parytetu: chat i workspaces rozwiązują Odoo tak samo | `tests/test_credential_wiring.py` | identyczny wynik dla tego samego vaulta |
+| KEY-02-1 | ✅ Helper `resolve_llm_key(vault_data, workspace_id)` — resolver(LLM/openrouter; auto-tag legacy) → ENV | `vault/resolver.py` | ✅ typed dowolna nazwa / legacy / ENV / None / preferencja ws |
+| KEY-02-2 | ✅ `handle_chat` + `chat_stream` + `run_pipeline` używają `resolve_llm_key` zamiast `get("OPENROUTER_KEY")` | `api_routers/chat.py` | ✅ strażnik: brak `get("OPENROUTER_KEY")`, jest `resolve_llm_key` |
+| KEY-02-3 | ⬜ (follow-up) Odoo w chat/pipeline przez `resolve_credential(ODOO_*)` — Odoo już działa ad-hoc + sanitizer; konsolidacja z `workspaces` jako osobny krok | `api_routers/chat.py` | — |
+| KEY-02-4 | ✅ Testy `tests/test_credential_wiring.py` (LLM) | — | ✅ 6 testów |
 
 ---
 
