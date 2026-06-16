@@ -106,14 +106,57 @@ def test_get_odoo_client_default_not_stale_singleton(monkeypatch):
         set_odoo_creds(None)
 
 
+def _server_src() -> str:
+    return (
+        Path(__file__).resolve().parents[1] / "smartmyodoo" / "mcp" / "server.py"
+    ).read_text(encoding="utf-8")
+
+
+def _chat_src() -> str:
+    return (
+        Path(__file__).resolve().parents[1] / "smartmyodoo" / "api_routers" / "chat.py"
+    ).read_text(encoding="utf-8")
+
+
 def test_search_records_anonymizes_values_not_serialized_json():
     """PII regresja: anonimizacja musi działać na WARTOŚCIACH pól, nie na zserializowanym
     JSON (Presidio na blobie JSON psuł strukturę → json.loads padał, count=None)."""
-    src = (
-        Path(__file__).resolve().parents[1] / "smartmyodoo" / "mcp" / "server.py"
-    ).read_text(encoding="utf-8")
-    # nie wolno anonimizować całego result_str
+    src = _server_src()
     assert "anonymize(\n                result_str" not in src
     assert ".anonymize(result_str" not in src
-    # zwracamy strukturę bezpośrednio, anonimizacja per wartość string
-    assert 'return {"records": records, "count": len(records)}' in src
+    # anonimizacja per wartość string, na próbce 'embed'
+    assert "for rec in embed" in src
+
+
+def test_count_uses_search_count_not_page_size():
+    """Regresja: 'ile rekordów?' musi zwracać PRAWDZIWĄ liczbę (search_count), a nie
+    rozmiar strony (np. domyślny limit=10 → blednie 10 zamiast 101)."""
+    src = _server_src()
+    assert "search_count(model_name, domain_list)" in src
+    assert '"count": total' in src
+    # OdooClient ma metodę search_count
+    oc = (
+        Path(__file__).resolve().parents[1] / "smartmyodoo" / "mcp" / "odoo_client.py"
+    ).read_text(encoding="utf-8")
+    assert "def search_count(" in oc
+
+
+def test_search_records_bounds_embedded_records():
+    """Regresja 'Input too long': nie wkładamy setek pełnych rekordów do kontekstu LLM."""
+    src = _server_src()
+    assert "MAX_EMBED" in src
+    assert "embed = records[:MAX_EMBED]" in src
+
+
+def test_inject_creds_sets_default_key():
+    """Regresja: narzędzia wołają OdooClient('default') (bez workspace_id z LLM), więc
+    creds muszą być też pod 'default', nie tylko pod realnym workspace."""
+    src = _chat_src()
+    assert '"default": creds' in src
+
+
+def test_fallback_skill_can_query_odoo():
+    """Regresja: domyślny asystent (UI bez wybranego skilla) musi mieć odoo_search,
+    inaczej 'ile mamy projektów?' kończy się odmową/RAG zamiast zapytaniem do Odoo."""
+    src = _chat_src()
+    assert '"odoo_search"' in src

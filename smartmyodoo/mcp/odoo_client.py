@@ -86,6 +86,15 @@ class OdooClient:
         )
         return records
 
+    def search_count(self, model: str, domain: list) -> int:
+        """Zwraca PRAWDZIWĄ liczbę rekordów pasujących do domeny (niezależnie od limitu
+        strony). Bez tego 'ile rekordów?' zwracało rozmiar strony (np. 10), nie sumę."""
+        if not self.uid:
+            self.connect()
+        return self.models.execute_kw(
+            self.db, self.uid, self.password, model, "search_count", [domain]
+        )
+
     def get_model_fields(self, model: str):
         """Pobiera strukturę (schemat) danego modelu."""
         if not self.uid:
