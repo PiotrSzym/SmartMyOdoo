@@ -91,6 +91,101 @@ def save_vault(vk: bytes, data: dict) -> None:
         f.write(Fernet(vk).encrypt(json.dumps(data).encode("utf-8")))
 
 
+# --- SHARE-01-6: migracja TEJ SAMEJ osoby (export/import) -------------------
+# ADR-015: dozwolona migracja na nową maszynę jako zaszyfrowany blob z PIN/Master.
+# NIE jest to mechanizm współdzielenia zespołowego (org → menedżer sekretów).
+
+_EXPORT_WARNING = (
+    "[!] OSTRZEŻENIE: ten eksport to migracja TEJ SAMEJ osoby na inną maszynę.\n"
+    "    NIE jest przeznaczony do współdzielenia zespołowego. Klucze/PIN przekaż\n"
+    "    wyłącznie sobie, osobnym bezpiecznym kanałem. Współdzielenie sekretów\n"
+    "    w organizacji -> menedżer sekretów (1Password/Bitwarden/HashiCorp/KMS)."
+)
+
+
+def _safe_print(msg: str) -> None:
+    """Wypisuje na stdout odpornie na kodowanie konsoli (np. cp1250 na Windows).
+
+    Finding B (/gf-review): kontrola bezpieczeństwa (ostrzeżenie ADR-015) NIE może
+    zniknąć w UnicodeEncodeError. Znaki spoza kodowania konsoli degradujemy
+    (errors='replace'), ale komunikat dociera w całości — żadnego crashu na export/import.
+    """
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(msg.encode(enc, errors="replace").decode(enc))
+
+
+def _local_vk(pin: Optional[str], master: Optional[str]) -> bytes:
+    """Odtwarza vk z LOKALNEGO skarbca (wymaga lokalnych plików salt/key)."""
+    try:
+        if pin is not None:
+            return get_vault_key_from_pin(pin, exit_on_fail=False)
+        if master is not None:
+            return get_vault_key_from_master(master, exit_on_fail=False)
+    except ValueError as e:
+        raise VaultDecryptionError(f"Niewłaściwe poświadczenie: {e}")
+    raise VaultDecryptionError("Brak PIN/Master do autoryzacji.")
+
+
+def export_vault(
+    out_path: str, pin: Optional[str] = None, master: Optional[str] = None
+) -> None:
+    """Eksportuje SAMOWYSTARCZALNY, zaszyfrowany blob skarbca (migracja tej samej osoby).
+
+    Blob jest szyfrowany kluczem wyprowadzonym BEZPOŚREDNIO z PIN (PBKDF2 + losowa
+    sól zapisana w blobie), więc import na nowej maszynie wymaga tylko tego samego
+    PIN — bez kopiowania lokalnych plików `*.enc`/`*.cfg`. Sekrety NIGDY nie są
+    w plaintext. Wymaga poprawnego PIN/Master do odczytu lokalnego skarbca.
+    """
+    if pin is None:
+        raise VaultDecryptionError("Eksport wymaga PIN (klucz portowalny).")
+    vk = _local_vk(pin=pin, master=master)
+    data = load_vault(vk)  # VaultDecryptionError przy uszkodzeniu/braku
+
+    salt = os.urandom(16)
+    export_key = derive_key(pin, salt)
+    ciphertext = Fernet(export_key).encrypt(json.dumps(data).encode("utf-8"))
+    # Format bloba: [16B salt][Fernet ciphertext] — samowystarczalny.
+    with open(out_path, "wb") as f:
+        f.write(salt + ciphertext)
+    _safe_print(_EXPORT_WARNING)
+    _safe_print(f"[OK] Eksport skarbca zapisany: {out_path}")
+
+
+def import_vault(
+    in_path: str, pin: Optional[str] = None, master: Optional[str] = None
+) -> None:
+    """Importuje samowystarczalny blob skarbca z `in_path` (migracja tej samej osoby).
+
+    Wymaga tego samego PIN, którym wykonano eksport (klucz wyprowadzany z PIN+sól
+    z blobu). Odtwarza `vault_data.enc` 1:1. Rzuca VaultDecryptionError przy
+    błędnym PIN lub uszkodzonym pliku.
+    """
+    if pin is None:
+        raise VaultDecryptionError("Import wymaga PIN użytego przy eksporcie.")
+    if not os.path.exists(in_path):
+        raise VaultDecryptionError(f"Plik eksportu nie istnieje: {in_path}")
+    with open(in_path, "rb") as f:
+        raw = f.read()
+    if len(raw) <= 16:
+        raise VaultDecryptionError("Plik eksportu uszkodzony (za krótki).")
+    salt, ciphertext = raw[:16], raw[16:]
+    import_key = derive_key(pin, salt)
+    try:
+        data = json.loads(Fernet(import_key).decrypt(ciphertext).decode("utf-8"))
+    except (InvalidToken, ValueError, json.JSONDecodeError) as e:
+        raise VaultDecryptionError(f"Błąd importu (zły PIN lub plik): {e}")
+
+    # Jeśli lokalny skarbiec nie istnieje — zainicjalizuj go tym samym PIN,
+    # by import był w pełni samowystarczalny na nowej maszynie.
+    if not os.path.exists(VAULT_DATA_FILE):
+        recovery_master = master if master is not None else pin
+        init_vault_core(pin=pin, master=recovery_master)
+
+    vk = _local_vk(pin=pin, master=None)
+    save_vault(vk, data)
+    _safe_print(f"[OK] Import skarbca zakończony z: {in_path}")
+
+
 def get_secrets(vk: Optional[bytes] = None) -> dict:
     if vk is None:
         pin = getpass.getpass("Podaj PIN dla skarbca: ")
@@ -335,6 +430,17 @@ def main() -> None:
 
     subparsers.add_parser("gui", help="Uruchom Premium Cyber UI w przegladarce")
 
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Eksportuj zaszyfrowany skarbiec (migracja TEJ SAMEJ osoby na nowa maszyne)",
+    )
+    export_parser.add_argument("file", help="Sciezka pliku eksportu (.enc)")
+
+    import_parser = subparsers.add_parser(
+        "import", help="Importuj zaszyfrowany skarbiec (wymaga tego samego PIN)"
+    )
+    import_parser.add_argument("file", help="Sciezka pliku eksportu (.enc)")
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -353,6 +459,21 @@ def main() -> None:
         run_wrapped_command(args.cmd)
     elif args.command == "gui":
         run_gui()
+    elif args.command == "export":
+        _safe_print(_EXPORT_WARNING)
+        pin = getpass.getpass("Podaj PIN dla skarbca: ")
+        try:
+            export_vault(args.file, pin=pin)
+        except VaultDecryptionError as e:
+            _safe_print(f"[BLAD] Eksport nieudany: {e}")
+            sys.exit(1)
+    elif args.command == "import":
+        pin = getpass.getpass("Podaj PIN uzyty przy eksporcie: ")
+        try:
+            import_vault(args.file, pin=pin)
+        except VaultDecryptionError as e:
+            _safe_print(f"[BLAD] Import nieudany: {e}")
+            sys.exit(1)
     else:
         parser.print_help()
 

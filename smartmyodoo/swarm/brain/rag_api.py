@@ -2,7 +2,7 @@ import os
 import re
 import glob
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .lancedb_client import LanceDBClient
 from .sqlite_metadata import SQLiteMetadata
@@ -23,13 +23,18 @@ class SharedBrain:
         self.vector_store = LanceDBClient()
         self.metadata_tracker = SQLiteMetadata()
 
-    def retrieve(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+    def retrieve(
+        self, query: str, top_k: int = 3, workspace: Optional[str] = None
+    ) -> Dict[str, Any]:
         """S5.3: zapytanie RAG ze STRUKTURĄ — niesie flagę `degraded` zamiast zmyślać kontekst.
 
         Zwraca: {"context": str, "degraded": bool, "hits": int}.
         degraded=True → retrieval niedostępny (Mock/brak bazy); context = jawny komunikat.
+
+        ADR-015: `workspace` (gdy podany) ogranicza wynik do shared ∪ bieżący ws.
+        Domyślnie (None) = backward-compat (bez filtra warstw).
         """
-        results = self.vector_store.search(query, top_k=top_k)
+        results = self.vector_store.search(query, top_k=top_k, workspace=workspace)
         degraded = bool(getattr(self.vector_store, "degraded", False))
 
         if not results:
@@ -48,12 +53,15 @@ class SharedBrain:
             context += "\n"
         return {"context": context, "degraded": degraded, "hits": len(results)}
 
-    def ask_brain(self, query: str, top_k: int = 3) -> str:
+    def ask_brain(
+        self, query: str, top_k: int = 3, workspace: Optional[str] = None
+    ) -> str:
         """Główne zapytanie RAG dla Agenta. Zwraca sformatowany tekst kontekstu.
 
         S5.3: przy degradacji zwraca jawny komunikat (DEGRADED_MSG), nie fabrykuje kontekstu.
+        ADR-015: `workspace` przepuszczany do retrieve (izolacja warstw).
         """
-        return self.retrieve(query, top_k=top_k)["context"]
+        return self.retrieve(query, top_k=top_k, workspace=workspace)["context"]
 
     def ingest_markdown_file(self, filepath: str):
         """Wczytuje plik MD, sprawdza hashe w SQLite i ładuje wektory do LanceDB."""

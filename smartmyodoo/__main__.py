@@ -6,12 +6,63 @@ from smartmyodoo.cli import InteractiveCLI
 from smartmyodoo.http_client import SmartMyOdooClient
 
 
+def _run_seed(args) -> None:
+    """Buduje lokalny indeks wiedzy ze źródeł (ADR-015).
+
+    --shared <dir>   → warstwa współdzielona (__shared__)
+    --private <dir>  → warstwa prywatna (wymaga --workspace <id>)
+    Domyślnie (bez flag): seeduje `knowledge/` jako shared.
+    """
+    from smartmyodoo.swarm.brain.seed_knowledge import seed_knowledge_base
+
+    private = getattr(args, "private", None)
+    seed_workspace = getattr(args, "seed_workspace", None)
+
+    if private:
+        if not seed_workspace:
+            print("❌ --private wymaga --workspace <id> (warstwa prywatna).")
+            sys.exit(1)
+        seed_knowledge_base(private, workspace_id=seed_workspace)
+
+    shared = getattr(args, "shared", None)
+    if shared:
+        seed_knowledge_base(shared, workspace_id=None)
+
+    if not shared and not private:
+        # Domyślnie: współdzielona wiedza z wersjonowanego folderu knowledge/.
+        seed_knowledge_base("knowledge", workspace_id=None)
+
+
 def main():
     parser = argparse.ArgumentParser(description="SmartMyOdoo CLI and Worker")
     subparsers = parser.add_subparsers(dest="command")
 
     # Worker subcommand
     subparsers.add_parser("worker", help="Start background worker daemon")
+
+    # Seed subcommand (ADR-015): odbudowa lokalnego indeksu wiedzy ze źródeł.
+    seed_parser = subparsers.add_parser(
+        "seed", help="Zbuduj lokalny indeks wiedzy z wersjonowanych źródeł"
+    )
+    seed_parser.add_argument(
+        "--shared",
+        type=str,
+        default=None,
+        help="Katalog ze współdzieloną wiedzą (warstwa __shared__), np. knowledge/",
+    )
+    seed_parser.add_argument(
+        "--private",
+        type=str,
+        default=None,
+        help="Katalog z wiedzą prywatną (wymaga --workspace)",
+    )
+    seed_parser.add_argument(
+        "--workspace",
+        dest="seed_workspace",
+        type=str,
+        default=None,
+        help="ID workspace dla warstwy prywatnej (--private)",
+    )
 
     # CLI arguments (backward compatibility without 'cli' subcommand)
     parser.add_argument(
@@ -34,6 +85,10 @@ def main():
             signal.signal(signal.SIGINT, handle_signal)
             signal.signal(signal.SIGTERM, handle_signal)
         asyncio.run(worker_main())
+        return
+
+    if args.command == "seed":
+        _run_seed(args)
         return
 
     client = SmartMyOdooClient(base_url=args.url)
