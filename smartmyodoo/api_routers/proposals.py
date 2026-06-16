@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core import models as db_models
-from smartmyodoo.api import require_auth
+from smartmyodoo.api_deps import require_auth
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 

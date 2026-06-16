@@ -1,5 +1,12 @@
 # 🛤️ Roadmap (Smart Odoo AI Agent)
 
+> ## 👉 OD CZEGO ZACZĄĆ NASTĘPNYM RAZEM (stan: 2026-06-15)
+> **Bieżący sprint:** [FIX-02 — Struktura i Patterny](../../sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) (Faza 8 niżej).
+> **Ostatnio zrobione:** ✅ KEY-01 (K1-K6, zmergowane) · ✅ FIX-02 **S3.4** deps-module (PR #14, czeka na merge).
+> **➡️ Następny krok wykonawczy:** **S3.2** — deduplikacja `execute`/`execute_stream` w `swarm/executor.py` (wspólne helpery red-flags/tools/PII).
+> **Kolejka FIX-02:** S3.2 → S3.1 (dokończyć rozbicie `api.py`: `auth`/`secrets`/`chat`) → S3.3 (konsolidacja PII) → **BRAMKA S3** → S5.1 (`litellm.Router`+cache) → S5.2 (distributed lock) → S5.3 (RAG overlap).
+> **Stan testów:** 218 passed / 0 failed (`pytest -q`). **Start serwera:** `python -m uvicorn smartmyodoo.api:app` (port 8000).
+
 ## Faza 0: Infrastruktura i Procedury (✅ Wdrożone / ⏳ W trakcie)
 - **TeamEngine v5.0:** Orkiestracja farmy agentów (Scout, Pol, Dev, QA, Arch).
 - **Conductor System:** Każde zadanie kodowania musi być otwierane jako Track/Epic.
@@ -179,3 +186,51 @@
 - Opcja Knowledge Seeding (Stack Overflow, Odoo Forums).
 - ✅ Automatyczne tworzenie logów pracy i zamykanie Timesheetów (Task Binding i Auto-Create Task wdrażane w F7-01).
 - **Stack:** `websockets>=12.0`, `aiohttp>=3.9.0`
+
+---
+
+## Faza 8: Audyt, Remediacja i Dług Strukturalny (🏗️ W trakcie)
+**Cel:** Po audycie 5-wymiarowym (2026-06-15, `.agents/AUDIT_REPORT.md` — 39 znalezisk) usunąć
+ryzyka bezpieczeństwa i „atrapy", wprowadzić typowany rejestr kluczy + routing modeli,
+a następnie spłacić dług strukturalny (God Module, duplikacje) — wszystko poparte realnymi testami.
+
+> **Zasada przewodnia:** *Evidence Before Claims* (każda zmiana = test czerwony→zielony) +
+> *No Behavior Change* przy refaktorach. Szczegóły: [CHANGELOG](../../../CHANGELOG.md).
+
+### 8.1 EPIC-FIX-01 — Remediacja audytu (✅ Wdrożone, PR #1)
+> Sprint: [`2026-06-15_EPIC-FIX-01_naprawa_weryfikacja.md`](../../sprints/2026-06-15_EPIC-FIX-01_naprawa_weryfikacja.md)
+- ✅ **Security (S1):** PII na ścieżce czat/pipeline, sandbox fail-closed, CORS jawne originy +
+  rate-limit/lockout `/api/auth`, path traversal w `scaffold_module`, koniec logowania haseł.
+- ✅ **Reality-check (S2):** Dispatcher (koniec crasha), TokenGovernor realnie podłączony (spent≠0),
+  sandbox faktycznie izoluje, routing skilli do pipeline, uczciwe handlery workerów.
+
+### 8.2 KEY-01 — Typowany rejestr kluczy + routing modeli (✅ Wdrożone, PR #10-#13)
+> Sprint: [`2026-06-15_SPRINT-KEY-01_credentials_model_routing.md`](../../sprints/2026-06-15_SPRINT-KEY-01_credentials_model_routing.md) ·
+> Design: [`DESIGN-credentials-and-model-routing.md`](../../architecture/DESIGN-credentials-and-model-routing.md)
+- ✅ **K1-K3:** `CredentialType` (odoo_data/odoo_timesheet/llm_provider) + walidacja per-typ + resolver
+  (auto-tag legacy) + routing creds Odoo (timesheet→data→legacy).
+- ✅ **K4:** `model_policy` — tier CHEAP/STANDARD/PREMIUM (ENV-override), Dispatcher dobiera model per skill.
+- ✅ **K5:** odporność LLM — retry + fallback model; `effective_model` degraduje tier przy niskim budżecie.
+- ✅ **K6:** UI — dropdown Typ w Skarbcu + ikony, zakładka **Modele** (`GET/PUT /api/models/policy`),
+  badge modelu w Czacie.
+
+### 8.3 FIX-02 — Struktura i Patterny (🏗️ W trakcie)
+> Sprint: [`2026-06-15_SPRINT-FIX-02_struktura_patterny.md`](../../sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) ·
+> **Bramka sekwencyjna:** S5 nie startuje przed zamknięciem całego S3.
+
+**FAZA S3 — Struktura:**
+- ✅ **S3.4a (deps-module):** `api_deps.py` zrywa cykl importów `api↔routery`; usunięte `# type: ignore`;
+  `python -m smartmyodoo.api` startuje bez ImportError. (PR #14 — czeka na merge)
+- ⬜ **S3.2 — ➡️ NASTĘPNY:** deduplikacja `execute`/`execute_stream` (wspólne helpery polityk).
+- ⬜ **S3.1:** dokończyć rozbicie `api.py` — wydzielić `auth`/`secrets`/`chat` (proposals/monitoring/workspaces/models już wyjęte).
+- ⬜ **S3.3:** konsolidacja PII do jednej warstwy (`security/pii/` vs `mcp/pii_*`).
+- ⬜ **S3.4b:** `SandboxManager.attach_existing_scratchpad(...)` zamiast pisania po `_active_scratchpad`.
+- ⬜ **BRAMKA S3:** API+executor+PII zielone → odblokowuje S5.
+
+**FAZA S5 — Patterny (po S3):**
+- ⬜ **S5.1:** `litellm.Router` retry/backoff + fallback + **cache (Redis)** (retry/fallback już z K5 — zostaje Router+cache).
+- ⬜ **S5.2:** distributed lock (`SET NX PX`) na approve propozycji (anty-TOCTOU) + rate-limit endpointów LLM.
+- ⬜ **S5.3:** RAG — chunking z overlapem + sygnalizacja degradacji (mock nie fabrykuje kontekstu).
+
+**DoD sprintu:** `pytest ≥ 190 passed/0 failed` (obecnie **218**), pokrycie krytycznych ≥ 85%,
+re-audyt zamyka Strukturę+Patterny, wpis CHANGELOG [FIX-02].
