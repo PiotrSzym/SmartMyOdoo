@@ -24,7 +24,12 @@ class ChatPanel {
             }
             if (newState.isAuthenticated && !oldState.isAuthenticated) {
                 const wsName = this.getWorkspaceName();
-                this.addMessage('agent', `Witaj w panelu SmartMyOdoo HUB! 🔒 Połączenie zabezpieczone. Aktywna przestrzeń: ${wsName}. W czym mogę pomóc?`);
+                const tmpl = window.t ? window.t('chat.welcome') : 'Witaj! Aktywna przestrzeń: {ws}.';
+                this.addMessage('agent', tmpl.replace('{ws}', wsName));
+            }
+            // I18N-01c: re-render przy zmianie języka
+            if (newState.lang !== oldState.lang) {
+                this.render();
             }
         });
 
@@ -76,7 +81,7 @@ class ChatPanel {
     startNewSession() {
         this.sessionId = `hub-${Date.now()}`;
         this.messages = [];
-        this.addMessage('agent', `Rozpoczęto nową sesję konwersacji. W czym mogę pomóc?`);
+        this.addMessage('agent', (window.t ? window.t('chat.newSessionStarted') : 'Rozpoczęto nową sesję.'));
         this.render();
     }
 
@@ -100,7 +105,7 @@ class ChatPanel {
                 <div class="flex-1 flex items-center justify-center">
                     <div class="text-center max-w-md">
                         <div class="text-6xl mb-6 opacity-60">🤖</div>
-                        <h2 class="text-2xl font-bold text-gradient mb-3">Witaj w SmartMyOdoo</h2>
+                        <h2 class="text-2xl font-bold text-gradient mb-3">${window.t ? window.t('chat.welcomeTitle') : 'Witaj w SmartMyOdoo'}</h2>
                         <p class="text-slate-400 text-sm leading-relaxed">
                             Jestem Twoim Asystentem AI. Mogę zarządzać danymi w Odoo,
                             generować kod, tworzyć raporty i odpowiadać na pytania.
@@ -136,14 +141,14 @@ class ChatPanel {
                     <div class="px-2 py-1 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Poprzednie Sesje</div>
                     ${this.sessions.map(s => `
                         <button onclick="window.AppChat.switchSession('${s.session_id}')" class="w-full text-left p-3 rounded-lg transition ${s.session_id === this.sessionId ? 'bg-indigo-500/10 border-indigo-500/30' : 'hover:bg-slate-800 border-transparent'} border">
-                            <div class="text-xs text-white truncate font-medium mb-1">${this._escapeHtml(s.preview || 'Nowa sesja')}</div>
+                            <div class="text-xs text-white truncate font-medium mb-1">${this._escapeHtml(s.preview || (window.t ? window.t('chat.newSession') : 'Nowa sesja'))}</div>
                             <div class="flex justify-between items-center text-[10px] text-slate-500">
                                 <span>${new Date(s.last_activity).toLocaleDateString()}</span>
                                 <span>💬 ${s.message_count}</span>
                             </div>
                         </button>
                     `).join('')}
-                    ${this.sessions.length === 0 ? '<div class="px-2 text-xs text-slate-600 italic">Brak historii sesji.</div>' : ''}
+                    ${this.sessions.length === 0 ? `<div class="px-2 text-xs text-slate-600 italic">${window.t ? window.t('chat.noHistory') : 'Brak historii sesji.'}</div>` : ''}
                 </div>
             </div>
         `;
@@ -175,7 +180,7 @@ class ChatPanel {
                                 <input
                                     type="text"
                                     id="chat-input"
-                                    placeholder="Napisz polecenie dla Agenta..."
+                                    placeholder="${window.t ? window.t('chat.placeholder') : 'Napisz polecenie...'}"
                                     class="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-5 pr-12 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all"
                                     ${this.isWaiting ? 'disabled' : ''}
                                     onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); window.AppChat.handleSend(); }"
@@ -444,7 +449,7 @@ class ChatPanel {
             }
 
             this.isWaiting = false;
-            this.addMessage('agent', data.reply || 'Brak odpowiedzi.', {
+            this.addMessage('agent', data.reply || (window.t ? window.t('chat.noReply') : 'Brak odpowiedzi.'), {
                 persona: data.persona || null,
                 category: data.category || null,
                 model: data.model || null,

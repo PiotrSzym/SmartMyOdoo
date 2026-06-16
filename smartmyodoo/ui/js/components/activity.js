@@ -14,6 +14,9 @@ class ActivityPanel {
             if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'activity') {
                 this.loadFromAPI();
             }
+            if (newState.lang !== oldState.lang) {
+                this.render();  // I18N-01c
+            }
         });
     }
 
@@ -83,7 +86,7 @@ class ActivityPanel {
         if (this.isLoading) {
             this.container.innerHTML = `
                 <div class="w-full max-w-4xl mx-auto">
-                    <h1 class="text-4xl font-bold text-gradient mb-6">📋 Aktywność Agenta</h1>
+                    <h1 class="text-4xl font-bold text-gradient mb-6">📋 ${window.t ? window.t('activity.title') : 'Aktywność Agenta'}</h1>
                     <div class="space-y-4">
                         ${[1,2,3,4].map(() => `
                             <div class="glass-card p-4 animate-pulse">
@@ -102,7 +105,7 @@ class ActivityPanel {
             timelineHtml = `
                 <div class="text-center py-16">
                     <div class="text-5xl mb-4 opacity-50">📋</div>
-                    <p class="text-slate-400">Brak aktywności w tym workspace.</p>
+                    <p class="text-slate-400">${window.t ? window.t('activity.empty') : 'Brak aktywności w tym workspace.'}</p>
                     <p class="text-xs text-slate-600 mt-2">Wywołania narzędzi agenta pojawią się tutaj automatycznie.</p>
                 </div>
             `;
@@ -144,7 +147,7 @@ class ActivityPanel {
         this.container.innerHTML = `
             <div class="w-full max-w-4xl mx-auto">
                 <div class="flex justify-between items-center mb-6">
-                    <h1 class="text-4xl font-bold text-gradient">📋 Aktywność Agenta</h1>
+                    <h1 class="text-4xl font-bold text-gradient">📋 ${window.t ? window.t('activity.title') : 'Aktywność Agenta'}</h1>
                     <button onclick="window.AppActivity.loadFromAPI()" class="text-sm text-slate-400 hover:text-indigo-400 transition flex items-center gap-2">
                         🔄 Odśwież
                     </button>
