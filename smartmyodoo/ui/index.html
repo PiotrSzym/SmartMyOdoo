@@ -40,6 +40,8 @@
         .delete-option input[type="radio"] { accent-color: #818cf8; }
     </style>
     <link rel="stylesheet" href="css/theme.css">
+    <!-- Lucide icons (CDN, bez builda) — UMD wystawia window.lucide.createIcons() -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
     <script src="js/store.js"></script>
     <script src="js/components/theme.js" defer></script>
     <script src="js/components/sidebar.js?v=2" defer></script>
@@ -48,7 +50,13 @@
     <script src="js/components/activity.js" defer></script>
     <script src="js/components/project.js?v=4" defer></script>
     <script src="js/components/skills.js" defer></script>
-    <script src="js/components/docs.js?v=1" defer></script>
+    <script src="js/components/docs.js?v=2" defer></script>
+    <!-- DOC-02: render statycznych ikon Lucide (nav) po załadowaniu DOM -->
+    <script defer>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+        });
+    </script>
 </head>
 <body class="h-screen w-full theme-bg theme-text transition-colors duration-300 overflow-hidden">
 
@@ -94,20 +102,20 @@
             <!-- ZONA 2: Tab Bar -->
             <nav id="tab-bar" class="h-14 border-b border-slate-800 bg-slate-900/30 flex items-center px-4 gap-2 z-10 shadow-sm w-full">
                 <div class="flex items-center gap-2">
-                    <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition">Skarbiec</button>
-                    <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">💬 Czat</button>
-                    <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition">📋 Aktywność</button>
-                    <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
-                    <span class="flex items-center gap-2">⚙️ Projekt</span>
+                    <button onclick="AppStore.setState({activeTab: 'vault'})" id="tab-vault" title="Skarbiec — szyfrowane sekrety i klucze (Vault)" class="px-4 py-2 text-sm text-indigo-400 border-b-2 border-indigo-500 font-medium transition"><span class="flex items-center gap-2"><i data-lucide="shield-check" class="w-4 h-4"></i> Skarbiec</span></button>
+                    <button onclick="AppStore.setState({activeTab: 'chat'})" id="tab-chat" title="Czat z agentami AI (z odpowiedziami na żywo)" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition"><span class="flex items-center gap-2"><i data-lucide="message-circle" class="w-4 h-4"></i> Czat</span></button>
+                    <button onclick="AppStore.setState({activeTab: 'activity'})" id="tab-activity" title="Aktywność — oś czasu wywołań narzędzi i audyt" class="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 border-b-2 border-transparent font-medium transition"><span class="flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> Aktywność</span></button>
+                    <button onclick="AppStore.setState({ activeTab: 'settings' })" id="tab-settings" title="Projekt — połączenie z Odoo/Jira, Task Picker, czas pracy" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300">
+                    <span class="flex items-center gap-2"><i data-lucide="folder-kanban" class="w-4 h-4"></i> Projekt</span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">🧠 Skille</span>
+                    <button onclick="AppStore.setState({ activeTab: 'skills' })" id="tab-skills" title="Skille — ręczny wybór wyspecjalizowanych agentów" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="brain" class="w-4 h-4"></i> Skille</span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">⚙️ Modele</span>
+                    <button onclick="AppStore.setState({ activeTab: 'models' })" id="tab-models" title="Modele AI — tiery kosztów, budżet, routing per skill" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Modele</span>
                 </button>
-                    <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
-                    <span class="flex items-center gap-2">📖 Dokumentacja</span>
+                    <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" title="Dokumentacja — sekcje, wyszukiwarka, kompendium" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4"></i> Dokumentacja</span>
                 </button>
                 </div>
                 <div class="flex-1"></div>

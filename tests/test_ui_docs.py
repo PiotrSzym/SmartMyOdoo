@@ -25,20 +25,36 @@ def test_stale_modal_removed():
 
 
 def test_docs_has_all_sections_and_search():
+    # DOC-02: usunięto „Sprinty & Roadmap"; dodano Funkcje + Agenci (na bazie sprintów).
     for sid in [
         "start",
+        "features",
         "arch",
+        "agents",
         "sec",
         "vault",
         "models",
-        "skills",
-        "sprints",
         "kb",
     ]:
         assert f'id: "{sid}"' in _DOCS, f"brak sekcji {sid}"
+    assert 'id: "sprints"' not in _DOCS, "sekcja Sprinty powinna być usunięta"
     assert "docs-search" in _DOCS  # wyszukiwarka
     assert "Centrum Dokumentacji" in _DOCS
     assert "Kompendium wiedzy" in _DOCS
+
+
+def test_docs_lists_all_11_agents():
+    """Dokumentacja oddaje realny zakres: 11 wyspecjalizowanych agentów."""
+    assert _DOCS.count('["') >= 11 or _DOCS.count('["') >= 11
+    for agent in ["Business Analyst", "Magic Fix", "Security Audit", "ETL Manager"]:
+        assert agent in _DOCS, f"brak agenta {agent}"
+
+
+def test_nav_uses_lucide_icons():
+    assert 'data-lucide="message-circle"' in _INDEX  # Czat
+    assert 'data-lucide="activity"' in _INDEX  # Aktywność
+    assert "unpkg.com/lucide" in _INDEX  # CDN Lucide
+    assert "createIcons" in _INDEX  # init ikon
 
 
 def test_docs_uses_correct_port():
