@@ -152,12 +152,13 @@ class OdooClient:
         return await asyncio.to_thread(self.unlink, model, ids)
 
 
-# Globalna instancja klienta (domyślny workspace)
-odoo = OdooClient()
-
-
 def get_odoo_client(workspace_id: str = "default") -> OdooClient:
-    """Fabryka klientów Odoo dla konkretnego workspace."""
-    if workspace_id == "default":
-        return odoo
+    """Fabryka klientów Odoo dla konkretnego workspace.
+
+    KEY-02-3 (ADR-007): ZAWSZE buduje świeży klient — __init__ czyta wtedy bieżącą
+    ContextVar (poświadczenia ze Skarbca wstrzyknięte na czas żądania). Wcześniej dla
+    'default' zwracaliśmy singleton zbudowany w czasie importu (puste creds), przez co
+    poświadczenia per-żądanie nigdy nie docierały. Świeży klient = brak wycieku uid/
+    połączenia między żądaniami i workspace'ami (multi-tenant).
+    """
     return OdooClient(workspace_id=workspace_id)

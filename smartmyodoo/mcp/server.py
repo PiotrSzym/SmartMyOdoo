@@ -133,16 +133,24 @@ def search_odoo_records(
         target_odoo = get_odoo_client(workspace_id)
         records = target_odoo.search_read(model_name, domain_list, fields_list, limit)
 
-        result_str = json.dumps(
-            {"records": records, "count": len(records)}, ensure_ascii=False
-        )
-
+        # PII: anonimizuj WARTOŚCI pól (string), NIE zserializowany JSON. Puszczanie
+        # Presidio na całym blobie JSON psuło strukturę (wykrywał URL/DATE obejmujące
+        # cudzysłowy/przecinki i podmiana usuwała znaki struktury → json.loads padał).
         if is_pii_enabled(workspace_id):
-            result_str = get_pii_middleware().anonymize(
-                result_str, workspace_id=workspace_id
-            )
+            pii = get_pii_middleware()
+            records = [
+                {
+                    k: (
+                        pii.anonymize(v, workspace_id=workspace_id)
+                        if isinstance(v, str)
+                        else v
+                    )
+                    for k, v in rec.items()
+                }
+                for rec in records
+            ]
 
-        return json.loads(result_str)
+        return {"records": records, "count": len(records)}
     except Exception as e:
         logger.error("Błąd w search_odoo_records dla %s: %s", model_name, str(e))
         return {
@@ -238,7 +246,11 @@ def delete_odoo_record(
         return "❌ Błąd zapisu propozycji. Szczegóły w logach systemowych."
 
 
-from odoo_client import get_odoo_client  # noqa: E402
+# KEY-02-3 (ADR-007): import PRZEZ PAKIET, nie przez sys.path-hack ('odoo_client').
+# Inaczej powstaje DRUGI obiekt modułu z własną (pustą) ContextVar _odoo_creds_ctx,
+# więc poświadczenia wstrzyknięte przez chat.py (set_odoo_creds) nigdy nie docierają
+# do narzędzi Odoo. Jeden moduł = jedna ContextVar = creds ze Skarbca działają.
+from smartmyodoo.mcp.odoo_client import get_odoo_client  # noqa: E402
 
 
 @mcp.tool()
