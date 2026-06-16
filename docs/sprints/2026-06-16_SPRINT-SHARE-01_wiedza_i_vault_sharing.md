@@ -1,9 +1,9 @@
 ---
 sprint_id: "SHARE-01"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-16
-closed: null
+closed: 2026-06-16
 goal: "Model współdzielenia przy przekazywaniu aplikacji: WIEDZA jedzie jako źródła w gicie (indeks wektorowy budowany lokalnie; warstwa shared + private per workspace_id), a SEKRETY (vault) zostają lokalne i nigdy nie są kopiowane (org → menedżer sekretów)"
 prefix: "SHARE"
 complexity: 5
@@ -136,9 +136,9 @@ warstwa prywatna nigdy nie ląduje w `"__shared__"`. STRIDE: głównie **Informa
 **Handoff:** → `/audyt` + `/sec` (równolegle). /sec: domknąć Sekcję D. /gf-review: `git add knowledge/` + wzmocnić strażnik trackingu.
 
 ### Close Checklist
-- [ ] Wszystkie zadania Sekcji B = ✅, status sprintu → `DONE`, `closed` ustawione.
-- [ ] Lessons Learned (Sekcja F) uzupełnione.
-- [ ] Zmergowane do `main` przez /gf-review.
+- [x] Wszystkie zadania Sekcji B = ✅, status sprintu → `DONE`, `closed` ustawione.
+- [x] Lessons Learned (Sekcja F) uzupełnione (/dev + /qa + /gf-review + /doc).
+- [x] Zmergowane do `main` (commit `1eda971`, merge `58156f8`, push `origin/main`).
 
 ---
 
@@ -153,6 +153,13 @@ warstwa prywatna nigdy nie ląduje w `"__shared__"`. STRIDE: głównie **Informa
 - **Izolacja `.where` + sanitizacja.** Wartość `workspace` trafia do literału SQL LanceDB → escapujemy apostrof (`'`→`''`), żeby `ws' OR '1'='1` nie ominął filtra warstw. Test bezpieczeństwa to potwierdza (brak wycieku `ws_b`).
 - **Backward-compat zachowany.** `search(query, top_k)` bez `workspace` = stare zachowanie (brak filtra). `tools.py::search_knowledge_base` (fixed tool signature) celowo NIE zmieniany — domyślnie shared+brak filtra (poza scope SHARE-01).
 - **Baseline testów:** przed sprintem 288 passed / 1 fail (`test_mcp_pii_integration_roundtrip` — `assert 0==1`, niezwiązane z RAG/vault, pre-existing) / 1 skip. Po sprincie: **306 passed** (+18 nowych), 1 skip, **ta sama 1 pre-existing porażka** PII — zero regresji.
+
+**/gf-review + /qa (Finding B, 2026-06-16):**
+- **`capsys` nie wykryje crasha enkodowania konsoli.** `/qa` i `/sec` przepuściły defekt, bo testy `capsys` czytają bufor **utf-8** — a realna konsola Windows to **cp1250**. `vault export/import` crashował na emoji (`⚠️`/`✅`/`→`) → mandatoryjne ostrzeżenie ADR-015 NIE docierało. Test dowodowy musi symulować realne kodowanie: `io.TextIOWrapper(io.BytesIO(), encoding="cp1250")` jako `sys.stdout`.
+- **Fix = `_safe_print` + ASCII-markery.** Helper pre-enkoduje do `sys.stdout.encoding` z `errors="replace"` (znak spoza zestawu degraduje, komunikat dociera). Emoji w ścieżce vault → `[!]`/`[OK]`/`[BLAD]`, `→`→`->`. **Uwaga:** emoji-w-`print` to pre-existing wzorzec w repo (np. `__main__.py`) — inne ścieżki CLI mają ten sam dług (poza scope).
+
+**/doc (2026-06-16):**
+- **`docs/adr/` i `docs/blueprint/` są gitignored** (`.gitignore:24-28`) — ADR-015 i master knowledge map żyją tylko lokalnie. Dokumentacja, która ma realnie dotrzeć do użytkownika przekazanej aplikacji, musi iść tam, gdzie git i obraz Docker sięgają: **README**, **`docs/guides/`** (śledzone) oraz **Centrum Dokumentacji w panelu** (`ui/js/components/docs.js`, serwowane przez backend). Dodano sekcję „Współdzielenie & Przekazanie" (PL/EN).
 
 ---
 

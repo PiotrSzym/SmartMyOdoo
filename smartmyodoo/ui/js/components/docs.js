@@ -79,6 +79,20 @@ function _sections(lang) {
             { title: "Trzy typy kluczy", body: `<ul class="list-disc pl-5 space-y-1"><li>🔑 llm_provider — klucz API modelu.</li><li>🗄️ odoo_data — Odoo (dane).</li><li>⏱️ odoo_timesheet — Odoo (czas pracy).</li></ul>` },
             { title: "AI bez znajomości haseł", body: `<p>Sekrety wstrzykiwane do środowiska w locie; do LLM idą tylko pseudonimy. Resolver: timesheet → data → legacy.</p>` },
         ] },
+        { id: "share", lucide: "share-2", title: "Współdzielenie & Przekazanie", entries: [
+            { title: "Co jedzie z aplikacją, a co zostaje", body: `<p>Przy przekazaniu aplikacji (clone / Docker) obowiązuje zasada <b>„wiedza jako źródło, sekrety lokalnie"</b> (<a class="text-indigo-400 underline" target="_blank" href="${REPO}/docs/adr/ADR-015-Knowledge-As-Source-Secrets-Stay-Local.md">ADR-015</a>):</p>
+                <table class="w-full text-xs mt-2"><thead><tr class="text-slate-500 border-b border-slate-700"><th class="text-left py-1">Warstwa</th><th class="text-left">Współdzielona?</th><th class="text-left">Jak</th></tr></thead>
+                <tbody class="text-slate-300">
+                <tr><td class="py-1">Kod</td><td>✅</td><td>git / Docker</td></tr>
+                <tr><td class="py-1">Wiedza (<code>knowledge/</code>)</td><td>✅</td><td>tekst w gicie → seed lokalnie</td></tr>
+                <tr><td class="py-1">Indeks wektorowy</td><td>❌ pochodna</td><td>budowany lokalnie</td></tr>
+                <tr><td class="py-1">Dane prywatne / PII</td><td>❌</td><td>tag <code>workspace_id</code></td></tr>
+                <tr><td class="py-1">Sekrety (vault)</td><td>❌</td><td>każdy własny; org → menedżer</td></tr>
+                </tbody></table>` },
+            { title: "Odbudowa wiedzy: seed", body: `<p>Indeks wektorowy jest <b>pochodny i lokalny</b> (gitignored) — nie jedzie z repo. Po klonie budujesz go ze źródeł w <code>knowledge/</code>:</p><pre>python -m smartmyodoo seed --shared knowledge/</pre><p>Seed jest <b>idempotentny</b> — uruchomienie 2× nie duplikuje wpisów (deterministyczne ID).</p>` },
+            { title: "Warstwa shared vs prywatna", body: `<p>Każdy rekord wiedzy ma <code>workspace_id</code>. Wyszukiwanie w workspace A zwraca <b>wiedzę wspólną (<code>__shared__</code>) + Twoją prywatną A</b>, ale <b>nigdy</b> cudzej prywatnej B — izolacja danych klientów. Dane wrażliwe/PII trzymaj prywatnie:</p><pre>python -m smartmyodoo seed --private ./moje_dane --workspace klient_a</pre>` },
+            { title: "Vault: nigdy nie kopiujemy między ludźmi", body: `<ul class="list-disc pl-5 space-y-1"><li><b>Zespół</b> — każdy ma własny vault (własny PIN). Klucze nie są współdzielone.</li><li><b>Ta sama osoba, nowa maszyna</b> — <code>vault export &lt;plik&gt;</code> → <code>vault import &lt;plik&gt;</code> (zaszyfrowany blob, ten sam PIN przekazany sobie osobnym, bezpiecznym kanałem).</li><li><b>Organizacja</b> — zewnętrzny menedżer sekretów (1Password / Bitwarden / HashiCorp / KMS), <b>NIGDY</b> kopiowanie plików <code>.enc</code> do repo.</li></ul>` },
+        ] },
         { id: "models", lucide: "sliders-horizontal", title: "Modele AI", entries: [
             { title: "Tiery kosztów", body: `<ul class="list-disc pl-5 space-y-1"><li>CHEAP — klasyfikacja.</li><li>STANDARD — dev/CRUD.</li><li>PREMIUM — architektura/audyt.</li></ul><p>Edycja: zakładka Modele (<code>GET/PUT /api/models/policy</code>).</p>` },
             { title: "Odporność i wydajność", body: `<ul class="list-disc pl-5 space-y-1"><li>Retry + fallback + backoff.</li><li>Cache (In-Memory/Redis).</li><li>Degradacja budżetu zamiast blokady.</li></ul>` },
@@ -125,6 +139,20 @@ function _sections(lang) {
         { id: "vault", lucide: "key-round", title: "Vault & Keys", entries: [
             { title: "Three key types", body: `<ul class="list-disc pl-5 space-y-1"><li>🔑 llm_provider — model API key.</li><li>🗄️ odoo_data — Odoo (data).</li><li>⏱️ odoo_timesheet — Odoo (timesheets).</li></ul>` },
             { title: "AI without knowing passwords", body: `<p>Secrets injected into the runtime on the fly; only pseudonyms reach the LLM. Resolver: timesheet → data → legacy.</p>` },
+        ] },
+        { id: "share", lucide: "share-2", title: "Sharing & Handover", entries: [
+            { title: "What ships with the app, and what stays", body: `<p>When handing over the app (clone / Docker) the rule is <b>"knowledge as source, secrets stay local"</b> (<a class="text-indigo-400 underline" target="_blank" href="${REPO}/docs/adr/ADR-015-Knowledge-As-Source-Secrets-Stay-Local.md">ADR-015</a>):</p>
+                <table class="w-full text-xs mt-2"><thead><tr class="text-slate-500 border-b border-slate-700"><th class="text-left py-1">Layer</th><th class="text-left">Shared?</th><th class="text-left">How</th></tr></thead>
+                <tbody class="text-slate-300">
+                <tr><td class="py-1">Code</td><td>✅</td><td>git / Docker</td></tr>
+                <tr><td class="py-1">Knowledge (<code>knowledge/</code>)</td><td>✅</td><td>text in git → seed locally</td></tr>
+                <tr><td class="py-1">Vector index</td><td>❌ derived</td><td>built locally</td></tr>
+                <tr><td class="py-1">Private data / PII</td><td>❌</td><td><code>workspace_id</code> tag</td></tr>
+                <tr><td class="py-1">Secrets (vault)</td><td>❌</td><td>each their own; org → manager</td></tr>
+                </tbody></table>` },
+            { title: "Rebuild knowledge: seed", body: `<p>The vector index is <b>derived and local</b> (gitignored) — it does not travel with the repo. After cloning, build it from the sources in <code>knowledge/</code>:</p><pre>python -m smartmyodoo seed --shared knowledge/</pre><p>Seed is <b>idempotent</b> — running it twice does not duplicate entries (deterministic IDs).</p>` },
+            { title: "Shared vs private layer", body: `<p>Every knowledge record has a <code>workspace_id</code>. Searching in workspace A returns <b>shared knowledge (<code>__shared__</code>) + your private A</b>, but <b>never</b> someone else's private B — client data isolation. Keep sensitive/PII data private:</p><pre>python -m smartmyodoo seed --private ./my_data --workspace client_a</pre>` },
+            { title: "Vault: never copied between people", body: `<ul class="list-disc pl-5 space-y-1"><li><b>Team</b> — everyone has their own vault (own PIN). Keys are not shared.</li><li><b>Same person, new machine</b> — <code>vault export &lt;file&gt;</code> → <code>vault import &lt;file&gt;</code> (encrypted blob, same PIN handed to yourself over a separate, secure channel).</li><li><b>Organization</b> — external secret manager (1Password / Bitwarden / HashiCorp / KMS), <b>NEVER</b> copy <code>.enc</code> files into the repo.</li></ul>` },
         ] },
         { id: "models", lucide: "sliders-horizontal", title: "AI Models", entries: [
             { title: "Cost tiers", body: `<ul class="list-disc pl-5 space-y-1"><li>CHEAP — classification.</li><li>STANDARD — dev/CRUD.</li><li>PREMIUM — architecture/audit.</li></ul><p>Edit: Models tab (<code>GET/PUT /api/models/policy</code>).</p>` },

@@ -2,6 +2,24 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w `docs/sprints/`.
 
+## [SHARE-01] — 2026-06-16 — Współdzielenie wiedzy + secrets-stay-local
+
+> Plan: [`docs/sprints/2026-06-16_SPRINT-SHARE-01_wiedza_i_vault_sharing.md`](docs/sprints/2026-06-16_SPRINT-SHARE-01_wiedza_i_vault_sharing.md).
+> Decyzja: **ADR-015** (Knowledge-as-source / Secrets-stay-local). Suita: **308 passed**.
+
+### Added
+- **Wersjonowany folder `knowledge/`** — źródło wiedzy zespołu (lekcje, instynkty); indeks budowany lokalnie. [SHARE-01-1]
+- **Izolacja `workspace_id` w LanceDB** — schemat + migracja legacy (braki → `__shared__`); `search(query, top_k, workspace=)` filtruje **shared ∪ bieżący ws** (nigdy cudza prywatna), z escapingiem anti-injection. [SHARE-01-2/3]
+- **CLI `smartmyodoo seed`** (`--shared` / `--private --workspace`) — idempotentny (deterministyczne ID, upsert). [SHARE-01-4]
+- **`vault export` / `vault import`** — migracja TEJ SAMEJ osoby (samowystarczalny blob PBKDF2+Fernet, wymaga PIN); twarde ostrzeżenie „nie do współdzielenia zespołowego". [SHARE-01-6]
+- **Dokumentacja użytkownika**: guide [`docs/guides/sharing_knowledge_and_secrets.md`](docs/guides/sharing_knowledge_and_secrets.md), sekcja w README, oraz **sekcja „Współdzielenie & Przekazanie" w Centrum Dokumentacji (panel, PL/EN)**.
+
+### Fixed
+- **`vault export/import` nie crashuje na konsoli Windows (cp1250)** — helper `_safe_print` + ASCII-markery; ostrzeżenie ADR-015 realnie dociera (Finding B z /gf-review).
+
+### Follow-up (nie blokują)
+recovery-init `Master=PIN` · brak `--master` w CLI `import` · PII-w-`__shared__` niewymuszone kodem.
+
 ## [FIX-02] — 2026-06-16 — Struktura i Patterny (dług po audycie)
 
 > Plan: [`docs/sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md`](docs/sprints/2026-06-15_SPRINT-FIX-02_struktura_patterny.md) + artefakty S3.x/S5.x.
