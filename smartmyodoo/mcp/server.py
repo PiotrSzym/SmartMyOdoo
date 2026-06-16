@@ -1,4 +1,6 @@
 from mcp.server.fastmcp import FastMCP
+import ast
+import json
 import os
 import sys
 import logging
@@ -11,6 +13,24 @@ import database_magic
 
 # Konfiguracja loggera
 logger = logging.getLogger(__name__)
+
+
+def _coerce_arg(raw, default):
+    """Parsuje argument-string narzędzia tolerancyjnie: najpierw JSON, a gdy padnie —
+    ast.literal_eval (bezpieczny: tylko literały). Dzięki temu działa domena Odoo w
+    składni Pythona, np. [("name","ilike","G%")] (krotki/apostrofy), której json.loads
+    nie przyjmuje. Krotki marshaluje XML-RPC jak listy, więc nie trzeba ich konwertować."""
+    if raw is None or raw == "":
+        return default
+    if not isinstance(raw, str):
+        return raw
+    try:
+        return json.loads(raw)
+    except (ValueError, TypeError):
+        try:
+            return ast.literal_eval(raw)
+        except (ValueError, SyntaxError) as e:
+            raise ValueError(f"Nie można sparsować argumentu: {raw!r}") from e
 
 
 class PiiAuditLogFilter(logging.Filter):
@@ -125,11 +145,12 @@ def search_odoo_records(
     Domain to stringifikowana lista list, np. "[['is_company', '=', True]]".
     Fields to stringifikowana lista kolumn, np. "['name', 'email']". Jeśli pusta, zwraca wszystkie.
     """
-    import json
-
     try:
-        domain_list = json.loads(domain) if domain else []
-        fields_list = json.loads(fields) if fields else []
+        # Model często generuje domenę w składni Odoo/Pythona (krotki, apostrofy):
+        # [("name","ilike","G%")] — to NIE jest JSON. Parsujemy tolerancyjnie:
+        # JSON → fallback ast.literal_eval (bezpieczny, tylko literały). _coerce_arg.
+        domain_list = _coerce_arg(domain, [])
+        fields_list = _coerce_arg(fields, [])
         target_odoo = get_odoo_client(workspace_id)
         # 'count' = PRAWDZIWA liczba dopasowań (search_count), nie rozmiar strony.
         # Inaczej "ile rekordów?" zwracało domyślny limit (np. 10) zamiast sumy.
@@ -183,8 +204,6 @@ def create_odoo_record(
     Tworzy nowy rekord w Odoo (Shadow Mode).
     values_json musi być poprawnym JSONem słownika.
     """
-    import json
-
     try:
         if is_pii_enabled(workspace_id):
             values_json = get_pii_middleware().deanonymize(
@@ -192,7 +211,7 @@ def create_odoo_record(
             )
             reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
 
-        values = json.loads(values_json)
+        values = _coerce_arg(values_json, {})
         proposal = shadow_mode.create_proposal(
             "create", model_name, [], values, reason, workspace_id=workspace_id
         )
@@ -214,8 +233,6 @@ def update_odoo_record(
     Aktualizuje rekord w Odoo (Shadow Mode).
     values_json musi być poprawnym JSONem słownika.
     """
-    import json
-
     try:
         if is_pii_enabled(workspace_id):
             values_json = get_pii_middleware().deanonymize(
@@ -223,7 +240,7 @@ def update_odoo_record(
             )
             reason = get_pii_middleware().deanonymize(reason, workspace_id=workspace_id)
 
-        values = json.loads(values_json)
+        values = _coerce_arg(values_json, {})
         proposal = shadow_mode.create_proposal(
             "update", model_name, [record_id], values, reason, workspace_id=workspace_id
         )

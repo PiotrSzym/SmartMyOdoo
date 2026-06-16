@@ -160,3 +160,22 @@ def test_fallback_skill_can_query_odoo():
     inaczej 'ile mamy projektów?' kończy się odmową/RAG zamiast zapytaniem do Odoo."""
     src = _chat_src()
     assert '"odoo_search"' in src
+
+
+def test_coerce_arg_accepts_python_domain():
+    """Regresja: model generuje domenę Odoo w składni Pythona (krotki/apostrofy),
+    np. [("name","ilike","G%")] — NIE JSON. Parser musi to przyjąć (ast fallback),
+    inaczej json.loads pada → 'błąd systemowy' przy filtrach."""
+    from smartmyodoo.mcp.server import _coerce_arg
+
+    assert _coerce_arg('[("name", "ilike", "G%")]', []) == [("name", "ilike", "G%")]
+    assert _coerce_arg('["&", ("name", "ilike", "G%")]', []) == [
+        "&",
+        ("name", "ilike", "G%"),
+    ]
+    # poprawny JSON nadal działa
+    assert _coerce_arg('[["name","ilike","G%"]]', []) == [["name", "ilike", "G%"]]
+    # apostrofy w dict (create)
+    assert _coerce_arg("{'name': 'test'}", {}) == {"name": "test"}
+    # pusty → default
+    assert _coerce_arg("", []) == []
