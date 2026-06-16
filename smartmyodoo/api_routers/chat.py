@@ -10,17 +10,29 @@ import json
 from typing import List, Tuple
 
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from smartmyodoo.core.database import get_db
+from smartmyodoo.core.ratelimit import chat_limiter
 from smartmyodoo.vault import vault
 from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
+from smartmyodoo.swarm.model_policy import effective_model
 from smartmyodoo.mcp.token_governor import governor as _token_governor
 from smartmyodoo.api_deps import require_auth, get_auth_key
-from smartmyodoo.chat_deps import dispatcher, get_pii as _get_pii
+from smartmyodoo.chat_deps import dispatcher, get_pii as _get_pii, get_llm_cache
 
 router = APIRouter(tags=["chat"])
+
+
+def _enforce_chat_rate(workspace_id: str) -> None:
+    """FIX-03: throttling per workspace — 429 gdy przekroczono limit żądań/okno."""
+    if not chat_limiter.allow(f"chat:{workspace_id or 'default'}"):
+        raise HTTPException(
+            status_code=429,
+            detail="Zbyt wiele żądań — spróbuj ponownie za chwilę.",
+            headers={"Retry-After": str(chat_limiter.retry_after)},
+        )
 
 
 class PipelineRunRequest(BaseModel):
@@ -149,11 +161,13 @@ async def handle_chat(
     from smartmyodoo.swarm.models import SkillName
     from smartmyodoo.swarm.skills.skill_config import SkillConfig
 
+    # FIX-03: rate-limit per workspace (429 przy zalaniu)
+    _enforce_chat_rate(req.workspace_id)
+
     # ── 1. Dispatch intent ──
     if req.selected_skills:
         category_value = "H"
         persona_value = "H"
-        recommended_model = "claude-3-opus-20240229"
         selected_skills_to_use = req.selected_skills
     else:
         dispatch_result = dispatcher.classify_intent(req.message)
@@ -161,10 +175,13 @@ async def handle_chat(
         persona_value = (
             dispatch_result.persona.value if dispatch_result.persona else "H"
         )
-        recommended_model = dispatch_result.recommended_model
         selected_skills_to_use = (
             [dispatch_result.skill_name.value] if dispatch_result.skill_name else []
         )
+
+    # FIX-03: model wg polityki tierów + degradacja przy niskim budżecie (K4/K5)
+    _skill_for_model = selected_skills_to_use[0] if selected_skills_to_use else None
+    recommended_model = effective_model(_skill_for_model, governor=_token_governor)
 
     # ── 2. Resolve OpenRouter key (Vault → ENV fallback) ──
     vk, _, _ = auth_data
@@ -217,6 +234,10 @@ async def handle_chat(
             red_flags=[],
             recommended_model=recommended_model,
         )
+
+    # FIX-03: cache LLM TYLKO dla skilli read-only (świeżość danych live Odoo)
+    if llm is not None and getattr(skill_config, "read_only", False):
+        llm.cache = get_llm_cache()
 
     # ── 5. Execute (async-safe) ──
     if llm:
@@ -316,6 +337,9 @@ async def run_pipeline(
     from smartmyodoo.swarm.db_manager import OdooDBManager
     from smartmyodoo.swarm.adp import DecisionEngine
     from smartmyodoo.swarm.recon import EnvironmentRecon
+
+    # FIX-03: rate-limit per workspace
+    _enforce_chat_rate(req.workspace_id)
 
     vk, role, pwd = auth_data
 
@@ -433,16 +457,25 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             await websocket.close(code=1008)
             return
 
+        # FIX-03: rate-limit per workspace (WS — ręczny check, bez Depends)
+        if not chat_limiter.allow(f"chat:{workspace_id or 'default'}"):
+            await websocket.send_json(
+                {"type": "error", "content": "Zbyt wiele żądań — spróbuj za chwilę."}
+            )
+            await websocket.close(code=1013)
+            return
+
         # 2. Dispatch
         if selected_skills:
-            recommended_model = "claude-3-opus-20240229"
             selected_skills_to_use = selected_skills
         else:
             dispatch_result = dispatcher.classify_intent(message)
-            recommended_model = dispatch_result.recommended_model
             selected_skills_to_use = (
                 [dispatch_result.skill_name.value] if dispatch_result.skill_name else []
             )
+        # FIX-03: model wg polityki + degradacja budżetu (K4/K5)
+        _skill_for_model = selected_skills_to_use[0] if selected_skills_to_use else None
+        recommended_model = effective_model(_skill_for_model, governor=_token_governor)
 
         # 3. LLM Key
         openrouter_key = None
@@ -499,6 +532,10 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
                 red_flags=[],
                 recommended_model=recommended_model,
             )
+
+        # FIX-03: cache LLM tylko dla skilli read-only
+        if getattr(skill_config, "read_only", False):
+            llm.cache = get_llm_cache()
 
         # Audit
         from smartmyodoo.core.models import AuditLog

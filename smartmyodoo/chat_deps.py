@@ -30,3 +30,38 @@ def get_pii() -> Any:
 
         _pii_singleton = PiiMiddleware()
     return _pii_singleton
+
+
+# FIX-03: współdzielony cache odpowiedzi LLM (S5.1). Redis gdy REDIS_URL, inaczej In-Memory.
+# Wyłączalny: LLM_CACHE=off. UWAGA — wpinać tylko dla skilli read-only (świeżość danych live).
+_llm_cache_singleton: Optional[Any] = None
+_llm_cache_checked = False
+
+
+def get_llm_cache() -> Any:
+    global _llm_cache_singleton, _llm_cache_checked
+    if _llm_cache_checked:
+        return _llm_cache_singleton
+    _llm_cache_checked = True
+    if os.environ.get("LLM_CACHE", "on").lower() in ("off", "0", "false"):
+        _llm_cache_singleton = None
+        return None
+    redis_url = os.environ.get("REDIS_URL")
+    try:
+        if redis_url:
+            import redis  # type: ignore[import-untyped]
+
+            from smartmyodoo.core.llm_cache import RedisLLMCache
+
+            client = redis.Redis.from_url(
+                redis_url, socket_connect_timeout=0.5, socket_timeout=0.5
+            )
+            client.ping()
+            _llm_cache_singleton = RedisLLMCache(client)
+            return _llm_cache_singleton
+    except Exception:  # noqa: BLE001 — brak/awaria Redisa → cache In-Memory
+        pass
+    from smartmyodoo.core.llm_cache import InMemoryLLMCache
+
+    _llm_cache_singleton = InMemoryLLMCache()
+    return _llm_cache_singleton
