@@ -1,29 +1,52 @@
 import xmlrpc.client  # nosec B411
 import os
 import asyncio
-from typing import Any, Optional
+import contextvars
+from typing import Any, Dict, Optional
+
+# KEY-02-3 (ADR-007): poświadczenia Odoo per workspace ze Skarbca, wstrzykiwane na czas
+# obsługi żądania (ContextVar — bezpieczne dla współbieżności, propaguje się do asyncio.to_thread).
+# Format: {workspace_id: {"url","db","username","password"}}. Mają PIERWSZEŃSTWO nad ENV.
+_odoo_creds_ctx: "contextvars.ContextVar[Optional[Dict[str, Dict[str, str]]]]" = (
+    contextvars.ContextVar("odoo_creds", default=None)
+)
+
+
+def set_odoo_creds(creds: Optional[Dict[str, Dict[str, str]]]) -> None:
+    """Ustawia poświadczenia Odoo dla bieżącego żądania (per workspace). None = wyczyść."""
+    _odoo_creds_ctx.set(creds)
 
 
 class OdooClient:
-    """Klient API dla Odoo korzystający z XML-RPC. Inicjalizuje się zmiennymi ze środowiska (SmartMyVault)."""
+    """Klient API dla Odoo (XML-RPC). Poświadczenia: Skarbiec per workspace (ContextVar)
+    z pierwszeństwem, w razie braku — zmienne środowiskowe (tryb `vault run`)."""
 
     def __init__(self, workspace_id: str = "default"):
         self.workspace_id = workspace_id
+
+        ctx = _odoo_creds_ctx.get() or {}
+        c = ctx.get(workspace_id) or ctx.get("default") or {}
+
         prefix = (
             f"PROJECT_HUB_{workspace_id.upper()}_ODOO"
             if workspace_id != "default"
             else "ODOO"
         )
-
-        self.url = os.getenv(f"{prefix}_URL") or os.getenv("ODOO_URL")
-        self.db = os.getenv(f"{prefix}_DB") or os.getenv("ODOO_DB")
+        # Skarbiec (ctx) > ENV
+        self.url = c.get("url") or os.getenv(f"{prefix}_URL") or os.getenv("ODOO_URL")
+        self.db = c.get("db") or os.getenv(f"{prefix}_DB") or os.getenv("ODOO_DB")
         self.username = (
-            os.getenv(f"{prefix}_USERNAME")
+            c.get("username")
+            or os.getenv(f"{prefix}_USERNAME")
             or os.getenv("ODOO_USERNAME")
             or os.getenv(f"{prefix}_LOGIN")
             or os.getenv("ODOO_LOGIN")
         )
-        self.password = os.getenv(f"{prefix}_PASSWORD") or os.getenv("ODOO_PASSWORD")
+        self.password = (
+            c.get("password")
+            or os.getenv(f"{prefix}_PASSWORD")
+            or os.getenv("ODOO_PASSWORD")
+        )
         self.uid: Optional[int] = None
         self.models: Any = None
 
