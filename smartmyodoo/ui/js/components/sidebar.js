@@ -49,6 +49,9 @@ class Sidebar {
         } finally {
             this.isLoading = false;
             this.render();
+            // UX-08 (T2): badge zadania w czacie zależy od danych workspace (project_name/task_name).
+            // Po (prze)ładowaniu listy odśwież czat, by badge pokazał aktualny projekt › zadanie.
+            if (window.AppChat) window.AppChat.render();
         }
     }
 
