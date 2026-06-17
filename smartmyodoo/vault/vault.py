@@ -175,10 +175,23 @@ def import_vault(
     except (InvalidToken, ValueError, json.JSONDecodeError) as e:
         raise VaultDecryptionError(f"Błąd importu (zły PIN lub plik): {e}")
 
-    # Jeśli lokalny skarbiec nie istnieje — zainicjalizuj go tym samym PIN,
-    # by import był w pełni samowystarczalny na nowej maszynie.
+    # Jeśli lokalny skarbiec nie istnieje — zainicjalizuj go na nowej maszynie.
+    # SHARE-02 S2-1 (NO SILENT WEAKENING): brak --master oznaczałby recovery
+    # Master = PIN (niska entropia). To OSŁABIENIE sekretu nie może być ciche —
+    # głośne ostrzeżenie + instrukcja ustawienia silnego Mastera. Z podanym
+    # --master używamy go od razu (silny Master, bez ostrzeżenia).
     if not os.path.exists(VAULT_DATA_FILE):
-        recovery_master = master if master is not None else pin
+        if master is not None:
+            recovery_master = master
+        else:
+            recovery_master = pin
+            _safe_print(
+                "[!] OSTRZEŻENIE: brak Master Password przy imporcie — Master "
+                "ustawiony TYMCZASOWO = PIN (niska entropia, słaba ścieżka "
+                "odzyskiwania).\n"
+                "    Ustaw silny Master Password jak najszybciej (lub powtórz "
+                "import z opcją --master <silne-haslo>)."
+            )
         init_vault_core(pin=pin, master=recovery_master)
 
     vk = _local_vk(pin=pin, master=None)
@@ -440,6 +453,14 @@ def main() -> None:
         "import", help="Importuj zaszyfrowany skarbiec (wymaga tego samego PIN)"
     )
     import_parser.add_argument("file", help="Sciezka pliku eksportu (.enc)")
+    import_parser.add_argument(
+        "--master",
+        default=None,
+        help=(
+            "Silne Master Password dla recovery-init na nowej maszynie. "
+            "Bez tej opcji Master = PIN (niska entropia) — patrz ostrzeżenie."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -470,7 +491,7 @@ def main() -> None:
     elif args.command == "import":
         pin = getpass.getpass("Podaj PIN uzyty przy eksporcie: ")
         try:
-            import_vault(args.file, pin=pin)
+            import_vault(args.file, pin=pin, master=args.master)
         except VaultDecryptionError as e:
             _safe_print(f"[BLAD] Import nieudany: {e}")
             sys.exit(1)

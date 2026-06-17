@@ -342,6 +342,97 @@ def test_seed_cli_subcommand(tmp_path):
 # --- SHARE-01-5: guide + README ---------------------------------------------
 
 
+# --- SHARE-02 S2-3: guard-rail PII przy seed do warstwy __shared__ ----------
+
+
+def test_pii_guard_detects_nip_and_email():
+    """Recognizer (lekki regex, NO NEW DEPS) wykrywa NIP (10 cyfr / z myślnikami)
+    i email; czysty tekst zwraca brak dopasowań."""
+    from smartmyodoo.swarm.brain.seed_knowledge import detect_pii
+
+    assert detect_pii("Kontakt: jan.kowalski@example.com")  # email
+    assert detect_pii("NIP firmy: 1234563218")  # 10 cyfr (poprawna suma kontrolna)
+    assert detect_pii("NIP: 123-456-32-18")  # z myślnikami
+    assert detect_pii("NIP: 123 456 32 18")  # ze spacjami (SHARE-02 follow-up)
+    assert not detect_pii("Lekcja: zawsze parametryzuj zapytania SQL.")  # czysto
+    # nie łapie zwykłej liczby krótszej niż NIP
+    assert not detect_pii("Wersja 12345 wydana w 2026 roku.")
+
+
+def test_pii_guard_no_false_positive_on_plain_numbers():
+    """SHARE-02 follow-up (/qa+/gf-review): suma kontrolna NIP i wykluczenie nazw
+    plików eliminują fałszywe alarmy na danych nie-PII (telefon/timestamp/kwota/asset)."""
+    from smartmyodoo.swarm.brain.seed_knowledge import detect_pii
+
+    # 10-cyfrowe ciągi, które NIE są poprawnym NIP (zła suma kontrolna):
+    assert not detect_pii("Numer telefonu: 5012345678")
+    assert not detect_pii("Timestamp epoch 1700000000")
+    assert not detect_pii("Kwota 1234567890 PLN")
+    assert not detect_pii("ID zamowienia 1000000042")
+    # retina / markdown image refs — to nazwy plików, nie e-mail:
+    assert not detect_pii("Ikona: raport_v2@2x.png")
+    assert not detect_pii("![logo](logo@3x.svg)")
+
+
+def test_pii_guard_on_shared_seed(tmp_path, monkeypatch, capsys):
+    """US-S2-3: chunk z PII (NIP/email) seedowany do warstwy __shared__ →
+    GŁOŚNE ostrzeżenie + POMINIĘCIE; z allow_pii_shared=True → przechodzi;
+    seed PRYWATNY z PII → bez pominięcia (PII prywatne jest OK)."""
+    from smartmyodoo.swarm.brain import seed_knowledge
+    from smartmyodoo.swarm.brain.lancedb_client import LanceDBClient
+
+    docs_dir = tmp_path / "knowledge"
+    docs_dir.mkdir()
+    (docs_dir / "clean.md").write_text("Czysta wiedza zespołu.", encoding="utf-8")
+    (docs_dir / "pii.md").write_text(
+        "Klient Jan, NIP 1234563218, mail jan@example.com", encoding="utf-8"
+    )
+
+    store_path = str(tmp_path / "store")
+    monkeypatch.setattr(
+        seed_knowledge,
+        "LanceDBClient",
+        lambda *a, **k: LanceDBClient(db_path=store_path),
+    )
+
+    # 1) shared bez allow → chunk PII pominięty + głośne ostrzeżenie
+    seed_knowledge.seed_knowledge_base(str(docs_dir), workspace_id=None)
+    out = capsys.readouterr().out.lower()
+    assert "pii" in out and ("pomi" in out or "ostrze" in out)
+
+    client = LanceDBClient(db_path=store_path)
+    if client._table is None:
+        pytest.skip("offline")
+    rows = client._table.to_pandas()
+    sources = set(rows["source"])
+    assert "clean.md" in sources, "Czysty chunk musi trafić do shared"
+    assert "pii.md" not in sources, "Chunk PII NIE może trafić do shared bez zgody"
+
+    # 2) shared z allow_pii_shared=True → chunk PII przechodzi
+    store2 = str(tmp_path / "store2")
+    monkeypatch.setattr(
+        seed_knowledge,
+        "LanceDBClient",
+        lambda *a, **k: LanceDBClient(db_path=store2),
+    )
+    seed_knowledge.seed_knowledge_base(
+        str(docs_dir), workspace_id=None, allow_pii_shared=True
+    )
+    rows2 = LanceDBClient(db_path=store2)._table.to_pandas()
+    assert "pii.md" in set(rows2["source"]), "allow_pii_shared musi wpuścić PII"
+
+    # 3) seed PRYWATNY z PII → bez pominięcia (prywatne PII jest OK)
+    store3 = str(tmp_path / "store3")
+    monkeypatch.setattr(
+        seed_knowledge,
+        "LanceDBClient",
+        lambda *a, **k: LanceDBClient(db_path=store3),
+    )
+    seed_knowledge.seed_knowledge_base(str(docs_dir), workspace_id="client_x")
+    rows3 = LanceDBClient(db_path=store3)._table.to_pandas()
+    assert "pii.md" in set(rows3["source"]), "Prywatne PII nie może być pomijane"
+
+
 def test_guide_exists_and_readme_links():
     """US-SHARE-3: guide istnieje, README linkuje, brak instrukcji kopiowania .enc."""
     guide = REPO_ROOT / "docs" / "guides" / "sharing_knowledge_and_secrets.md"

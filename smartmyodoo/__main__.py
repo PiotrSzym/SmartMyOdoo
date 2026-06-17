@@ -17,6 +17,7 @@ def _run_seed(args) -> None:
 
     private = getattr(args, "private", None)
     seed_workspace = getattr(args, "seed_workspace", None)
+    allow_pii_shared = getattr(args, "allow_pii_shared", False)
 
     if private:
         if not seed_workspace:
@@ -26,11 +27,15 @@ def _run_seed(args) -> None:
 
     shared = getattr(args, "shared", None)
     if shared:
-        seed_knowledge_base(shared, workspace_id=None)
+        seed_knowledge_base(
+            shared, workspace_id=None, allow_pii_shared=allow_pii_shared
+        )
 
     if not shared and not private:
         # Domyślnie: współdzielona wiedza z wersjonowanego folderu knowledge/.
-        seed_knowledge_base("knowledge", workspace_id=None)
+        seed_knowledge_base(
+            "knowledge", workspace_id=None, allow_pii_shared=allow_pii_shared
+        )
 
 
 def main():
@@ -62,6 +67,15 @@ def main():
         type=str,
         default=None,
         help="ID workspace dla warstwy prywatnej (--private)",
+    )
+    seed_parser.add_argument(
+        "--allow-pii-shared",
+        dest="allow_pii_shared",
+        action="store_true",
+        help=(
+            "Wymuś seed chunków wyglądających na PII (NIP/email) do warstwy "
+            "__shared__ (domyślnie są pomijane z ostrzeżeniem)."
+        ),
     )
 
     # CLI arguments (backward compatibility without 'cli' subcommand)

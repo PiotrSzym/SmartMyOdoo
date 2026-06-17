@@ -132,3 +132,74 @@ def test_import_no_crash_on_windows_console(isolated_vault, tmp_path, monkeypatc
     stream.flush()
     vk = vault.get_vault_key_from_pin("1234", exit_on_fail=False)
     assert vault.load_vault(vk)["ODOO"]["password"] == "supersecret"
+
+
+# --- SHARE-02 S2-1: NO SILENT WEAKENING (recovery-init Master=PIN) -----------
+
+
+def _fresh_vault_module(tmp_path):
+    """Świeży, NIEzainicjalizowany vault w izolowanym katalogu (czysta maszyna)."""
+    import importlib
+
+    import smartmyodoo.vault.vault as v2
+
+    v2 = importlib.reload(v2)
+    target = tmp_path / "fresh"
+    target.mkdir()
+    v2.VAULT_DIR = str(target)
+    v2.PIN_SALT_FILE = str(target / "pin_salt.cfg")
+    v2.MASTER_SALT_FILE = str(target / "master_salt.cfg")
+    v2.PIN_KEY_FILE = str(target / "pin_key.enc")
+    v2.MASTER_KEY_FILE = str(target / "master_key.enc")
+    v2.VAULT_DATA_FILE = str(target / "vault_data.enc")
+    return v2
+
+
+def test_import_warns_on_master_equals_pin(isolated_vault, tmp_path, capsys):
+    """US-S2-1: import na czystej maszynie BEZ --master nie może po cichu ustawić
+    Master=PIN (niska entropia). Musi paść GŁOŚNE ostrzeżenie + ścieżka naprawy.
+    Import nadal przechodzi (nie blokujemy migracji)."""
+    vault = isolated_vault
+    _store_secret(vault, "1234", "ODOO", "supersecret")
+    export_path = tmp_path / "vault_backup.enc"
+    vault.export_vault(str(export_path), pin="1234")
+    capsys.readouterr()  # wyczyść bufor po eksporcie
+
+    v2 = _fresh_vault_module(tmp_path)
+    v2.import_vault(str(export_path), pin="1234")  # brak master → recovery Master=PIN
+
+    out = capsys.readouterr().out.lower()
+    # głośne ostrzeżenie o niskiej entropii Mastera = PIN
+    assert "master" in out and "pin" in out
+    assert "entrop" in out or "slab" in out or "słab" in out or "niska" in out
+
+    # import nadal działa: dane odtworzone
+    vk = v2.get_vault_key_from_pin("1234", exit_on_fail=False)
+    assert v2.load_vault(vk)["ODOO"]["password"] == "supersecret"
+
+
+def test_import_with_explicit_master(isolated_vault, tmp_path, capsys):
+    """US-S2-2: import z silnym --master → recovery-init używa podanego Mastera
+    (NIE PIN-u). Brak ostrzeżenia o niskiej entropii. Master działa po imporcie."""
+    vault = isolated_vault
+    _store_secret(vault, "1234", "ODOO", "supersecret")
+    export_path = tmp_path / "vault_backup.enc"
+    vault.export_vault(str(export_path), pin="1234")
+    capsys.readouterr()
+
+    strong_master = "S1lne-Master-Passw0rd!"
+    v2 = _fresh_vault_module(tmp_path)
+    v2.import_vault(str(export_path), pin="1234", master=strong_master)
+
+    # Master odtwarza klucz vaulta (recovery-init użył silnego Mastera, nie PIN)
+    vk = v2.get_vault_key_from_master(strong_master, exit_on_fail=False)
+    assert v2.load_vault(vk)["ODOO"]["password"] == "supersecret"
+
+    # PIN nie może odblokowywać przez Master (Master != PIN)
+    with pytest.raises(ValueError):
+        v2.get_vault_key_from_master("1234", exit_on_fail=False)
+
+    out = capsys.readouterr().out.lower()
+    assert (
+        "niska" not in out and "entrop" not in out
+    ), "Z silnym Masterem ostrzeżenie o niskiej entropii NIE powinno się pojawić"
