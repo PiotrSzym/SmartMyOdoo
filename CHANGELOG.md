@@ -2,6 +2,20 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w `docs/sprints/`.
 
+## [SHARE-02] — 2026-06-17 — Hardening / domknięcie follow-upów
+
+> Plan: [`docs/sprints/2026-06-17_SPRINT-SHARE-02_hardening_followup.md`](docs/sprints/2026-06-17_SPRINT-SHARE-02_hardening_followup.md).
+> Domyka 3 findings Low /sec ze SHARE-01 + pre-existing czerwony test. Suita: **314 passed / 0 failed**.
+
+### Security
+- **Vault import — koniec cichego osłabienia Mastera:** bez `--master` recovery-init nadal działa (migracja niezablokowana), ale z **głośnym ostrzeżeniem** o niskiej entropii (`Master=PIN`) + instrukcją naprawy. [S2-1]
+- **CLI `vault import --master`** — podaj silny Master od razu (recovery-init używa go zamiast PIN). [S2-2]
+- **Guard-rail PII przy `seed --shared`** — `detect_pii` (stdlib `re`, **NO NEW DEPS**) z **walidacją sumy kontrolnej NIP** + email (pomija nazwy plików `@2x.png`); chunk z PII pomijany w warstwie `__shared__` z ostrzeżeniem, override `--allow-pii-shared`; warstwa prywatna nietknięta. [S2-3]
+
+### Fixed
+- **`test_mcp_pii_integration_roundtrip` zielony** — niekompletny mock (`search_count` zwracał MagicMock → `TypeError` w `int < total`); fix w teście, kod produkcyjny `mcp/server.py` nietknięty. Suita: 1 failed → **0 failed**. [S2-4]
+- **Mniej fałszywych alarmów guarda PII** — checksum NIP odsiewa telefon/timestamp/kwotę; NIP ze spacjami teraz łapany. [follow-up /qa+/gf-review]
+
 ## [SHARE-01] — 2026-06-16 — Współdzielenie wiedzy + secrets-stay-local
 
 > Plan: [`docs/sprints/2026-06-16_SPRINT-SHARE-01_wiedza_i_vault_sharing.md`](docs/sprints/2026-06-16_SPRINT-SHARE-01_wiedza_i_vault_sharing.md).

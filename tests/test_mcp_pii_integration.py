@@ -13,6 +13,11 @@ def test_mcp_pii_integration_roundtrip(mock_create_proposal, mock_get_client):
     mock_client.search_read.return_value = [
         {"id": 1, "name": "Jan Kowalski", "vat": "1234563218"}
     ]
+    # S2-4 root-cause fix: server.py liczy `total = search_count(...)` i porównuje
+    # `len(embed) < total`. Bez tej linii mock zwracał MagicMock → `int < MagicMock`
+    # rzucało TypeError, łapany w server.py:192 → {"error":...} → 0 rekordów.
+    # search_count w produkcji zwraca int; mock musi to odwzorować.
+    mock_client.search_count.return_value = 1
     mock_get_client.return_value = mock_client
 
     # 1. Search - powinno zanonimizować dane wychodzące do agenta
