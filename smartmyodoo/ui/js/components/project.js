@@ -11,6 +11,11 @@ function escapeHtml(s) {
     return div.innerHTML;
 }
 
+// Escape do KONTEKSTU ATRYBUTU (dodatkowo koduje `"`) — bezpieczne `data-*`.
+function escapeAttr(s) {
+    return escapeHtml(s).replace(/"/g, '&quot;');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     if (window.AppStore) {
         window.AppStore.subscribe((newState, oldState) => {
@@ -185,11 +190,12 @@ function renderProjectList(projects, filterQuery = '') {
         return;
     }
 
+    // XSS-safe: data-* + delegacja (dataset = zdekodowany string), bez interpolacji nazwy do onclick.
     listEl.innerHTML = filtered.map(p => {
         const safeName = escapeHtml(p.name);
         const safeId = escapeHtml(String(p.id));
         return `
-            <button onclick="selectProject('${safeId}', '${safeName.replace(/'/g, "\\\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-indigo-900/40 border border-slate-700 hover:border-indigo-500 p-4 rounded-lg transition group">
+            <button data-project-id="${safeId}" data-project-name="${escapeAttr(p.name)}" class="w-full flex justify-between items-center bg-slate-800 hover:bg-indigo-900/40 border border-slate-700 hover:border-indigo-500 p-4 rounded-lg transition group">
                 <div class="text-left flex items-center gap-3">
                     <span class="text-2xl">📁</span>
                     <div>
@@ -201,6 +207,10 @@ function renderProjectList(projects, filterQuery = '') {
             </button>
         `;
     }).join('');
+    listEl.onclick = (e) => {
+        const btn = e.target.closest('button[data-project-id]');
+        if (btn) selectProject(btn.dataset.projectId, btn.dataset.projectName || '');
+    };
 }
 
 function filterProjectList() {
@@ -243,25 +253,17 @@ async function bindProjectToWorkspace(projectId, projectName) {
 }
 
 async function loadProjectTasks(projectId) {
-    const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
     const listEl = document.getElementById('proj-task-list');
-
     listEl.innerHTML = '<div class="text-center py-4 text-slate-500 animate-pulse">Ładowanie zadań...</div>';
 
+    // UX-08 (T3, DRY): pobranie zadań deleguje do wspólnego TaskPickera (nie duplikujemy fetcha).
     try {
-        const res = await fetch(`/api/workspaces/${wsId}/projects/${projectId}/tasks`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+        await window.AppTaskPicker.loadTasks(projectId, (tasks) => {
+            window._currentProjectTasks = tasks;
+            renderTaskList(tasks);
         });
-
-        if (res.ok) {
-            window._currentProjectTasks = await res.json();
-            renderTaskList(window._currentProjectTasks);
-        } else {
-            listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errTasks') : 'Błąd ładowania zadań.'}</div>`;
-        }
     } catch (e) {
-        listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errConn2') : 'Błąd połączenia.'}</div>`;
+        listEl.innerHTML = `<div class="text-center py-4 text-red-400">${window.t ? window.t('project.errTasks') : 'Błąd ładowania zadań.'}</div>`;
     }
 }
 
@@ -287,12 +289,13 @@ function renderTaskList(tasks, filterQuery = '') {
         return 0;
     });
 
+    // XSS-safe: data-* + delegacja (dataset = zdekodowany string), bez interpolacji nazwy do onclick.
     listEl.innerHTML = filtered.map(t => {
         const isAutoLog = t.name.includes('[SmartMyOdoo]');
         const safeName = escapeHtml(t.name);
         const safeId = escapeHtml(String(t.id));
         return `
-            <button onclick="bindTaskFromPicker('${safeId}', '${safeName.replace(/'/g, "\\\\'")}')" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
+            <button data-task-id="${safeId}" data-task-name="${escapeAttr(t.name)}" class="w-full flex justify-between items-center bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-lg transition group">
                 <div class="text-left">
                     <div class="font-medium ${isAutoLog ? 'text-indigo-400' : 'text-white'} group-hover:text-indigo-300 transition flex items-center gap-2">
                         ${isAutoLog ? '🤖' : '📋'} ${safeName}
@@ -302,6 +305,10 @@ function renderTaskList(tasks, filterQuery = '') {
             </button>
         `;
     }).join('');
+    listEl.onclick = (e) => {
+        const btn = e.target.closest('button[data-task-id]');
+        if (btn) bindTaskFromPicker(btn.dataset.taskId, btn.dataset.taskName || '');
+    };
 }
 
 function filterProjectTasks() {
@@ -310,31 +317,11 @@ function filterProjectTasks() {
 }
 
 async function bindTaskFromPicker(taskId, taskName) {
-    const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
-
-    const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
-    const ws = workspaces.find(w => w.id === wsId);
-
+    // UX-08 (T3, DRY): zapis bindu deleguje do wspólnego TaskPickera.
+    // Picker odświeża sidebar (SSoT) i re-renderuje czat (badge); tu dorzucamy re-render zakładki Projekt.
     try {
-        const res = await fetch(`/api/workspaces/${wsId}/task_bind`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                project_ref: ws.project_ref,
-                project_name: ws.project_name,
-                task_ref: String(taskId),
-                task_name: taskName
-            })
-        });
-
-        if (res.ok) {
-            window.AppSidebar && await window.AppSidebar.loadFromAPI();
-            renderProjectTab();
-        }
+        await window.AppTaskPicker.bind(taskId, taskName);
+        renderProjectTab();
     } catch (e) {
         console.error(e);
     }

@@ -2,6 +2,25 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/). Daty ISO. Szczegóły w `docs/sprints/`.
 
+## [UX-08] — 2026-06-17 — Stan workspace + zadanie w nagłówku czatu
+
+> Plan: [`docs/sprints/2026-06-17_SPRINT-UX-08_workspace_state_task_binding.md`](docs/sprints/2026-06-17_SPRINT-UX-08_workspace_state_task_binding.md) · Recon: SPIKE-001 · ADR-006. Suita: **315 passed / 0 failed**.
+
+### Fixed
+- **Workspace nie gubi się po odświeżeniu** — `Store` persystuje nie-wrażliwy stan UI (`workspaceId`/`activeTab`/`lang`) w `localStorage` (whitelist; token NIGDY nie persystowany). Root-cause: `new Store()` startował zawsze od `default`. [T1]
+- **Cache-bust `store.js`** — plik z poprawką persystencji nie miał `?v=` w `index.html`, więc przeglądarka serwowała stary cache (poprawka „niewidzialna"). Zbumpowano wszystkie zmienione JS.
+
+### Added
+- **Badge zadania w nagłówku czatu** — `📋 Projekt › Zadanie` (dokąd logują się godziny) + przycisk „Zmień" otwierający Task Picker bez wchodzenia w zakładkę Projekt. [T2, T3]
+- **Wspólny `taskPicker.js`** (DRY) — wyekstrahowany ze `project.js`, używany przez czat i zakładkę Projekt (PUT `/task_bind`).
+
+### Security
+- **Naprawiono stored-XSS** w Task Pickerze: nazwa zadania/projektu z Odoo trafiała do atrybutu `onclick` (breakout na `"`). Przejście na **event delegation + `data-*`** (`taskPicker.js` + `project.js`) — `dataset` zwraca czysty string, klasa XSS wyeliminowana. [/sec finding]
+
+### Follow-up (osobne sprinty)
+- **UX-09:** helpdesk task source (`project_task | helpdesk_ticket`, capability-check, Enterprise potwierdzony).
+- Sprzątanie: martwy `task-search-modal`/`bindTask()` w `index.html`; ujednolicenie PIN w fixtures; auto-cache-bust JS.
+
 ## [SHARE-02] — 2026-06-17 — Hardening / domknięcie follow-upów
 
 > Plan: [`docs/sprints/2026-06-17_SPRINT-SHARE-02_hardening_followup.md`](docs/sprints/2026-06-17_SPRINT-SHARE-02_hardening_followup.md).

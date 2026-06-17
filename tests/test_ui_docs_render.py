@@ -60,7 +60,7 @@ async def test_docs_tab_renders_content():
 
     assert not page_errors, f"błędy JS na stronie: {page_errors[:3]}"
     assert info["hidden"] is False, "ekran dokumentacji pozostał ukryty po kliknięciu"
-    assert info["sidebar"] == 8, f"oczekiwano 8 sekcji w menu, jest {info['sidebar']}"
+    assert info["sidebar"] == 9, f"oczekiwano 9 sekcji w menu, jest {info['sidebar']}"
     assert info["hasSearch"], "brak pola wyszukiwarki"
     assert (
         info["textLen"] > 100

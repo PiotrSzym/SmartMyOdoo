@@ -78,6 +78,16 @@ class ChatPanel {
         }
     }
 
+    /**
+     * UX-08 (T3): Otwiera wspólny Task Picker z nagłówka czatu (bez wchodzenia w zakładkę Projekt).
+     * Po zapisaniu wyboru picker odświeża sidebar i re-renderuje czat (badge).
+     */
+    openTaskChange() {
+        if (window.AppTaskPicker) {
+            window.AppTaskPicker.open(() => this.render());
+        }
+    }
+
     startNewSession() {
         this.sessionId = `hub-${Date.now()}`;
         this.messages = [];
@@ -92,6 +102,45 @@ class ChatPanel {
             if (ws) return ws.name;
         }
         return id;
+    }
+
+    /**
+     * UX-08 (T2): Zwraca aktywny workspace (z SSoT sidebaru) dla badge zadania.
+     * @returns {Object|null}
+     */
+    getActiveWorkspace() {
+        const id = AppStore.getState().workspaceId;
+        if (window.AppSidebar && window.AppSidebar.workspaces) {
+            return window.AppSidebar.workspaces.find(w => w.id === id) || null;
+        }
+        return null;
+    }
+
+    /**
+     * UX-08 (T2): Renderuje badge „📋 {projekt} › {zadanie}" w nagłówku czatu.
+     * Pokazuje gdzie logują się godziny. Brak zadania → „Brak zadania".
+     * Nazwy z Odoo są escape'owane (XSS) przez _escapeHtml.
+     */
+    _renderTaskBadge() {
+        const ws = this.getActiveWorkspace();
+        const noTaskLabel = window.t ? window.t('chat.noTask') : 'Brak zadania';
+
+        let inner;
+        if (ws && ws.task_ref && ws.task_name) {
+            const proj = this._escapeHtml(ws.project_name || (window.t ? window.t('chat.noProject') : 'Projekt'));
+            const task = this._escapeHtml(ws.task_name);
+            inner = `<span class="text-slate-400">${proj}</span> <span class="text-slate-600">›</span> <span class="text-indigo-300 font-medium">${task}</span>`;
+        } else {
+            inner = `<span class="text-slate-500">${this._escapeHtml(noTaskLabel)}</span>`;
+        }
+
+        return `
+            <div id="chat-task-badge" class="flex items-center gap-2 text-xs bg-slate-800/60 border border-slate-700/60 rounded-full px-3 py-1">
+                <span title="Zadanie, do którego logują się godziny">📋</span>
+                ${inner}
+                <button id="chat-task-change-btn" onclick="window.AppChat.openTaskChange()" class="ml-1 text-[11px] text-indigo-400 hover:text-indigo-300 transition border-l border-slate-700/60 pl-2" title="Zmień zadanie bez wchodzenia w zakładkę Projekt">${window.t ? window.t('chat.changeTask') : 'Zmień'}</button>
+            </div>
+        `;
     }
 
     render() {
@@ -158,10 +207,11 @@ class ChatPanel {
                 <!-- Chat Header -->
                 <div class="h-16 border-b border-slate-800 bg-slate-900/50 flex items-center px-6 gap-3 shrink-0">
                     <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-indigo-500/20">AI</div>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <h3 class="text-sm font-semibold text-white">Agent Swarm</h3>
-                        <p class="text-xs text-slate-500">Przestrzeń: <span class="text-indigo-400">${workspaceName}</span> | <span class="opacity-50">Sesja: ${this.sessionId.slice(0, 10)}...</span></p>
+                        <p class="text-xs text-slate-500">Przestrzeń: <span class="text-indigo-400">${this._escapeHtml(workspaceName)}</span> | <span class="opacity-50">Sesja: ${this.sessionId.slice(0, 10)}...</span></p>
                     </div>
+                    ${this._renderTaskBadge()}
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
                         <span class="text-xs text-emerald-400">Online</span>
