@@ -171,6 +171,9 @@
 >
 > **Sprint HOTFIX-S1.1 (Skill Badges in Chat):** `docs/sprints/HOTFIX-S1.1_skill_panel_chat.md`
 > **Zrealizowano (HOTFIX-S1.1):** Pełna integracja UI, dwukierunkowa synchronizacja wybranych skilli między panelem "Skille" a zakładką "Czat", dodanie renderowania odznak (badges) wybranych ról tuż nad polem wprowadzania tekstu.
+>
+> **Sprint DOCKER-01 (Konteneryzacja):** `docs/sprints/2026-06-20_SPRINT-DOCKER-01_containerization.md` ✅
+> **Zrealizowano (DOCKER-01):** Przenośny artefakt lokalny — `docker compose up` stawia appkę (FastAPI+UI :8000) bez ręcznego venv. Multi-stage Dockerfile (`python:3.12-slim`, non-root, healthcheck, model spaCy, `constraints.txt` pin ML), serwis `app` w compose, stan (vault/DB) na wolumenie `app-data` (ENV `VAULT_DIR`), zero sekretów w obrazie (`.dockerignore` `**/*.enc`). Bramki: /qa PASS (pytest 297/0, compose+persystencja), /sec PASS (6/6), /gf-review APPROVE. Zgodne z ADR-008 (Local-Only — NIE otwiera multi-tenant/cloud).
 
 ### 7.1 Pipeline Integration
 - Podłączenie Tool Engine do pełnego `pipeline.py` FSM (AUTH→RECON→COGNITIVE→ACTUATION→SYNC).

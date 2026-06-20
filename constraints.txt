@@ -1,0 +1,14 @@
+# DOCKER-01 / T3 — constraints budowy obrazu.
+#
+# Powód: `pip install --pre` (potrzebny, bo markitdown[all] ciąga azure-* beta)
+# globalnie dopuszczał prerelease RÓWNIEŻ dla stosu ML → wciągał numpy 2.5.0rc1 +
+# spacy 4.0.0.dev3 + thinc 9.0.0, które są ABI-niekompatybilne i model
+# pl_core_news_md-3.8.0 ich nie wspiera (build "zielony", ale spacy.load() crashuje:
+# "numpy.dtype size changed ... Expected 96 ... got 88").
+#
+# Constraints przypinają stos ML do wersji STABILNYCH (zgodnych z działającym
+# lokalnie .venv-qa), a `--pre` nadal pozwala azure-* (markitdown) zejść na beta.
+# Wersje dobrane 1:1 ze sprawdzonego środowiska .venv-qa.
+numpy==2.4.6
+spacy==3.8.13
+thinc==8.3.13

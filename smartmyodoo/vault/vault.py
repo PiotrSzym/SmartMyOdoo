@@ -11,7 +11,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from typing import Optional, Tuple, List
 
-VAULT_DIR = os.path.dirname(os.path.abspath(__file__))
+# DOCKER-01 / D2: katalog vaultu przekierowywalny przez ENV `VAULT_DIR`.
+# Powód: w kontenerze mount wolumenu wprost na `smartmyodoo/vault/` przykryłby ten
+# plik (vault.py). Zewnętrzny katalog (np. /data/vault) trzyma stan na wolumenie.
+# Bez ENV zachowanie identyczne jak dotąd: katalog tego modułu.
+VAULT_DIR = os.environ.get("VAULT_DIR", os.path.dirname(os.path.abspath(__file__)))
 PIN_SALT_FILE = os.path.join(VAULT_DIR, "pin_salt.cfg")
 MASTER_SALT_FILE = os.path.join(VAULT_DIR, "master_salt.cfg")
 PIN_KEY_FILE = os.path.join(VAULT_DIR, "pin_key.enc")
