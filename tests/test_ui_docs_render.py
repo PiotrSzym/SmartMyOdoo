@@ -18,9 +18,15 @@ def _server_up(port: int = 8000) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-pytestmark = pytest.mark.skipif(
-    not _server_up(), reason="serwer :8000 nieaktywny — test renderu UI pominięty"
-)
+# Test przeglądarkowy (Playwright + żywy serwer) — należy do suity e2e, więc domyślnie
+# wykluczony przez `addopts = -m 'not e2e'` (uruchamiaj jawnie: `pytest -m e2e`). Bez tego
+# konkurował o zasoby w pełnej suicie i migotał. Skip dodatkowo, gdy serwer :8000 nieaktywny.
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(
+        not _server_up(), reason="serwer :8000 nieaktywny — test renderu UI pominięty"
+    ),
+]
 
 
 @pytest.mark.asyncio
@@ -36,7 +42,11 @@ async def test_docs_tab_renders_content():
         page_errors: list = []
         page.on("pageerror", lambda e: page_errors.append(str(e)))
         try:
-            await page.goto("http://127.0.0.1:8000/", wait_until="networkidle")
+            # `load` zamiast `networkidle`: ten ostatni czeka na ciszę sieci, której
+            # zewnętrzne CDN (Tailwind/Fonts/lucide) potrafią nie osiągnąć w 30s → flaky timeout.
+            # Po `load` czekamy jawnie aż UI zdecyduje o ekranie (login albo dashboard).
+            await page.goto("http://127.0.0.1:8000/", wait_until="load")
+            await page.wait_for_selector("#auth-password, #tab-docs", timeout=15000)
             # login PIN 1111 (jeśli ekran logowania)
             if await page.locator("#auth-password").count():
                 await page.fill("#auth-password", "1111")

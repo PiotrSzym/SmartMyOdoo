@@ -1,0 +1,30 @@
+# Normalizacja końców linii — koniec churnu CRLF/LF wprowadzanego przez edytory na WSL/Windows.
+# Wszystkie pliki tekstowe trzymamy z LF w repo (eol=lf), niezależnie od systemu.
+* text=auto eol=lf
+
+# Skrypty / pliki wykonywalne zawsze LF
+*.sh   text eol=lf
+*.py   text eol=lf
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.txt  text eol=lf
+
+# Pliki binarne — bez jakiejkolwiek konwersji
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.svg  binary
+*.pdf  binary
+*.db   binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary

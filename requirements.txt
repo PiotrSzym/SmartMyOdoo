@@ -4,13 +4,24 @@ uvicorn>=0.32.0
 pydantic>=2.10.0
 httpx>=0.28.0
 pytest-asyncio>=0.24.0
+# pytest-mock — fixture `mocker` używany w tests/test_api.py i tests/test_cli_thin.py.
+pytest-mock>=3.12.0
 presidio-analyzer>=2.2.0
 presidio-anonymizer>=2.2.0
 spacy>=3.7.0
 rich>=13.0
 prompt_toolkit>=3.0
+# pyperclip — kopiowanie sekretów do schowka w CLI (smartmyodoo/vault/vault.py). Runtime dep.
+pyperclip>=1.8.0
 litellm>=1.40
 websockets>=12.0
 redis>=5.0.0
 markitdown[all]>=0.1.6
 fakeredis[lua]>=2.20.0
+# MCP SDK — wymagany przez smartmyodoo/mcp/server.py (from mcp.server.fastmcp import FastMCP)
+# oraz pośrednio przez swarm/tools.py (rejestr narzędzi czatu). Bez niego /api/chat → 500.
+mcp>=1.0.0
+# Model NLP (PL) wymagany przez PII middleware (security/pii/recognizers.py: pl_core_news_md).
+# spaCy nie publikuje modeli na PyPI — instalujemy z release wheel (zgodny ze spacy 3.8.x).
+# Bez modelu presidio próbuje go pobrać przez pip w runtime → /api/chat → 500.
+pl_core_news_md @ https://github.com/explosion/spacy-models/releases/download/pl_core_news_md-3.8.0/pl_core_news_md-3.8.0-py3-none-any.whl

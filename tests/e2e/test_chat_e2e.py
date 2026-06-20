@@ -51,8 +51,10 @@ def test_chat_layout_and_interaction(page: Page):
     page.keyboard.press("Enter")
 
     # 5. Oczekiwanie na bąbelek z odpowiedzią Agenta.
-    # Czekamy aż zniknie wskaźnik ładowania
-    expect(page.locator("text='Agent myśli...'")).to_be_hidden(timeout=10000)
+    # Czekamy aż zniknie wskaźnik ładowania.
+    # Timeout 25s (nie 10s): to realne wywołanie LLM (LiteLLM→OpenRouter) — round-trip
+    # ~5s + cold-start chromium/serwera na /mnt/c (WSL2). 10s bywało za ciasne (flake /qa).
+    expect(page.locator("text='Agent myśli...'")).to_be_hidden(timeout=25000)
 
     # Używamy selektora pasującego do renderowania z chat.js (klasa dla dymków AI)
     agent_message = page.locator(

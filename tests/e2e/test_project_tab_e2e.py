@@ -1,46 +1,58 @@
+"""E2E: zakładka Projekt renderuje DOKŁADNIE jeden ze stanów (1/2/3).
+
+Test był wcześniej brittle: twardo zakładał STAN 1 (formularz credentials), bo
+„po świeżym zalogowaniu workspace ma project_ref=''". To założenie zależy od stanu
+dev-vaultu:
+  - gdy workspace jest związany z projektem (project_ref!='') → renderProjectTab() pokazuje STAN 3,
+  - gdy istnieje globalny sekret `default_ODOO` → STAN 2 (wybór projektu),
+  - dopiero brak project_ref ORAZ brak default_ODOO → STAN 1.
+W realnym dev-vaultcie (`default` związany z projektem 42, sekret `default_ODOO` istnieje)
+żaden workspace nie pokazuje STANU 1 — stąd fałszywy fail (zdiagnozowane przez /qa UX-10).
+
+Naprawa: zamiast zakładać KTÓRY stan, weryfikujemy INWARIANT renderu (showState, project.js:45):
+po wejściu na Skarbiec wyrenderowany jest DOKŁADNIE jeden `#project-state-*` (klasa `flex`),
+a pozostałe są ukryte. To pokrywa istotę „wielostanowej zakładki Projekt" niezależnie od danych
+i jest spójne ze wzorcem dowodowym z testów UX-10 (marker `flex` = render JS, nie statyczny DOM).
+"""
+
 from playwright.sync_api import Page, expect
 
-BASE_URL = "http://127.0.0.1:8000"
+from .conftest import login_to_dashboard
 
 
-def test_project_tab_dual_state(page: Page):
-    """
-    Weryfikuje dwustanowy widok zakładki Projekt.
-    """
-    page.goto(BASE_URL)
+def test_project_tab_renders_exactly_one_state(page: Page):
+    """Skarbiec po loginie renderuje dokładnie jeden ze stanów 1/2/3 (inwariant showState)."""
+    login_to_dashboard(page)
 
-    # Inicjalizacja/logowanie
-    if page.locator("#init-master").is_visible():
-        page.locator("#init-master").fill("testmaster")
-        page.locator("#init-pin").fill("1234")
-        page.locator("button:has-text('Stwórz Skarbiec')").click()
-        expect(page.locator("#init-screen")).to_be_hidden(timeout=5000)
-
-    if page.locator("#auth-password").is_visible():
-        page.locator("#auth-password").fill("1234")
-        page.locator("button:has-text('Odblokuj')").click()
-        expect(page.locator("#login-screen")).to_be_hidden(timeout=5000)
-
-    if page.locator("#pin-modal").is_visible():
-        page.locator("#pin-modal button", has_text="✕").click()
-        expect(page.locator("#pin-modal")).to_be_hidden()
-
-    # Kliknięcie w zakładkę Projekt
+    # Wejście na zakładkę Skarbiec/Projekt.
     page.locator("#tab-settings").click()
+    expect(page.locator("#settings-screen")).to_be_visible(timeout=5000)
 
-    # Weryfikacja że jesteśmy w settings
-    settings_screen = page.locator("#settings-screen")
-    expect(settings_screen).to_be_visible(timeout=5000)
+    # MOC DOWODOWA (jak w UX-10): klasa `flex` pojawia się WYŁĄCZNIE przez showState() —
+    # statyczny `block`/`hidden` w HTML się nie liczy. Czekamy aż render JS odpali.
+    page.wait_for_function(
+        "() => [1,2,3].some(n => {"
+        "  const el = document.getElementById('project-state-' + n);"
+        "  return el && el.classList.contains('flex');"
+        "})",
+        timeout=12000,
+    )
 
-    # Ponieważ po świeżym zalogowaniu workspace ma project_ref="",
-    # powinien pojawić się formularz Credentials (STAN 1)
-    state1 = page.locator("#project-state-1")
-    expect(state1).to_be_visible()
+    # Inwariant showState: DOKŁADNIE jeden stan wyrenderowany (flex), pozostałe ukryte.
+    rendered = page.evaluate(
+        "() => [1,2,3].filter(n => {"
+        "  const el = document.getElementById('project-state-' + n);"
+        "  return el && el.classList.contains('flex');"
+        "})"
+    )
+    assert len(rendered) == 1, (
+        f"Zakładka Projekt powinna pokazać DOKŁADNIE jeden stan (flex), pokazała: {rendered} "
+        f"— złamany inwariant showState() (project.js:45)"
+    )
 
-    # I STAN 2 powinien być ukryty
-    state2 = page.locator("#project-state-2")
-    expect(state2).to_be_hidden()
-
-    # Formularz powinien mieć pole na bazę danych (D3)
-    db_input = page.locator("#proj-db")
-    expect(db_input).to_be_visible()
+    active = rendered[0]
+    for n in (1, 2, 3):
+        if n == active:
+            expect(page.locator(f"#project-state-{n}")).to_be_visible()
+        else:
+            expect(page.locator(f"#project-state-{n}")).to_be_hidden()
