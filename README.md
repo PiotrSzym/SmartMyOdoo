@@ -24,6 +24,44 @@ SmartMyOdoo to inteligentny asystent AI do zarządzania, automatyzacji i audytow
 
 ---
 
+## 🐳 Uruchomienie w Dockerze
+
+Najprostsza, powtarzalna droga — bez ręcznego stawiania venv, ciężkich zależności ML
+i modelu spaCy. Wszystko jedzie w obrazie; stan (vault, baza, logi) żyje na wolumenach.
+
+**Prerekwizyty:** zainstalowany Docker + Docker Compose v2 (`docker compose version`).
+
+```bash
+# 1. Skonfiguruj sekrety (plik .env jest gitignored i NIE trafia do obrazu)
+cp .env.example .env
+#    → otwórz .env i wpisz OPENROUTER_KEY=...   (wymagane do czatu/LLM)
+
+# 2. Zbuduj i uruchom (pierwszy build jest cięższy: deps ML + model spaCy, obraz ~1.5 GB)
+docker compose up --build
+
+# 3. Otwórz UI
+#    http://127.0.0.1:8000
+```
+
+**Pierwsze uruchomienie (FIRST-RUN — utworzenie sejfu):**
+Aplikacja startuje BEZ vaultu. Wejdź na `http://127.0.0.1:8000` → pojawi się ekran
+inicjalizacji → utwórz **hasło master** + **PIN**. Sejf zostanie zapisany na wolumenie
+`app-data` (`/data/vault`) — przeżyje restart kontenera. (Vault NIE jest tworzony przez
+zmienne środowiskowe — wyłącznie przez ekran init w UI / `POST /api/init`.)
+
+**Persystencja:** vault i baza SQLite leżą na nazwanym wolumenie `app-data` (`/data`).
+`docker compose restart app` lub `down` + `up` zachowują dane. Pełne wyczyszczenie:
+`docker compose down -v` (UWAGA: kasuje wolumeny = utrata vaultu i bazy).
+
+> ⚠️ **ADR-008 (Local-Only):** obraz oraz wolumeny mogą zawierać Twoje dane (po init).
+> **NIGDY nie pushuj zbudowanego obrazu z danymi ani wolumenu `app-data` do publicznego
+> registry.** Dystrybuujesz wyłącznie kod/Dockerfile — odbiorca robi własny `init`.
+
+Pełny przewodnik (zmienne, troubleshooting, smoke-test):
+**[docs/guides/docker_deployment.md →](docs/guides/docker_deployment.md)**
+
+---
+
 ## 🤝 Współdzielenie wiedzy i poświadczeń
 
 Przekazujesz aplikację innej osobie/zespołowi? Wiedza zespołowa jedzie jako tekst

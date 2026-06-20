@@ -1,0 +1,100 @@
+# ==============================================================================
+# SmartMyOdoo — .dockerignore (DOCKER-01 / T2)
+# Zasada ADR-008: ZERO sekretów, vaultu i danych w obrazie. Obraz = tylko kod.
+# Stan (vault, DB, logi) żyje WYŁĄCZNIE na wolumenach (mount /data).
+# ==============================================================================
+
+# --- Sekrety i stan vaultu (NIGDY do obrazu) ---
+# UWAGA: wzorce `*.enc` w .dockerignore (BuildKit) NIE przekraczają `/` — dlatego
+# MUSZĄ być warianty `**/*.enc`, inaczej `smartmyodoo/vault/vault_data.enc` wycieka
+# do obrazu (zweryfikowane: leak vaultu + backupu w pierwszym buildzie).
+.env
+.env.*
+!.env.example
+*.pem
+**/*.pem
+*.key
+**/*.key
+secret/
+credentials/
+*.enc
+**/*.enc
+*.cfg
+**/*.cfg
+# Stan vaultu i jego backupy (jawnie, niezależnie od rozszerzeń).
+smartmyodoo/vault/*.enc
+smartmyodoo/vault/*.cfg
+smartmyodoo/vault/backup_*/
+
+# --- Bazy danych i ich artefakty (sqlite WAL/SHM/backupy) ---
+*.db
+**/*.db
+*.db-shm
+**/*.db-shm
+*.db-wal
+**/*.db-wal
+*.db.bak.*
+**/*.db.bak.*
+*.sqlite3
+**/*.sqlite3
+smartmyodoo.db*
+**/smartmyodoo.db*
+
+# --- Środowiska Pythona (ciężkie, budujemy świeże w obrazie) ---
+.venv/
+.venv-qa/
+venv/
+env/
+.Python
+
+# --- Cache i artefakty buildów/testów ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# --- Git / VCS ---
+.git
+.gitignore
+.gitattributes
+
+# --- Mapy architektury / artefakty lokalne ---
+graphify-out/
+
+# --- Warstwa AI / TeamEngine (lokalna, nie do obrazu) ---
+.agents/
+.claude/
+.gemini/
+.cursorrules
+.geminirules
+LANCET/
+TeamEngine/
+conductor/
+
+# --- Logi i tymczasowe ---
+logs/
+*.log
+tmp/
+screenshot*.png
+diff.txt
+
+# --- Odoo / infra niepowiązane z obrazem app ---
+custom_addons/
+
+# --- Dokumentacja i ADR-y (nie są potrzebne w runtime obrazu) ---
+docs/
+ADR/
+architecture_decision_records/
+
+# --- Testy (opcjonalnie wykluczone — niepotrzebne w runtime; lżejszy obraz) ---
+tests/
+**/test_*.py
+**/*_test.py

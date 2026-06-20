@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -43,6 +41,40 @@ services:
     volumes:
       - ./custom_addons:/mnt/extra-addons
 
+  # DOCKER-01 / T4: SmartMyOdoo (FastAPI + UI) jako przenośny, lokalny artefakt.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # S1.4 / ADR-008: publikujemy TYLKO na localhost (lokalny artefakt, nie wystawiamy na zewnątrz).
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # OPENROUTER_KEY wymagany (LLM) — fail-closed bez niego (/api/chat=500). Z .env, zero plaintext.
+      - OPENROUTER_KEY=${OPENROUTER_KEY}
+      # D3: sieć dockera — nazwa serwisu, NIE 127.0.0.1.
+      - REDIS_URL=redis://redis:6379/0
+      # Persystencja: DB i vault na wolumenie app-data (/data). 4 ukośniki = ścieżka absolutna.
+      - DATABASE_URL=sqlite:////data/smartmyodoo.db
+      # D2: vault na wolumenie (mount /data/vault), nie w obrazie.
+      - VAULT_DIR=/data/vault
+      # CORS — domyślnie lokalny UI; nadpisywalny z .env dla innego hosta.
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:8000,http://localhost:8000}
+    volumes:
+      # Stan (vault + DB + logi) przeżywa restart kontenera (US-DOCKER-2).
+      - app-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
 volumes:
   odoo-db-data:
   redis-data:
+  app-data:
