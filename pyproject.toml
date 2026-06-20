@@ -18,10 +18,15 @@ dependencies = [
     "spacy>=3.7.0",
     "rich>=13.0",
     "prompt_toolkit>=3.0",
+    "pyperclip>=1.8.0",
     "litellm>=1.40",
     "redis>=5.0.0",
-    "markitdown[all]>=0.1.6"
+    "markitdown[all]>=0.1.6",
+    "mcp>=1.0.0"
 ]
+# UWAGA: PII middleware wymaga modelu spaCy `pl_core_news_md` (security/pii/recognizers.py).
+# spaCy nie publikuje modeli na PyPI — instaluj go z requirements.txt (release wheel)
+# lub: `python -m spacy download pl_core_news_md`. Bez modelu /api/chat zwraca 500.
 
 [project.scripts]
 smartmyodoo = "smartmyodoo.__main__:main"
@@ -33,6 +38,7 @@ dev = [
     "mypy>=1.10.0",
     "bandit>=1.7.0",
     "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
     "fakeredis[lua]>=2.20.0"
 ]
 

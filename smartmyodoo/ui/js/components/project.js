@@ -22,6 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newState.activeTab === 'settings' && oldState.activeTab !== 'settings') {
                 renderProjectTab();
             }
+            // UX-10 (T2/T4): retry-on-auth + fix przywróconej zakładki (parytet ze sidebar.js:18).
+            // Vault (/api/secrets) wcześniej NIE ponawiał po zalogowaniu — render odpalał się
+            // tylko na PRZEJŚCIU activeTab. Po reloadzie z activeTab='settings' (UX-08, persystencja)
+            // brak zdarzenia przejścia → vault zostawał pusty. Guard `!oldState.isAuthenticated`
+            // zapobiega pętli (Sekcja D). Renderujemy TYLKO gdy Skarbiec jest aktywną zakładką.
+            if (newState.isAuthenticated && !oldState.isAuthenticated && newState.activeTab === 'settings') {
+                renderProjectTab();
+            }
             if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'settings') {
                 renderProjectTab();
             }
@@ -69,11 +77,9 @@ async function renderProjectTab() {
         loadProjectTasks(ws.project_ref);
     } else {
         // Sprawdź czy mamy credentials w sejfie (default_ODOO)
-        const token = AppStore.getState().authToken;
         try {
-            const secretsRes = await fetch(`/api/secrets?workspace_id=${wsId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // UX-10 (T5): authFetch dokłada Bearer z AppStore (DRY).
+            const secretsRes = await authFetch(`/api/secrets?workspace_id=${wsId}`);
             if (secretsRes.ok) {
                 const secrets = await secretsRes.json();
                 // Szukaj default_ODOO lub {wsId}_ODOO
@@ -102,7 +108,6 @@ async function renderProjectTab() {
 async function connectProject(event) {
     event.preventDefault();
     const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
 
     const url = document.getElementById('proj-url').value;
     const db = document.getElementById('proj-db').value;
@@ -124,11 +129,11 @@ async function connectProject(event) {
             workspace_id: "default"
         };
 
-        const saveRes = await fetch(`/api/secrets/default_ODOO`, {
+        // UX-10 (T5): authFetch dokłada Bearer; tu dokładamy tylko Content-Type.
+        const saveRes = await authFetch(`/api/secrets/default_ODOO`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(secretPayload)
         });
@@ -149,16 +154,14 @@ async function connectProject(event) {
 
 async function loadProjectList() {
     const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
     const listEl = document.getElementById('proj-project-list');
 
     if (!listEl) return;
     listEl.innerHTML = '<div class="text-center py-4 text-slate-500 animate-pulse">Ładowanie projektów z Odoo...</div>';
 
     try {
-        const res = await fetch(`/api/workspaces/${wsId}/projects/search?query=`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        // UX-10 (T5): authFetch dokłada Bearer z AppStore (DRY).
+        const res = await authFetch(`/api/workspaces/${wsId}/projects/search?query=`);
 
         if (!res.ok) {
             const err = await res.json();
@@ -226,14 +229,13 @@ async function selectProject(projectId, projectName) {
 
 async function bindProjectToWorkspace(projectId, projectName) {
     const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
 
     try {
-        const res = await fetch(`/api/workspaces/${wsId}/task_bind`, {
+        // UX-10 (T5): authFetch dokłada Bearer; tu dokładamy tylko Content-Type.
+        const res = await authFetch(`/api/workspaces/${wsId}/task_bind`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 project_ref: String(projectId),
@@ -332,7 +334,6 @@ async function bindTaskFromPicker(taskId, taskName) {
 async function logTimesheetEntry(event) {
     event.preventDefault();
     const wsId = AppStore.getState().workspaceId;
-    const token = AppStore.getState().authToken;
 
     const workspaces = (window.AppSidebar && window.AppSidebar.workspaces) || [];
     const ws = workspaces.find(w => w.id === wsId);
@@ -350,11 +351,11 @@ async function logTimesheetEntry(event) {
     msgEl.className = "text-sm mt-1 text-emerald-400 text-center block";
 
     try {
-        const res = await fetch(`/api/workspaces/${wsId}/timesheet`, {
+        // UX-10 (T5): authFetch dokłada Bearer; tu dokładamy tylko Content-Type.
+        const res = await authFetch(`/api/workspaces/${wsId}/timesheet`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 hours: hours,

@@ -12,6 +12,7 @@ def test_alembic_upgrade_head_creates_tables(tmp_path):
     Wykorzystuje subprocess do wywołania polecenia alembic.
     """
     import subprocess
+    import sys
 
     # Kopiujemy ewentualne pliki alembic jeśli istnieją, ale w fazie RED ich nie ma.
     # Wywołujemy alembic upgrade head na tymczasowej bazie
@@ -22,8 +23,10 @@ def test_alembic_upgrade_head_creates_tables(tmp_path):
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
 
     try:
+        # `python -m alembic` zamiast gołego `alembic` — odporne na nieaktywowany venv
+        # (gdy katalog bin venv nie jest na PATH subprocessu).
         result = subprocess.run(
-            ["alembic", "upgrade", "head"],
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
             env=env,
             capture_output=True,
             text=True,

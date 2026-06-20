@@ -27,7 +27,17 @@ class Store {
             this.state = { ...this.state, ...persisted };
         }
 
-        console.log('[Store] Zainicjalizowano ze stanem:', this.state);
+        console.log('[Store] Zainicjalizowano ze stanem:', this._redactedState());
+    }
+
+    /**
+     * UX-10 (Sekcja D, /qa BUG #3): zwraca kopię stanu z ZAMASKOWANYM tokenem do logów.
+     * `authToken` to sekret — NIGDY nie trafia do konsoli przeglądarki (ART.2: zero logowania
+     * tokenów). Logujemy tylko fakt jego obecności ('***'), nie wartość.
+     * @returns {Object} Płytka kopia stanu z `authToken` zredagowanym.
+     */
+    _redactedState() {
+        return { ...this.state, authToken: this.state.authToken ? '***' : '' };
     }
 
     /**
@@ -84,7 +94,7 @@ class Store {
         this.state = { ...this.state, ...newState };
         // UX-08 (BUG-1): utrwal nie-wrażliwy stan UI, by przetrwał reload strony.
         this._persist();
-        console.log('[Store] Stan zaktualizowany:', this.state);
+        console.log('[Store] Stan zaktualizowany:', this._redactedState());
         this.notify(this.state, oldState);
     }
 

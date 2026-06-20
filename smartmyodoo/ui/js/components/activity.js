@@ -14,6 +14,13 @@ class ActivityPanel {
             if (newState.workspaceId !== oldState.workspaceId && newState.activeTab === 'activity') {
                 this.loadFromAPI();
             }
+            // UX-10 (T3/T4): retry-on-auth (parytet ze sidebar.js:18 / chat.js:25). Audyt (/api/audit)
+            // wcześniej NIE subskrybował isAuthenticated — gdy zakładka Aktywność była już otwarta
+            // (np. po reloadzie z activeTab='activity'), po zalogowaniu nie ponawiał i panel był pusty.
+            // Guard `!oldState.isAuthenticated` zapobiega pętli; ładujemy tylko gdy zakładka aktywna.
+            if (newState.isAuthenticated && !oldState.isAuthenticated && newState.activeTab === 'activity') {
+                this.loadFromAPI();
+            }
             if (newState.lang !== oldState.lang) {
                 this.render();  // I18N-01c
             }
@@ -25,11 +32,9 @@ class ActivityPanel {
         this.render();
 
         try {
-            const token = window.AppStore.getState().authToken;
             const wsId = window.AppStore.getState().workspaceId;
-            const res = await fetch(`/api/audit?workspace_id=${wsId}&limit=50`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            // UX-10 (T5): authFetch dokłada Bearer z AppStore (DRY).
+            const res = await authFetch(`/api/audit?workspace_id=${wsId}&limit=50`);
             if (res.ok) {
                 this.entries = await res.json();
             }
