@@ -1,9 +1,9 @@
 ---
 sprint_id: "DOC-01"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-16
-closed: null
+closed: 2026-06-21
 goal: "Wbudowane Centrum Dokumentacji w panelu: best-practice sekcje + wyszukiwarka + kompendium wiedzy, dostępne globalnie z paska nawigacji"
 prefix: "DOC"
 complexity: 3

@@ -1,0 +1,127 @@
+# ==============================================================================
+# SmartMyOdoo — CI (RELEASE-01 / T1, US-REL-1)
+#
+# Gatuje wydanie na push/PR do main:
+#   - lint-test : ruff (non-blocking) + pytest -m 'not e2e'  (HARD GATE)
+#   - docker    : docker build + scripts/docker_smoke.sh      (HARD GATE)
+#   - e2e       : Playwright (OPCJONALNY/nieblokujący — chromium ciężki, D2)
+#
+# Decyzje (ADR/sprint RELEASE-01):
+#   D2 — GitHub Actions; pytest non-e2e = hard-gate; e2e = continue-on-error.
+#   Bez sekretów: build NIE wymaga OPENROUTER_KEY; smoke testuje ścieżki nie-LLM
+#   (/api/status=200, /api/secrets=401). Dummy .env tylko po to, by compose
+#   zinterpolowało zmienną — żaden prawdziwy sekret nie trafia do logów/artefaktów.
+#   Instalacja deps lustrzana do Dockerfile: `--pre -c constraints.txt -r requirements.txt`.
+# ==============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Anuluj starsze przebiegi dla tego samego ref-a (oszczędność runnerów).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    name: Lint + Test (pytest non-e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies (mirror Dockerfile)
+        run: |
+          python -m pip install --upgrade pip
+          # --pre + constraints.txt: identycznie jak w Dockerfile (markitdown[all] ciąga
+          # azure-* beta; constraints pinują stos ML do stabilnych wersji — ABI-safe spaCy).
+          pip install --pre -c constraints.txt -r requirements.txt
+          # Editable install pakietu: dostarcza metadane (importlib.metadata) dla /api/version
+          # oraz dev-tools (ruff/pytest) z [project.optional-dependencies].
+          pip install --pre -c constraints.txt -e ".[dev]"
+
+      - name: Lint (ruff) — non-blocking
+        continue-on-error: true
+        run: ruff check smartmyodoo
+
+      - name: Run tests (pytest, non-e2e)
+        # pyproject addopts już ustawia `-m 'not e2e'`; podajemy jawnie dla czytelności gate'u.
+        run: pytest -m "not e2e" -q
+
+  docker:
+    name: Docker build + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare dummy .env (no real secrets)
+        # Smoke testuje TYLKO ścieżki nie-LLM (/api/status, /api/secrets bez tokenu).
+        # OPENROUTER_KEY musi istnieć, by docker compose zinterpolowało zmienną — wartość
+        # jest atrapą i nie jest używana przez testowane ścieżki (ADR-008 / Sekcja D).
+        run: |
+          cp .env.example .env
+          # Nadpisz/ustaw atrapę klucza (gdyby .env.example miał pusty/placeholder).
+          if grep -q '^OPENROUTER_KEY=' .env; then
+            sed -i 's/^OPENROUTER_KEY=.*/OPENROUTER_KEY=ci-dummy-not-used/' .env
+          else
+            echo 'OPENROUTER_KEY=ci-dummy-not-used' >> .env
+          fi
+
+      - name: Build image
+        run: docker compose build app
+
+      - name: Smoke test (status 200 + secrets 401 + restart)
+        run: bash scripts/docker_smoke.sh
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose logs --tail=80 app || true
+
+  e2e:
+    name: E2E (Playwright) — optional / non-blocking
+    runs-on: ubuntu-latest
+    # D2: chromium ciężki — job nieblokujący (informacyjny). Hard-gate to lint-test + docker.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies + Playwright
+        run: |
+          python -m pip install --upgrade pip
+          pip install --pre -c constraints.txt -r requirements.txt
+          pip install --pre -c constraints.txt -e ".[dev]"
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Start server (background)
+        env:
+          DATABASE_URL: sqlite:///./ci_e2e.db
+        run: |
+          python -m uvicorn smartmyodoo.api:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8000/api/status >/dev/null 2>&1; then
+              echo "server up"; break
+            fi
+            sleep 2
+          done
+
+      - name: Run E2E
+        run: pytest -m e2e -q

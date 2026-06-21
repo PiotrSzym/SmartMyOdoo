@@ -75,6 +75,34 @@ organizacja = menedżer sekretów) opisuje przewodnik:
 
 ---
 
+## 🏷️ Wydanie (Release)
+
+Wersjonowanie: **[SemVer](https://semver.org/lang/pl/)** (`MAJOR.MINOR.PATCH`).
+**Single Source of Truth = `pyproject.toml`** (`[project].version`). Bieżącą wersję
+działającej instancji zwraca endpoint:
+
+```bash
+curl http://127.0.0.1:8000/api/version   # -> {"version": "0.1.0"}
+```
+
+**Jak wydać nową wersję:**
+1. Podbij `version` w `pyproject.toml` zgodnie z SemVer
+   (PATCH = poprawki, MINOR = nowe funkcje wstecznie zgodne, MAJOR = zmiany łamiące).
+2. Zmerguj do `main` (CI musi być zielone — patrz `.github/workflows/ci.yml`:
+   `pytest -m 'not e2e'` + `docker build` + smoke-test).
+3. Otaguj wydanie zgodnie z wersją z `pyproject.toml`:
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   ```
+4. Tag `vX.Y.Z` MUSI odpowiadać `version` w `pyproject.toml` (i `/api/version`).
+
+> **Dystrybucja (ADR-008 — Local-Only):** wydanie = clone repo + `docker compose up`.
+> Odbiorca buduje obraz u siebie i robi własny `init`. NIE publikujemy obrazu z danymi
+> ani wolumenu `app-data` do publicznego registry.
+
+---
+
 ## 🛡️ Bezpieczeństwo
 SmartMyOdoo kładzie główny nacisk na bezpieczeństwo. Cały kod został poddany twardej weryfikacji — nie używa bezpośrednio kluczy w locie i stosuje model **Shadow Mode** (operacje są rejestrowane w bazie danych SQLite i muszą być zatwierdzone przez użytkownika zanim wejdą na produkcyjne Odoo). Posiada rygorystyczny `Token Governor` oraz lokalną bazę logów audytowych.
 

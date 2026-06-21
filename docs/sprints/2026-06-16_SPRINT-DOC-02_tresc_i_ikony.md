@@ -1,9 +1,9 @@
 ---
 sprint_id: "DOC-02"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-16
-closed: null
+closed: 2026-06-21
 goal: "Bogatsza treść Centrum Dokumentacji (na bazie realnych sprintów + 11 agentów), profesjonalne ikony (Lucide) i tooltipy w nav"
 prefix: "DOC"
 complexity: 2

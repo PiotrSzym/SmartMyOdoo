@@ -1,9 +1,9 @@
 ---
 sprint_id: "KEY-01"
 workspace: "SmartMyOdoo"
-status: "PLANNED"
+status: "DONE"
 created: 2026-06-15
-closed: null
+closed: 2026-06-21
 goal: "Typowany rejestr kluczy (odoo_data/odoo_timesheet/llm_provider) + routing modeli LLM per skill z poziomami kosztów — koniec rozpoznawania po magicznej nazwie"
 prefix: "KEY"
 complexity: 4

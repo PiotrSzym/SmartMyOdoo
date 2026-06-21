@@ -53,18 +53,22 @@ def test_audit_loads_after_login_on_restored_activity_tab(page: Page):
 
     # Od tego momentu liczą się odpowiedzi /api/audit wywołane PO loginie (retry-on-auth).
     audit_statuses.clear()
-    login_to_dashboard(page)
+
+    # RELEASE-01 T3 (deterministyczne e2e, UX-10 pattern): zamiast magicznego sleepa
+    # czekamy DETERMINISTYCZNIE na odpowiedź /api/audit wywołaną retry-on-auth po loginie.
+    # `expect_response` zamyka okno wyścigu (login → loadFromAPI → authFetch('/api/audit'))
+    # bez magicznego sleepa — kończy dokładnie gdy odpowiedź dotrze.
+    with page.expect_response(lambda r: "/api/audit" in r.url, timeout=15000):
+        login_to_dashboard(page)
 
     # Po zalogowaniu na przywróconej zakładce Aktywność — panel MUSI być widoczny.
     expect(page.locator("#activity-screen")).to_be_visible(timeout=5000)
 
     # MOC DOWODOWA (network event renderu JS): retry-on-auth → loadFromAPI() →
-    # authFetch('/api/audit'). Czekamy aż panel wyrenderuje nagłówek (loadFromAPI→render)
-    # i odpyta API. Marker renderu JS: nagłówek `.text-gradient` istnieje TYLKO po render().
-    # Timeout 12s (nie 8s): gdy ten test sortuje się jako pierwszy w przebiegu e2e,
-    # zimny start chromium+serwera na /mnt/c (WSL2) bywa wolniejszy niż 8s (flake /qa UX-10).
+    # authFetch('/api/audit'). Marker renderu JS: nagłówek `.text-gradient` istnieje
+    # TYLKO po render() (loadFromAPI→render). Timeout 12s pokrywa zimny start chromium
+    # na /mnt/c (WSL2). Bez magicznego sleepa — `expect_response` wyżej już domknął /api/audit.
     expect(page.locator("#activity-screen .text-gradient")).to_be_visible(timeout=12000)
-    page.wait_for_timeout(1500)  # domknij ewentualne /api/audit
 
     # (1) NETWORK SPY: audyt MUSI odpytać API po loginie (z tokenem, 200).
     assert audit_statuses, (

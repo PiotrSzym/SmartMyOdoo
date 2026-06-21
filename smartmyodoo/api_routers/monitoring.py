@@ -15,6 +15,17 @@ from smartmyodoo.api_deps import require_auth
 router = APIRouter(tags=["monitoring"])
 
 
+@router.get("/api/version")
+async def get_version():
+    """RELEASE-01 T5 (US-REL-5): wersja wydania z metadanych pakietu (SSoT pyproject, D4).
+
+    Publiczny (jak /api/status) — nie eksponuje danych wrażliwych, tylko numer wersji.
+    """
+    from smartmyodoo.core.runtime_info import get_app_version
+
+    return {"version": get_app_version()}
+
+
 @router.get("/api/agent/status")
 async def get_agent_status(
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
