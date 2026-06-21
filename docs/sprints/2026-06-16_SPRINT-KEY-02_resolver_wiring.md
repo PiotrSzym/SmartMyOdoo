@@ -1,9 +1,9 @@
 ---
 sprint_id: "KEY-02"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-16
-closed: null
+closed: 2026-06-21
 goal: "Wpiąć typowany resolver poświadczeń do handlerów czatu/pipeline — klucz LLM i Odoo rozwiązywane po typie/provider/workspace, nie po sztywnej nazwie (z fallbackiem)"
 prefix: "KEY"
 complexity: 3

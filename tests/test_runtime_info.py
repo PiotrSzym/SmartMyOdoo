@@ -23,11 +23,30 @@ def test_log_backend_modes_redis_set_but_down(monkeypatch, caplog):
     assert runtime_info.log_backend_modes() is False
 
 
-def test_startup_hook_registered():
-    """api.py rejestruje hook startowy logujący tryb backendów."""
+def test_startup_logs_backend_modes_via_lifespan():
+    """api.py loguje tryb backendów na starcie przez lifespan (RELEASE-01 T2).
+
+    Wcześniej była to funkcja `_log_backend_modes` pod `@app.on_event('startup')`
+    (deprecated). Po migracji na `@asynccontextmanager lifespan` (US-REL-2) kontrakt
+    jest ten sam — start aplikacji woła `runtime_info.log_backend_modes()` — ale realizuje
+    go lifespan, NIE deprecated on_event. Dowód: lifespan ustawiony, on_event puste,
+    a startup faktycznie woła log_backend_modes (TestClient context = uruchom lifespan).
+    """
     from smartmyodoo import api
 
-    src = (api.__file__,)
-    assert src  # import nie wywala
-    # funkcja hooka istnieje
-    assert hasattr(api, "_log_backend_modes")
+    assert api.__file__  # import nie wywala
+
+    # 1. Lifespan ustawiony, deprecated on_event NIE używane.
+    assert api.lifespan is not None
+    assert not api.app.router.on_startup, "pozostał deprecated @app.on_event('startup')"
+    assert not api.app.router.on_shutdown
+
+    # 2. Startup przez lifespan faktycznie loguje tryb backendów (kontrakt zachowany).
+    from unittest.mock import patch
+
+    from fastapi.testclient import TestClient
+
+    with patch("smartmyodoo.core.runtime_info.log_backend_modes") as mock_log:
+        with TestClient(api.app):  # context manager odpala startup (lifespan)
+            pass
+        mock_log.assert_called_once()

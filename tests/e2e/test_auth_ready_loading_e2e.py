@@ -41,14 +41,17 @@ def test_secrets_load_after_login_without_manual_click(page: Page):
     )
 
     # Wejście na zakładkę Skarbiec/Projekt — vault musi sam się wyrenderować (z tokenem).
-    page.locator("#tab-settings").click()
+    # RELEASE-01 T3 (deterministyczne e2e, UX-10 pattern): render vaulta ZAWSZE woła
+    # `/api/secrets` na starcie (project.js:82), więc czekamy DETERMINISTYCZNIE na tę
+    # odpowiedź zamiast magicznego sleepa (500ms) — okno wyścigu zamknięte deterministycznie.
+    with page.expect_response(lambda r: "/api/secrets" in r.url, timeout=12000):
+        page.locator("#tab-settings").click()
     expect(page.locator("#settings-screen")).to_be_visible(timeout=5000)
 
     # MOC DOWODOWA (UX-10 /qa fix BUG #1b): asercja na MARKER RENDERU JS, nie statyczny DOM.
     # `!hidden` było wydmuszką (state-1 startuje z `block`, bez `hidden`). Klasa `flex`
     # pojawia się WYŁĄCZNIE przez showState() (project.js:45) — dowód renderu JS.
-    # Timeout 12s (nie 8s): pierwszy e2e w przebiegu odpala zimny start chromium+serwera
-    # na /mnt/c (WSL2) — render JS bywa wolniejszy niż 8s przy cold-startcie (flake /qa UX-10).
+    # Timeout 12s pokrywa zimny start chromium+serwera na /mnt/c (WSL2).
     page.wait_for_function(
         "() => [1,2,3].some(n => {"
         "  const el = document.getElementById('project-state-' + n);"
@@ -56,7 +59,6 @@ def test_secrets_load_after_login_without_manual_click(page: Page):
         "})",
         timeout=12000,
     )
-    page.wait_for_timeout(500)  # domknij ewentualne /api/secrets
 
     rendered_states = page.evaluate(
         "() => [1,2,3].filter(n => {"
@@ -91,9 +93,12 @@ def test_audit_loads_after_login_on_activity_tab(page: Page):
         lambda r: audit_statuses.append(r.status) if "/api/audit" in r.url else None,
     )
 
-    page.locator("#tab-activity").click()
+    # RELEASE-01 T3 (deterministyczne e2e): czekamy na odpowiedź /api/audit wywołaną
+    # wejściem na zakładkę Aktywność, zamiast magicznego sleepa (1500ms). Anchor sieciowy
+    # domyka okno wyścigu render→authFetch('/api/audit') deterministycznie.
+    with page.expect_response(lambda r: "/api/audit" in r.url, timeout=12000):
+        page.locator("#tab-activity").click()
     expect(page.locator("#activity-screen")).to_be_visible(timeout=5000)
-    page.wait_for_timeout(1500)
 
     assert 200 in audit_statuses, (
         f"/api/audit nie odpowiedziało 200 po wejściu na Aktywność "

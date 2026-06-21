@@ -5,7 +5,10 @@ FIX-02 (S3.1/S3.4): God Module rozbity na routery domenowe (api_routers/*) + dep
 wybrane symbole dla kompatybilności wstecznej.
 """
 
+import logging
 import os
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,15 +19,36 @@ from smartmyodoo.core import models as db_models
 
 db_models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SmartMyVault API", description="FastAPI migration of Vault API")
+logger = logging.getLogger(__name__)
 
 
-@app.on_event("startup")
-async def _log_backend_modes() -> None:
-    """Na starcie: jasny log trybu współdzielonego stanu (Redis vs proces-lokalny)."""
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """RELEASE-01 T2: cykl życia aplikacji (zastępuje deprecated @app.on_event).
+
+    Startup (przed `yield`): log trybu współdzielonego stanu (Redis vs proces-lokalny) —
+    zachowuje zachowanie poprzedniego `on_event('startup')`. Schemat DB tworzony jest
+    przy imporcie (`Base.metadata.create_all`), a migracje odpala alembic poza procesem
+    aplikacji (DOCKER-01 / ADR-010), więc tu ich nie wołamy.
+
+    Shutdown (po `yield`): graceful shutdown — log + zamknięcie puli połączeń silnika DB,
+    by SIGTERM/stop kontenera kończył się czysto (US-REL-2).
+    """
     from smartmyodoo.core.runtime_info import log_backend_modes
 
     log_backend_modes()
+    try:
+        yield
+    finally:
+        logger.info("[lifespan] Zamykanie aplikacji — graceful shutdown.")
+        engine.dispose()
+
+
+app = FastAPI(
+    title="SmartMyVault API",
+    description="FastAPI migration of Vault API",
+    lifespan=lifespan,
+)
 
 
 # S1.3: jawna lista originów (koniec '*'+credentials, które echo'wało dowolny Origin).

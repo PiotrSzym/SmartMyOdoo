@@ -34,7 +34,9 @@ def login_to_dashboard(page, *, pin: str = PIN):
         " return (i && !i.classList.contains('hidden')) ||"
         "        (l && !l.classList.contains('hidden')) ||"
         "        (d && !d.classList.contains('hidden')); }",
-        timeout=10000,
+        # 15s (nie 10s): pierwszy zimny login w przebiegu e2e na /mnt/c (WSL2) —
+        # cold-start chromium+serwera bywa wolniejszy niż 10s (INS-005, RELEASE-01 /qa).
+        timeout=20000,
     )
 
     if page.locator("#init-master").is_visible():
@@ -46,7 +48,7 @@ def login_to_dashboard(page, *, pin: str = PIN):
     if page.locator("#auth-password").is_visible():
         page.locator("#auth-password").fill(pin)
         page.locator("button:has-text('Odblokuj')").click()
-        expect(page.locator("#login-screen")).to_be_hidden(timeout=10000)
+        expect(page.locator("#login-screen")).to_be_hidden(timeout=15000)
 
     # Modal zmiany PIN-u (admin) pojawia się asynchronicznie po loginie — zamknij gdy jest.
     try:
@@ -55,7 +57,7 @@ def login_to_dashboard(page, *, pin: str = PIN):
     except Exception:
         pass
 
-    expect(page.locator("#dashboard-screen")).to_be_visible(timeout=10000)
+    expect(page.locator("#dashboard-screen")).to_be_visible(timeout=15000)
 
 
 def select_workspace(page, ws_id: str):

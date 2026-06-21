@@ -32,6 +32,35 @@ def redis_reachable(url: Optional[str], timeout: float = 0.5) -> bool:
         return False
 
 
+def get_app_version() -> str:
+    """RELEASE-01 T5: wersja wydania z metadanych pakietu (SSoT = pyproject.toml, D4).
+
+    Preferuje `importlib.metadata.version('smartmyodoo')` (działa dla zainstalowanego
+    pakietu — np. obraz Docker). Fallback: odczyt `version` wprost z pyproject.toml
+    (środowisko dev z editable/uninstalled pakietem). Ostateczny fallback: "0.0.0".
+    """
+    from importlib import metadata
+
+    try:
+        return metadata.version("smartmyodoo")
+    except metadata.PackageNotFoundError:
+        pass
+
+    # Fallback dev: pyproject.toml leży 3 poziomy nad tym plikiem
+    # (smartmyodoo/core/runtime_info.py -> repo root).
+    try:
+        import tomllib
+
+        root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        with open(os.path.join(root, "pyproject.toml"), "rb") as fh:
+            return str(tomllib.load(fh)["project"]["version"])
+    except Exception as e:  # noqa: BLE001
+        logger.debug(f"[runtime] Nie udało się odczytać wersji z pyproject: {e}")
+        return "0.0.0"
+
+
 def log_backend_modes() -> bool:
     """Loguje tryb współdzielonego stanu. Zwraca True jeśli Redis aktywny."""
     url = os.environ.get("REDIS_URL")

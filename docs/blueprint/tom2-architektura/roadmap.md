@@ -174,6 +174,9 @@
 >
 > **Sprint DOCKER-01 (Konteneryzacja):** `docs/sprints/2026-06-20_SPRINT-DOCKER-01_containerization.md` ✅
 > **Zrealizowano (DOCKER-01):** Przenośny artefakt lokalny — `docker compose up` stawia appkę (FastAPI+UI :8000) bez ręcznego venv. Multi-stage Dockerfile (`python:3.12-slim`, non-root, healthcheck, model spaCy, `constraints.txt` pin ML), serwis `app` w compose, stan (vault/DB) na wolumenie `app-data` (ENV `VAULT_DIR`), zero sekretów w obrazie (`.dockerignore` `**/*.enc`). Bramki: /qa PASS (pytest 297/0, compose+persystencja), /sec PASS (6/6), /gf-review APPROVE. Zgodne z ADR-008 (Local-Only — NIE otwiera multi-tenant/cloud).
+>
+> **Sprint RELEASE-01 (Production Readiness → SHIP):** `docs/sprints/2026-06-21_SPRINT-RELEASE-01_production_readiness.md` ✅
+> **Zrealizowano (RELEASE-01):** Gotowość produkcyjna **76→85/100 (SHIP, cel lokalny)**. CI GitHub Actions (pytest non-e2e + docker build + smoke; e2e non-blocking), FastAPI `lifespan` + graceful shutdown (zamiast deprecated `on_event`), E2E deterministyczne (`expect_response`, zero `wait_for_timeout`, cold-start conftest 20s) + mapa US→E2E P0 (11/11), test down-migration (rollback), `GET /api/version` + README „Wydanie", higiena statusów (11 sprintów→DONE). Bramki: /qa PASS (pytest 303/0, e2e 11/11), /sec PASS, /gf-review APPROVE. **T6 (LICENSE/SECURITY) odroczone** — decyzja usera. Tag `v0.1.0`.
 
 ### 7.1 Pipeline Integration
 - Podłączenie Tool Engine do pełnego `pipeline.py` FSM (AUTH→RECON→COGNITIVE→ACTUATION→SYNC).
