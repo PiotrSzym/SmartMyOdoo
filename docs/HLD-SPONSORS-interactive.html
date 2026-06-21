@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔒 SmartMyOdoo — Bezpieczeństwo &amp; Architektura (dla Sponsorów)</title>
+  <meta name="description" content="Interaktywny przegląd dla sponsorów: bezpieczeństwo, prywatność, sejf i anonimizacja danych. AI nie widzi sekretów.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════
+       DESIGN TOKENS (T1 raw → T2 semantic)
+       Klon golden-set: PM_Center/docs/inventory_drilldown.html (5/5)
+       Zmieniony tylko token --brand (indigo SmartMyOdoo). Zero hardcoded hex w komponentach.
+       ═══════════════════════════════════════════ */
+    :root {
+      /* T1 — Raw Colors */
+      --brand: #6366f1;
+      --brand-glow: rgba(99, 102, 241, 0.35);
+      --cyan-accent: #22d3ee;
+      --rose-accent: #fb7185;
+      --emerald-accent: #34d399;
+      --amber-accent: #fbbf24;
+      --slate-300: #cbd5e1;
+      --slate-400: #94a3b8;
+      --slate-500: #64748b;
+      --slate-700: #334155;
+      --slate-800: #1e293b;
+      --slate-900: #0f172a;
+      --slate-950: #020617;
+
+      /* T2 — Semantic */
+      --bg-body: var(--slate-950);
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.08);
+      --bg-card-active: rgba(99, 102, 241, 0.08);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.16);
+      --border-brand: rgba(99, 102, 241, 0.3);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --shadow-glow: 0 0 24px var(--brand-glow);
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+
+      /* Status Colors */
+      --status-active: #34d399;
+      --status-dormant: #fbbf24;
+      --status-archive: #fb7185;
+      --status-reference: #22d3ee;
+
+      /* Sizing (8pt grid) */
+      --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+      --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+      --space-12: 48px; --space-16: 64px;
+      --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 24px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-body);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 600px 400px at 20% 10%, rgba(99, 102, 241, 0.08), transparent),
+        radial-gradient(ellipse 400px 300px at 80% 80%, rgba(34, 211, 238, 0.05), transparent),
+        radial-gradient(ellipse 500px 500px at 50% 50%, rgba(99, 102, 241, 0.03), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+
+    /* HEADER */
+    .header { text-align: center; margin-bottom: var(--space-10); }
+    .header__icon { font-size: 48px; margin-bottom: var(--space-4); filter: drop-shadow(0 0 16px var(--brand-glow)); }
+    .header__title {
+      font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--text-primary), var(--brand));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: var(--space-2);
+    }
+    .header__subtitle { color: var(--text-secondary); font-size: 14px; font-weight: 400; }
+
+    /* HERO PROMISE */
+    .promise {
+      max-width: 760px; margin: 0 auto var(--space-10);
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3);
+    }
+    .promise__item {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-card); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg); backdrop-filter: blur(12px);
+    }
+    .promise__icon { font-size: 22px; flex-shrink: 0; }
+    .promise__text { font-size: 13px; color: var(--text-secondary); line-height: 1.55; }
+    .promise__text strong { color: var(--text-primary); font-weight: 600; }
+
+    /* SEARCH */
+    .search-bar { position: relative; max-width: 480px; margin: 0 auto var(--space-8); }
+    .search-bar__icon { position: absolute; left: var(--space-4); top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px; pointer-events: none; }
+    .search-bar__input {
+      width: 100%; padding: var(--space-3) var(--space-4) var(--space-3) var(--space-10);
+      background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+      color: var(--text-primary); font-family: inherit; font-size: 14px; outline: none;
+      transition: all 0.2s ease; backdrop-filter: blur(12px);
+    }
+    .search-bar__input::placeholder { color: var(--text-muted); }
+    .search-bar__input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+    .search-bar__count { position: absolute; right: var(--space-4); top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; font-weight: 500; }
+
+    /* STATS */
+    .stats { display: flex; gap: var(--space-3); margin-bottom: var(--space-8); flex-wrap: wrap; justify-content: center; }
+    .stat-chip {
+      display: flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-4); background: var(--bg-card);
+      border: 1px solid var(--border-subtle); border-radius: 999px; font-size: 13px;
+      color: var(--text-secondary); backdrop-filter: blur(8px); transition: all 0.2s ease; cursor: pointer; user-select: none;
+    }
+    .stat-chip:hover { background: var(--bg-card-hover); border-color: var(--border-hover); color: var(--text-primary); }
+    .stat-chip.active { background: var(--bg-card-active); border-color: var(--border-brand); color: var(--text-primary); }
+    .stat-chip__count { font-weight: 600; color: var(--brand); }
+
+    /* CATEGORY (Level 1) */
+    .category { margin-bottom: var(--space-4); border-radius: var(--radius-lg); overflow: hidden; }
+    .category__header {
+      display: flex; align-items: center; gap: var(--space-4);
+      padding: var(--space-5) var(--space-6); background: var(--bg-card);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
+      cursor: pointer; user-select: none; transition: all 0.25s ease; backdrop-filter: blur(12px); list-style: none;
+    }
+    .category__header::-webkit-details-marker { display: none; }
+    .category__header:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
+    .category[open] > .category__header { border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bg-card-active); border-color: var(--border-brand); box-shadow: var(--shadow-glow); }
+    .category__chevron { font-size: 12px; color: var(--text-muted); transition: transform 0.3s ease; flex-shrink: 0; width: 16px; }
+    .category[open] > .category__header .category__chevron { transform: rotate(90deg); color: var(--brand); }
+    .category__icon { font-size: 24px; flex-shrink: 0; }
+    .category__info { flex: 1; }
+    .category__name { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+    .category__desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .category__badge { font-size: 12px; font-weight: 600; padding: var(--space-1) var(--space-3); border-radius: 999px; background: rgba(99, 102, 241, 0.15); color: var(--brand); flex-shrink: 0; }
+    .category__body { border: 1px solid var(--border-subtle); border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: var(--space-4); background: rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; gap: var(--space-3); }
+
+    /* TOOL / CARD (Level 2) */
+    .tool { border-radius: var(--radius-md); overflow: hidden; }
+    .tool__header {
+      display: flex; align-items: center; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4); background: var(--bg-card);
+      border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+      cursor: pointer; user-select: none; transition: all 0.2s ease; list-style: none;
+    }
+    .tool__header::-webkit-details-marker { display: none; }
+    .tool__header:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
+    .tool[open] > .tool__header { border-radius: var(--radius-md) var(--radius-md) 0 0; border-color: rgba(34, 211, 238, 0.2); background: rgba(34, 211, 238, 0.04); }
+    .tool__chevron { font-size: 10px; color: var(--text-muted); transition: transform 0.25s ease; flex-shrink: 0; width: 12px; }
+    .tool[open] > .tool__header .tool__chevron { transform: rotate(90deg); color: var(--cyan-accent); }
+    .tool__name { font-size: 14px; font-weight: 600; flex: 1; }
+    .tool__stack { font-size: 11px; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text-muted); padding: 2px var(--space-2); background: rgba(255, 255, 255, 0.04); border-radius: 4px; flex-shrink: 0; }
+    .tool__status { font-size: 11px; padding: 2px var(--space-2); border-radius: 4px; font-weight: 500; flex-shrink: 0; }
+    .tool__status--active { background: rgba(52, 211, 153, 0.12); color: var(--status-active); }
+    .tool__status--reference { background: rgba(34, 211, 238, 0.12); color: var(--status-reference); }
+    .tool__body { border: 1px solid var(--border-subtle); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); padding: var(--space-4) var(--space-5); background: rgba(0, 0, 0, 0.15); }
+    .tool__desc { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: var(--space-3); }
+    .tool__meta { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .tool__meta-item { font-size: 11px; display: flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--text-secondary); }
+    .tool__meta-label { color: var(--text-muted); }
+    .tool__meta-value { color: var(--text-primary); }
+
+    /* Sub-points (Level 3) */
+    .sub-tools { margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border-subtle); }
+    .sub-tools__title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: var(--space-2); }
+    .sub-tool { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-1) var(--space-2); font-size: 12px; color: var(--text-secondary); border-radius: 4px; transition: background 0.15s ease; line-height: 1.5; }
+    .sub-tool:hover { background: rgba(255,255,255,0.04); }
+    .sub-tool__dot { width: 4px; height: 4px; border-radius: 50%; background: var(--brand); flex-shrink: 0; margin-top: 7px; }
+
+    /* Callout (kluczowy komunikat) */
+    .callout { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); font-size: 12px; line-height: 1.6; border-left: 3px solid var(--brand); background: rgba(99,102,241,0.07); color: var(--text-secondary); }
+    .callout strong { color: var(--text-primary); }
+
+    /* Search states */
+    .hidden { display: none !important; }
+
+    /* FOOTER */
+    .footer { text-align: center; padding: var(--space-12) 0 var(--space-8); color: var(--text-muted); font-size: 12px; }
+    .footer a { color: var(--brand); text-decoration: none; }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .container { padding: var(--space-4); }
+      .header__title { font-size: 24px; }
+      .promise { grid-template-columns: 1fr; }
+      .stats { gap: var(--space-2); }
+      .stat-chip { font-size: 12px; padding: var(--space-1) var(--space-3); }
+      .category__header { padding: var(--space-4); }
+      .tool__stack { display: none; }
+    }
+    @media (max-width: 480px) { .header__icon { font-size: 36px; } .header__title { font-size: 20px; } .category__desc { display: none; } }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .category, .tool, .stat-chip, .promise__item { animation: fadeIn 0.3s ease both; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      .category:nth-child(1){animation-delay:.05s} .category:nth-child(2){animation-delay:.1s} .category:nth-child(3){animation-delay:.15s} .category:nth-child(4){animation-delay:.2s} .category:nth-child(5){animation-delay:.25s} .category:nth-child(6){animation-delay:.3s}
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header__icon">🔒</div>
+    <h1 class="header__title">SmartMyOdoo — Bezpieczeństwo &amp; Architektura</h1>
+    <p class="header__subtitle">Przegląd interaktywny dla Sponsorów &bull; wydanie <code>v0.1.0</code> &bull; rozwiń sekcje, by zobaczyć szczegóły</p>
+  </header>
+
+  <!-- HERO PROMISE -->
+  <section class="promise">
+    <div class="promise__item"><span class="promise__icon">🤖</span><span class="promise__text"><strong>AI nie widzi Twoich haseł.</strong> Poświadczenia idą z sejfu wprost do Odoo, z pominięciem modelu.</span></div>
+    <div class="promise__item"><span class="promise__icon">🎭</span><span class="promise__text"><strong>Dane osobowe są anonimizowane</strong> zanim trafią do AI — dostawca modelu ich nie widzi.</span></div>
+    <div class="promise__item"><span class="promise__icon">✋</span><span class="promise__text"><strong>Nic nie zmienia się w ERP bez zgody człowieka</strong> (tryb Shadow Mode).</span></div>
+    <div class="promise__item"><span class="promise__icon">🏠</span><span class="promise__text"><strong>Wszystko zostaje lokalnie</strong> — żadnej chmury z Twoimi danymi.</span></div>
+  </section>
+
+  <!-- SEARCH -->
+  <div class="search-bar">
+    <span class="search-bar__icon">🔍</span>
+    <input type="search" id="searchInput" class="search-bar__input" placeholder="Szukaj: sejf, anonimizacja, RODO, audyt... (Ctrl+K)" autocomplete="off" aria-label="Szukaj">
+    <span class="search-bar__count" id="searchCount"></span>
+  </div>
+
+  <!-- STATS / FILTRY -->
+  <div class="stats" id="statsBar">
+    <button class="stat-chip active" data-filter="all" aria-pressed="true">Wszystkie <span class="stat-chip__count" id="totalCount">0</span></button>
+    <button class="stat-chip" data-filter="security" aria-pressed="false">🔒 Bezpieczeństwo <span class="stat-chip__count" data-cat-count="security">0</span></button>
+    <button class="stat-chip" data-filter="layers" aria-pressed="false">🛡️ Warstwy <span class="stat-chip__count" data-cat-count="layers">0</span></button>
+    <button class="stat-chip" data-filter="flow" aria-pressed="false">⚙️ Jak działa <span class="stat-chip__count" data-cat-count="flow">0</span></button>
+    <button class="stat-chip" data-filter="compliance" aria-pressed="false">📋 Zgodność <span class="stat-chip__count" data-cat-count="compliance">0</span></button>
+    <button class="stat-chip" data-filter="maturity" aria-pressed="false">📊 Dojrzałość <span class="stat-chip__count" data-cat-count="maturity">0</span></button>
+  </div>
+
+  <!-- CATEGORIES -->
+  <main id="categoriesContainer">
+
+    <!-- ═══════ BEZPIECZEŃSTWO ═══════ -->
+    <details class="category" data-category="security" open>
+      <summary class="category__header" role="button" aria-expanded="true">
+        <span class="category__chevron">▶</span>
+        <span class="category__icon">🔒</span>
+        <div class="category__info">
+          <div class="category__name">Bezpieczeństwo — 4 zasady fundamentu</div>
+          <div class="category__desc">To nie dodatek, to fundament architektury</div>
+        </div>
+        <span class="category__badge">4</span>
+      </summary>
+      <div class="category__body">
+
+        <details class="tool" data-tool>
+          <summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">🏠 Local-Only — wszystko zostaje u Ciebie</span><span class="tool__status tool__status--active">wdrożone</span></summary>
+          <div class="tool__body">
+            <p class="tool__desc">Aplikacja działa lokalnie, na Twoim komputerze/serwerze. Żadne hasła ani wrażliwe dane nie są wysyłane do chmury ani synchronizowane na zewnątrz.</p>
+            <div class="tool__meta">
+              <span class="tool__meta-item"><span class="tool__meta-label">Zasada:</span><span class="tool__meta-value">ADR-008 (No Cloud)</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Efekt:</span><span class="tool__meta-value">brak centralnej bazy do zhakowania</span></span>
+            </div>
+            <div class="callout"><strong>Dla sponsora:</strong> dane każdego użytkownika żyją wyłącznie u niego — nie ma jednego celu ataku zbiorczego.</div>
+          </div>
+        </details>
+
+        <details class="tool" data-tool>
+          <summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">🗝️ Sejf (Vault) — hasła zaszyfrowane</span><span class="tool__stack">AES + PBKDF2</span><span class="tool__status tool__status--active">wdrożone</span></summary>
+          <div class="tool__body">
+            <p class="tool__desc">Poświadczenia do Odoo trzymane są w zaszyfrowanym sejfie. Otwierasz go hasłem głównym (master); na co dzień wracasz krótkim PIN-em.</p>
+            <div class="tool__meta">
+              <span class="tool__meta-item"><span class="tool__meta-label">Szyfr:</span><span class="tool__meta-value">AES (Fernet)</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Wzmocnienie:</span><span class="tool__meta-value">PBKDF2-SHA256 · 480 000 iteracji</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Model:</span><span class="tool__meta-value">Zero-Knowledge</span></span>
+            </div>
+            <div class="sub-tools">
+              <div class="sub-tools__title">Jak to chroni</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Bez hasła głównego nikt — łącznie z samą aplikacją — nie odczyta zawartości sejfu.</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> ~480 tys. przekształceń sprawia, że brutalne łamanie hasła jest niepraktyczne.</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Sejf to lokalny, zaszyfrowany plik — nie chmura, nie baza współdzielona.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="tool" data-tool>
+          <summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">🤖 AI NIE widzi Twoich sekretów</span><span class="tool__status tool__status--active">wdrożone</span></summary>
+          <div class="tool__body">
+            <p class="tool__desc">To kluczowe. Model AI (LLM) napędzający rozmowę nigdy nie dostaje Twoich haseł.</p>
+            <div class="tool__meta">
+              <span class="tool__meta-item"><span class="tool__meta-label">Mechanizm:</span><span class="tool__meta-value">sejf → Odoo, z pominięciem AI</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Odporność:</span><span class="tool__meta-value">prompt injection bezsilny</span></span>
+            </div>
+            <div class="sub-tools">
+              <div class="sub-tools__title">Dlaczego to działa</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Hasło pobierane jest z sejfu i podawane bezpośrednio do połączenia z Odoo — agent operuje na danych, ale nie zna poświadczeń.</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Nawet próba „podpytania" AI o hasło nic nie da — AI fizycznie go nie ma.</div>
+            </div>
+            <div class="callout"><strong>Dla sponsora:</strong> największe ryzyko narzędzi AI (wyciek poświadczeń przez model) jest tu wyeliminowane architektonicznie, nie obietnicą.</div>
+          </div>
+        </details>
+
+        <details class="tool" data-tool>
+          <summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">🎭 Anonimizacja danych osobowych (PII)</span><span class="tool__stack">Presidio</span><span class="tool__status tool__status--active">wdrożone</span></summary>
+          <div class="tool__body">
+            <p class="tool__desc">Zanim jakikolwiek tekst pójdzie do AI, przechodzi przez automatyczną anonimizację danych osobowych.</p>
+            <div class="tool__meta">
+              <span class="tool__meta-item"><span class="tool__meta-label">Przed AI:</span><span class="tool__meta-value">„Jan Kowalski" → &lt;OSOBA_1&gt;</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Po AI:</span><span class="tool__meta-value">przywrócenie lokalnie</span></span>
+              <span class="tool__meta-item"><span class="tool__meta-label">Izolacja:</span><span class="tool__meta-value">per-workspace</span></span>
+            </div>
+            <div class="sub-tools">
+              <div class="sub-tools__title">Co jest maskowane</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Imiona i nazwiska, e-maile, numery telefonów i inne dane osobowe.</div>
+              <div class="sub-tool"><span class="sub-tool__dot"></span> Zastępniki (&lt;OSOBA_1&gt;, &lt;EMAIL_1&gt;) wysyłane do AI; oryginały przywracane tylko u Ciebie.</div>
+            </div>
+            <div class="callout"><strong>Dla sponsora:</strong> dostawca AI nigdy nie widzi prawdziwych danych osobowych Twoich klientów — to istotne dla RODO.</div>
+          </div>
+        </details>
+
+      </div>
+    </details>
+
+    <!-- ═══════ WARSTWY OCHRONY ═══════ -->
+    <details class="category" data-category="layers">
+      <summary class="category__header" role="button" aria-expanded="false">
+        <span class="category__chevron">▶</span>
+        <span class="category__icon">🛡️</span>
+        <div class="category__info">
+          <div class="category__name">Warstwy ochrony — obrona w głąb</div>
+          <div class="category__desc">Sześć niezależnych warstw, nie jedna ściana</div>
+        </div>
+        <span class="category__badge">6</span>
+      </summary>
+      <div class="category__body">
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">1 · Lokalność</span><span class="tool__stack">całość danych</span></summary><div class="tool__body"><p class="tool__desc">Brak chmury — dane nie opuszczają Twojego środowiska.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">2 · Sejf (AES, Zero-Knowledge)</span><span class="tool__stack">hasła</span></summary><div class="tool__body"><p class="tool__desc">Poświadczenia szyfrowane; odczyt wyłącznie Twoim hasłem głównym.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">3 · Izolacja sekretów od AI</span><span class="tool__stack">hasła</span></summary><div class="tool__body"><p class="tool__desc">Model AI nigdy nie otrzymuje poświadczeń — są wstrzykiwane z pominięciem AI.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">4 · Anonimizacja PII</span><span class="tool__stack">dane osobowe</span></summary><div class="tool__body"><p class="tool__desc">Dane osobowe maskowane zanim dotrą do AI; przywracane lokalnie.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">5 · Shadow Mode (człowiek w pętli)</span><span class="tool__stack">integralność ERP</span></summary><div class="tool__body"><p class="tool__desc">Każda zmiana w Odoo wymaga akceptacji człowieka — AI proponuje, Ty zatwierdzasz.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">6 · Dziennik audytu</span><span class="tool__stack">rozliczalność</span></summary><div class="tool__body"><p class="tool__desc">Lokalny zapis kto / co / kiedy — pełna ścieżka rozliczalności.</p></div></details>
+      </div>
+    </details>
+
+    <!-- ═══════ JAK TO DZIAŁA ═══════ -->
+    <details class="category" data-category="flow">
+      <summary class="category__header" role="button" aria-expanded="false">
+        <span class="category__chevron">▶</span>
+        <span class="category__icon">⚙️</span>
+        <div class="category__info">
+          <div class="category__name">Jak to działa — w 4 krokach</div>
+          <div class="category__desc">Od rozmowy do akcji w ERP — zawsze za Twoją zgodą</div>
+        </div>
+        <span class="category__badge">4</span>
+      </summary>
+      <div class="category__body">
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Krok 1 · Mówisz, co zrobić</span></summary><div class="tool__body"><p class="tool__desc">Rozmawiasz z agentem w naturalnym języku (np. „zaloguj 3h pracy do zadania X").</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Krok 2 · Anonimizacja + zapytanie do AI</span></summary><div class="tool__body"><p class="tool__desc">System anonimizuje dane osobowe i odpytuje AI — bez haseł i bez PII.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Krok 3 · Propozycja → Twoja akceptacja</span><span class="tool__status tool__status--reference">Shadow Mode</span></summary><div class="tool__body"><p class="tool__desc">AI proponuje akcję. Nic nie dzieje się w Odoo, dopóki człowiek tego nie zatwierdzi.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Krok 4 · Wykonanie w Odoo</span></summary><div class="tool__body"><p class="tool__desc">Dopiero po zgodzie system łączy się z Odoo (hasło z sejfu, z pominięciem AI) i wykonuje akcję.</p></div></details>
+      </div>
+    </details>
+
+    <!-- ═══════ ZGODNOŚĆ ═══════ -->
+    <details class="category" data-category="compliance">
+      <summary class="category__header" role="button" aria-expanded="false">
+        <span class="category__chevron">▶</span>
+        <span class="category__icon">📋</span>
+        <div class="category__info">
+          <div class="category__name">Zgodność &amp; zaufanie</div>
+          <div class="category__desc">RODO by design, kontrola człowieka, brak vendor lock-in</div>
+        </div>
+        <span class="category__badge">3</span>
+      </summary>
+      <div class="category__body">
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">⚖️ Zgodność z RODO/GDPR by design</span></summary><div class="tool__body"><p class="tool__desc">Minimalizacja danych, anonimizacja, lokalne przechowywanie, automatyczne usuwanie starych danych, prawo do usunięcia.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">✋ Kontrola człowieka</span></summary><div class="tool__body"><p class="tool__desc">AI proponuje, człowiek zatwierdza. Brak autonomicznych zmian na danych produkcyjnych.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">🔓 Brak vendor lock-in danych</span></summary><div class="tool__body"><p class="tool__desc">Dane są Twoje i u Ciebie — w każdej chwili masz nad nimi pełną kontrolę.</p></div></details>
+      </div>
+    </details>
+
+    <!-- ═══════ DOJRZAŁOŚĆ ═══════ -->
+    <details class="category" data-category="maturity">
+      <summary class="category__header" role="button" aria-expanded="false">
+        <span class="category__chevron">▶</span>
+        <span class="category__icon">📊</span>
+        <div class="category__info">
+          <div class="category__name">Dojrzałość — stan na v0.1.0</div>
+          <div class="category__desc">Gotowość do wdrożenia lokalnego</div>
+        </div>
+        <span class="category__badge">4</span>
+      </summary>
+      <div class="category__body">
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Gotowość produkcyjna (użytek lokalny)</span><span class="tool__status tool__status--active">85/100</span></summary><div class="tool__body"><p class="tool__desc">Audyt gotowości produkcyjnej: 85/100 — gotowe do wdrożenia lokalnego.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Bezpieczeństwo (audyt wewnętrzny)</span><span class="tool__status tool__status--active">zweryfikowane</span></summary><div class="tool__body"><p class="tool__desc">Sejf, izolacja sekretów od AI i anonimizacja PII — zweryfikowane.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Pakowanie / instalacja</span><span class="tool__status tool__status--active">1 polecenie</span></summary><div class="tool__body"><p class="tool__desc">Uruchomienie jednym poleceniem (kontener) — bez ręcznej konfiguracji.</p></div></details>
+        <details class="tool" data-tool><summary class="tool__header"><span class="tool__chevron">▶</span><span class="tool__name">Jakość (testy automatyczne + CI)</span><span class="tool__status tool__status--active">pełna</span></summary><div class="tool__body"><p class="tool__desc">Pełna automatyzacja testów z bramkami jakości przed każdym wydaniem.</p></div></details>
+      </div>
+    </details>
+
+  </main>
+
+  <footer class="footer">
+    SmartMyOdoo &bull; przegląd dla sponsorów (v0.1.0) &bull; źródło techniczne: <a href="blueprint/tom2-architektura/HLD-TECHNICAL.md">HLD-TECHNICAL.md</a><br>
+    🔒 AI pomaga, ale nie ma dostępu do tego, co najcenniejsze.
+  </footer>
+
+</div>
+
+<!-- ═══════════════════════════════════════════
+     JS — Search, Filter, Stats (klon golden-set)
+     ═══════════════════════════════════════════ -->
+<script>
+  (function() {
+    'use strict';
+    const searchInput = document.getElementById('searchInput');
+    const searchCount = document.getElementById('searchCount');
+    const totalCountEl = document.getElementById('totalCount');
+    const statsBar = document.getElementById('statsBar');
+    const categoriesContainer = document.getElementById('categoriesContainer');
+
+    function countTools() {
+      const categories = categoriesContainer.querySelectorAll('.category');
+      let total = 0;
+      categories.forEach(cat => {
+        const catKey = cat.dataset.category;
+        const count = cat.querySelectorAll('[data-tool]').length;
+        total += count;
+        const badge = cat.querySelector('.category__badge');
+        if (badge) badge.textContent = count;
+        const chipCount = document.querySelector('[data-cat-count="' + catKey + '"]');
+        if (chipCount) chipCount.textContent = count;
+      });
+      totalCountEl.textContent = total;
+    }
+    countTools();
+
+    statsBar.addEventListener('click', (e) => {
+      const chip = e.target.closest('.stat-chip');
+      if (!chip) return;
+      statsBar.querySelectorAll('.stat-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+      chip.classList.add('active');
+      chip.setAttribute('aria-pressed', 'true');
+      const filter = chip.dataset.filter;
+      categoriesContainer.querySelectorAll('.category').forEach(cat => {
+        if (filter === 'all' || cat.dataset.category === filter) { cat.classList.remove('hidden'); }
+        else { cat.classList.add('hidden'); }
+      });
+    });
+
+    let debounceTimer;
+    searchInput.addEventListener('input', () => { clearTimeout(debounceTimer); debounceTimer = setTimeout(performSearch, 150); });
+
+    function performSearch() {
+      const query = searchInput.value.trim().toLowerCase();
+      if (!query) {
+        categoriesContainer.querySelectorAll('.category, [data-tool]').forEach(el => el.classList.remove('hidden'));
+        searchCount.textContent = '';
+        statsBar.querySelectorAll('.stat-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+        const allChip = statsBar.querySelector('[data-filter="all"]');
+        allChip.classList.add('active'); allChip.setAttribute('aria-pressed', 'true');
+        return;
+      }
+      let matchCount = 0;
+      categoriesContainer.querySelectorAll('.category').forEach(cat => {
+        let catHasMatch = false;
+        cat.querySelectorAll('[data-tool]').forEach(tool => {
+          if (tool.textContent.toLowerCase().includes(query)) {
+            tool.classList.remove('hidden'); catHasMatch = true; matchCount++; tool.setAttribute('open', '');
+          } else { tool.classList.add('hidden'); }
+        });
+        if (catHasMatch) { cat.classList.remove('hidden'); cat.setAttribute('open', ''); }
+        else { cat.classList.add('hidden'); }
+      });
+      searchCount.textContent = matchCount + ' wynik' + (matchCount === 1 ? '' : (matchCount < 5 ? 'i' : 'ów'));
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); searchInput.focus(); searchInput.select(); }
+      if (e.key === 'Escape' && document.activeElement === searchInput) { searchInput.value = ''; performSearch(); searchInput.blur(); }
+    });
+  })();
+</script>
+
+</body>
+</html>
