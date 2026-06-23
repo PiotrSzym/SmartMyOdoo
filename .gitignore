@@ -16,6 +16,8 @@ TeamEngine/
 .claude/agents/
 .claude/commands/
 .claude/README.md
+# CLEAN-01: kwarantanna 27 skili Go/React (symlinki) — lokalna, jak reszta .claude
+.claude/_graveyard/
 
 # ------------------------------------------------------------------------------
 # 2. Bazy Wiedzy i Decyzji (Kryptonim: LANCET, ADR, Conductor)
