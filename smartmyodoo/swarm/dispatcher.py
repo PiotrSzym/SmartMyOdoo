@@ -29,7 +29,11 @@ ROUTING_TABLE: Dict[IntentCategory, Dict[str, Any]] = {
     },
     IntentCategory.E_RESEARCH: {
         "persona": Persona.SCOUT,
-        "skill_name": None,
+        # WIRE-01 (D1/T1): E_RESEARCH obejmuje „przegląd logów" (patrz _build_prompt).
+        # Domyślny skill dla researchu logów = ODOO_SH_LOGS, zamiast osieroconego None.
+        # Fallback heurystyk nadal może nadpisać to bardziej specyficznym skilem
+        # (np. ODOO_AUDIT_HISTORY dla „kto/kiedy") — final_skill = skill_name or route.
+        "skill_name": SkillName.ODOO_SH_LOGS,
         "model": "anthropic/claude-3.5-sonnet",
     },
     IntentCategory.F_ARCHITECTURE: {
@@ -126,6 +130,38 @@ Zwróć TYLKO czysty JSON w następującym formacie:
             ):
                 category = IntentCategory.C_TESTING_QA
                 skill_name = SkillName.SECURITY_AUDIT
+            # --- WIRE-01 (D1/T1): podpięcie 3 osieroconych skili z SKILL_REGISTRY ---
+            # Kolejność CELOWA: po `audyt/security` i `kto/kiedy` (te nie mogą być
+            # kanibalizowane), przed generycznym `test`. „odoo.sh" sprowadzone do
+            # `odoo_sh` przez `.` → spacja w msg_lower jest niezmienione, dlatego
+            # matchujemy zarówno wariant z kropką, jak i frazę „odoo sh".
+            elif any(
+                k in msg_lower
+                for k in ["deploy", "branch", "staging", "github", "odoo.sh", "odoo sh", "push"]
+            ):
+                # DevOps/CI Odoo.sh (deploy, gałęzie, staging) — przed gałęzią logów,
+                # bo „błąd deploy" diagnozujemy z logów, ale samo „deploy/branch/push"
+                # to operacja DevOps.
+                category = IntentCategory.F_ARCHITECTURE
+                skill_name = SkillName.ODOO_DEVOPS_GITHUB
+            elif any(
+                k in msg_lower
+                for k in ["logi", "logu", "logó", "loga", "logach", "traceback", "stacktrace"]
+            ):
+                # Diagnostyka logów/tracebacków → ODOO_SH_LOGS (E_RESEARCH).
+                # Świadomie NIE matchujemy bare „log", bo łapie „logowanie/zalogować"
+                # (false positive, kanibalizował test C_TESTING_QA „testy dla logowania").
+                category = IntentCategory.E_RESEARCH
+                skill_name = SkillName.ODOO_SH_LOGS
+            elif any(
+                k in msg_lower
+                for k in ["faktur", "księgow", "ksiegow", "vat", "zaksięgow", "zaksiegow", "journal"]
+            ):
+                # Audyt księgowy (faktury/VAT/zapisy księgowe) → FINANCIAL_AUDIT.
+                # UWAGA: po `kto/kiedy` (ODOO_AUDIT_HISTORY), więc „kto zmienił fakturę"
+                # nadal trafia do historii zmian, nie do audytu księgowego.
+                category = IntentCategory.E_RESEARCH
+                skill_name = SkillName.FINANCIAL_AUDIT
             elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
                 category = IntentCategory.C_TESTING_QA
             elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):

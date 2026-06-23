@@ -1,4 +1,5 @@
 import inspect
+import logging
 import os
 import re
 import subprocess
@@ -12,7 +13,14 @@ from smartmyodoo.mcp.server import (
 )
 from smartmyodoo.swarm.brain.rag_api import SharedBrain
 
+logger = logging.getLogger(__name__)
+
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {}
+
+# WIRE-01/T2a: standardowa ścieżka logu Odoo on-premise (fallback, gdy brak ODOO_LOG_PATH).
+_DEFAULT_ODOO_LOG_PATH = "/var/log/odoo/odoo-server.log"
+# Limit czasu połączenia SSH (odoo.sh) — nie wisimy w nieskończoność.
+_SSH_TIMEOUT_SECONDS = 30
 
 # S1.4: dozwolona nazwa modułu Odoo (blokuje path traversal z wejścia LLM)
 _MODULE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,62}$")
@@ -157,18 +165,97 @@ def scaffold_module(module_name: str) -> str:
         return f"❌ Błąd scaffold_module: {str(e)}"
 
 
-@register_tool("read_odoo_log")
-def read_odoo_log(lines: int = 50) -> str:
-    """Czyta ostatnie 'lines' z pliku logów Odoo (symulowane)."""
-    log_path = "odoo.log"
+def _read_log_on_premise(lines: int) -> str:
+    """WIRE-01/T2a: czyta ostatnie `lines` z pliku logu Odoo (on-premise).
+
+    Ścieżka z env `ODOO_LOG_PATH`, fallback `/var/log/odoo/odoo-server.log`.
+    Brak/niedostępny plik → JAWNY błąd z instrukcją (BEZ słowa „symulowane").
+    Komunikat NIE ujawnia sekretów — tylko nazwę zmiennej do konfiguracji.
+    """
+    log_path = os.environ.get("ODOO_LOG_PATH", _DEFAULT_ODOO_LOG_PATH)
     if not os.path.exists(log_path):
-        return f"Plik {log_path} nie istnieje."
+        return (
+            "❌ Nie znaleziono pliku logu Odoo. Skonfiguruj zmienną środowiskową "
+            "ODOO_LOG_PATH wskazującą na log instancji (np. /var/log/odoo/odoo-server.log), "
+            "albo zapewnij dostęp do domyślnej ścieżki."
+        )
     try:
-        with open(log_path, "r", encoding="utf-8") as f:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.readlines()
             return "".join(content[-lines:])
-    except Exception as e:
-        return f"Błąd czytania logów: {str(e)}"
+    except OSError:
+        # Nie echujemy ścieżki/treści wyjątku do wyniku (mogą zawierać dane wrażliwe).
+        logger.error("Błąd odczytu logu on-premise (ścieżka z ODOO_LOG_PATH).")
+        return (
+            "❌ Nie udało się odczytać pliku logu Odoo. Sprawdź uprawnienia i wartość "
+            "ODOO_LOG_PATH."
+        )
+
+
+def _read_log_odoo_sh(lines: int) -> str:
+    """WIRE-01/T2b (D3): SSH `tail -n {lines}` log brancha na odoo.sh.
+
+    Creds (host/user/klucz) z vaultu (NIE env-plaintext). Komenda jako argv-list
+    (NIE shell=True) — read-only `tail`. Zero echa creds do logów ani do wyniku
+    (wzór: db_manager.py:36).
+    """
+    # Import lokalny — unikamy cyklu tools↔vault_auth↔pipeline na poziomie modułu.
+    from smartmyodoo.swarm.vault_auth import VaultAuthProvider
+    from smartmyodoo.swarm.pipeline import PipelineError
+
+    try:
+        creds = VaultAuthProvider.get_ssh_credentials()
+    except PipelineError:
+        # Komunikat sanityzowany — bez treści sekretów.
+        logger.error("SSH do odoo.sh nieudane: brak/niepełne poświadczenia w vaultcie.")
+        return (
+            "❌ Brak poświadczeń SSH do odoo.sh w skarbcu (klucz ODOO_SH_SSH). "
+            "Dodaj host/user/key do vaultu, aby pobierać logi brancha."
+        )
+
+    # Ścieżka logu na branchu odoo.sh (konfigurowalna; standard odoo.sh).
+    remote_log = os.environ.get(
+        "ODOO_SH_LOG_PATH", "~/logs/odoo.log"
+    )
+    # argv-list, ZERO shell=True, ZERO interpolacji user-inputu do shella.
+    # `lines` jest int (kontrakt sygnatury) — bezpieczne do str().
+    cmd = [
+        "ssh",
+        "-i",
+        creds.key_path,
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        f"{creds.user}@{creds.host}",
+        "tail",
+        "-n",
+        str(int(lines)),
+        remote_log,
+    ]
+    try:
+        # NIE logujemy `cmd` (zawiera host/user/ścieżkę klucza) — wzór db_manager:36.
+        res = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=_SSH_TIMEOUT_SECONDS
+        )
+    except (OSError, subprocess.SubprocessError):
+        logger.error("SSH do odoo.sh nieudane (połączenie/proces).")
+        return "❌ Nie udało się połączyć z odoo.sh przez SSH (sprawdź konfigurację i sieć)."
+
+    if res.returncode != 0:
+        # NIE zwracamy stderr w całości (mógłby echować creds/host); skrót diagnostyczny.
+        logger.error("SSH tail zwrócił kod != 0 (odoo.sh).")
+        return "❌ Zdalne pobranie logu z odoo.sh nie powiodło się (tail zakończony błędem)."
+    return res.stdout
+
+
+@register_tool("read_odoo_log")
+def read_odoo_log(lines: int = 50) -> str:
+    """Czyta ostatnie 'lines' z logów Odoo (on-premise: plik; odoo.sh: SSH tail)."""
+    hosting = (os.environ.get("ODOO_HOSTING") or "").strip().lower()
+    if hosting == "odoo_sh":
+        return _read_log_odoo_sh(lines)
+    return _read_log_on_premise(lines)
 
 
 @register_tool("search_odoo_code")

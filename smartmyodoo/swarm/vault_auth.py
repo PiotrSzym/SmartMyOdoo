@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 from typing import Dict, Any
 
@@ -15,6 +16,19 @@ class PipelineCredentials:
     odoo_login: str
     odoo_password: str
     openrouter_key: str
+
+
+@dataclass(frozen=True)
+class SSHCredentials:
+    """Poświadczenia SSH do kontenera brancha odoo.sh (read-only tail logów).
+
+    WIRE-01/D3: host/user/klucz pochodzą WYŁĄCZNIE z vaultu (nie env-plaintext).
+    Pola te NIGDY nie są logowane (wzór: db_manager.py:36 — „NIE logujemy creds").
+    """
+
+    host: str
+    user: str
+    key_path: str
 
 
 class VaultAuthProvider:
@@ -82,3 +96,47 @@ class VaultAuthProvider:
             odoo_password=odoo_password,
             openrouter_key=openrouter_key,
         )
+
+    @staticmethod
+    def get_ssh_credentials(pin: str | None = None) -> SSHCredentials:
+        """Pobiera poświadczenia SSH do odoo.sh ze SmartMyVault (WIRE-01/D3).
+
+        Sekrety SSH są przechowywane w skarbcu pod kluczem `ODOO_SH_SSH`
+        (pola: `host`, `login`/`user`, `key`/`key_path`). Host/user/klucz NIE mogą
+        pochodzić z env w plaintext — tylko z vaultu.
+
+        PIN domyślnie z env `VAULT_PIN` (ten sam mechanizm autoryzacji co pipeline).
+        Komunikaty błędów są sanityzowane (ADR-011): nie ujawniają PIN-u, ścieżek
+        ani treści sekretów.
+        """
+        pin = pin or os.environ.get("VAULT_PIN")
+        if not pin:
+            logger.error("SSH AUTH failed: brak PIN-u do skarbca (VAULT_PIN).")
+            raise PipelineError("AUTH failed: Missing vault PIN for SSH.")
+
+        try:
+            vk = vault.get_vault_key_from_pin(pin, exit_on_fail=False)
+            data = vault.load_vault(vk)
+        except (vault.VaultDecryptionError, ValueError):
+            logger.error(
+                "SSH AUTH failed due to invalid credentials or corrupted vault."
+            )
+            raise PipelineError("AUTH failed: Invalid vault credentials.")
+
+        entry = data.get("ODOO_SH_SSH")
+        if not isinstance(entry, dict) or entry.get("deleted_at"):
+            logger.error("SSH AUTH failed: brak wpisu ODOO_SH_SSH w skarbcu.")
+            raise PipelineError("AUTH failed: Missing SSH secrets in Vault.")
+
+        host = str(entry.get("host") or entry.get("url") or "")
+        user = str(entry.get("login") or entry.get("user") or "")
+        key_path = str(entry.get("key_path") or entry.get("key") or "")
+
+        if not all([host, user, key_path]):
+            # Brak echa wartości — tylko fakt braku pola.
+            logger.error(
+                "SSH AUTH failed: niekompletny wpis ODOO_SH_SSH (host/user/key)."
+            )
+            raise PipelineError("AUTH failed: Incomplete SSH secrets in Vault.")
+
+        return SSHCredentials(host=host, user=user, key_path=key_path)
