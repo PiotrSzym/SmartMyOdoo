@@ -36,9 +36,11 @@ def test_clear_resets_scope_and_records():
     assert scope.context_block("ws", "sess") is None
 
 
-def test_dispatcher_classify_uses_cheap_haiku_tier():
-    # D5: dispatcher (classify_intent) idzie tanim, ale MOCNIEJSZYM modelem (haiku-4.5).
+def test_dispatcher_classify_uses_cheap_tier_no_haiku():
+    # Decyzja usera 2026-06-25: dispatcher (classify_intent) = CHEAP, ale CHEAP=sonnet-4.6
+    # (haiku OUT — gubił rekordy CRM i konfabulował „problem z połączeniem").
     from smartmyodoo.swarm.model_policy import resolve_model, MODEL_POLICY, ModelTier
 
     assert resolve_model("classify_intent") == MODEL_POLICY[ModelTier.CHEAP]
-    assert MODEL_POLICY[ModelTier.CHEAP].endswith("claude-haiku-4.5")
+    assert MODEL_POLICY[ModelTier.CHEAP].endswith("claude-sonnet-4.6")
+    assert "haiku" not in MODEL_POLICY[ModelTier.CHEAP].lower()

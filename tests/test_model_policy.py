@@ -67,13 +67,21 @@ def test_premium_distinct_from_standard():
     assert "sonnet" in MODEL_POLICY[ModelTier.STANDARD]
 
 
-# TRUST-01 T4: guard przed cofnięciem do poprzedniej generacji (sonnet-4.5 / llama-8b).
+# TRUST-01 T4 + decyzja usera 2026-06-25: aktualna generacja; haiku WYWALONE.
 def test_models_are_current_generation():
     from smartmyodoo.swarm.model_policy import MODEL_POLICY, ModelTier
 
-    assert MODEL_POLICY[ModelTier.CHEAP].endswith("claude-haiku-4.5")
+    assert MODEL_POLICY[ModelTier.CHEAP].endswith("claude-sonnet-4.6")  # haiku out
     assert MODEL_POLICY[ModelTier.STANDARD].endswith("claude-sonnet-4.6")
     assert MODEL_POLICY[ModelTier.PREMIUM].endswith("claude-opus-4.8")
+
+
+def test_no_tier_uses_haiku():
+    """Decyzja usera 2026-06-25: haiku gubił rekordy CRM i konfabulował awarie — OUT."""
+    from smartmyodoo.swarm.model_policy import MODEL_POLICY
+
+    for tier, model in MODEL_POLICY.items():
+        assert "haiku" not in model.lower(), f"{tier} nadal używa haiku: {model}"
 
 
 def test_chat_uses_fallback_model():

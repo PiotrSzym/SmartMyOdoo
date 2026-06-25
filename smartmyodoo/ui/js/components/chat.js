@@ -536,7 +536,7 @@ class ChatPanel {
         } catch (err) {
             console.error('[Chat] Błąd API:', err);
             this.isWaiting = false;
-            this.addMessage('agent', `⚠️ Błąd połączenia z Agentem: ${err.message}. Upewnij się, że serwer FastAPI działa na porcie 8000.`);
+            this.addMessage('agent', `⚠️ Błąd połączenia z Agentem: ${err.message}. Sprawdź, czy serwer FastAPI działa (i odśwież stronę, jeśli był restartowany).`);
         }
     }
 

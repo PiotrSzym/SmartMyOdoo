@@ -21,11 +21,12 @@ class ModelTier(str, Enum):
 # rozdzielony od STANDARD — audyt finansowy/security idzie mocniejszym Opusem.
 MODEL_POLICY = {
     ModelTier.CHEAP: os.environ.get(
-        # Dispatcher (klasyfikacja intencji) + audit-history. llama-3.1-8b był zbyt
-        # słaby — błędy klasyfikacji kaskadowały (zły skill→zły tier→zły filtr).
-        # haiku-4.5: tani ($1/$5), znacznie pewniejszy w klasyfikacji (TRUST-01 T5).
+        # Dispatcher (klasyfikacja intencji) + audit-history. Decyzja usera 2026-06-25:
+        # haiku-4.5 OUT — był zbyt słaby (gubił rekordy CRM, KONFABULOWAŁ „problem z
+        # połączeniem" zamiast przyznać błąd). CHEAP = sonnet-4.6, jak STANDARD — żaden
+        # tier nie używa już haiku. Wyższy koszt, ale wiarygodne zapytania o Odoo.
         "MODEL_TIER_CHEAP",
-        "openrouter/anthropic/claude-haiku-4.5",
+        "openrouter/anthropic/claude-sonnet-4.6",
     ),
     ModelTier.STANDARD: os.environ.get(
         # Domyślny model interaktywnego czatu/CRUD. sonnet-4.6 ($3/$15, 1M kontekstu)
