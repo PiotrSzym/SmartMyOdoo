@@ -182,6 +182,9 @@ def search_odoo_records(
             ]
 
         out: dict = {"records": embed, "count": total}
+        # TRUST-01 T6: dołącz wersję Odoo (z T3 connectora) do provenance odpowiedzi.
+        if getattr(target_odoo, "major", None) is not None:
+            out["odoo_version"] = target_odoo.major
         if len(embed) < total:
             out["truncated"] = True
             out["note"] = (

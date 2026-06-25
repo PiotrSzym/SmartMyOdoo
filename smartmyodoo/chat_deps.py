@@ -32,6 +32,21 @@ def get_pii() -> Any:
     return _pii_singleton
 
 
+# TRUST-01 T5 (D5): współdzielona pamięć ZAKRESU rozmowy (project_id między turami).
+# In-memory, per (workspace, session) — jak liczniki PII. Singleton, by follow-up
+# w tej samej sesji dziedziczył zakres niezależnie od żądania.
+_conversation_scope_singleton: Optional[Any] = None
+
+
+def get_conversation_scope() -> Any:
+    global _conversation_scope_singleton
+    if _conversation_scope_singleton is None:
+        from smartmyodoo.swarm.conversation_scope import ConversationScope
+
+        _conversation_scope_singleton = ConversationScope()
+    return _conversation_scope_singleton
+
+
 # FIX-03: współdzielony cache odpowiedzi LLM (S5.1). Redis gdy REDIS_URL, inaczej In-Memory.
 # Wyłączalny: LLM_CACHE=off. UWAGA — wpinać tylko dla skilli read-only (świeżość danych live).
 _llm_cache_singleton: Optional[Any] = None

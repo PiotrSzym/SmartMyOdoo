@@ -16,23 +16,28 @@ class ModelTier(str, Enum):
 
 
 # Tier → model (ENV-override: MODEL_TIER_CHEAP/STANDARD/PREMIUM)
+# TRUST-01 T4 (2026-06-25): odświeżenie modeli. Slugi zweryfikowane na OpenRouter
+# (anthropic/claude-haiku-4.5, …/claude-sonnet-4.6, …/claude-opus-4.8). PREMIUM
+# rozdzielony od STANDARD — audyt finansowy/security idzie mocniejszym Opusem.
 MODEL_POLICY = {
     ModelTier.CHEAP: os.environ.get(
-        "MODEL_TIER_CHEAP", "openrouter/meta-llama/llama-3.1-8b-instruct"
+        # Dispatcher (klasyfikacja intencji) + audit-history. llama-3.1-8b był zbyt
+        # słaby — błędy klasyfikacji kaskadowały (zły skill→zły tier→zły filtr).
+        # haiku-4.5: tani ($1/$5), znacznie pewniejszy w klasyfikacji (TRUST-01 T5).
+        "MODEL_TIER_CHEAP",
+        "openrouter/anthropic/claude-haiku-4.5",
     ),
     ModelTier.STANDARD: os.environ.get(
-        # Domyślny model interaktywnego czatu. claude-3.5-haiku był zbyt słaby
-        # (mylił filtry domeny, mieszał nazwy rekordów). claude-sonnet-4.5 —
-        # zweryfikowany na OpenRouter, 200k kontekstu (duże wyniki Odoo), precyzyjny.
-        # Dial-back: ENV MODEL_TIER_STANDARD=openrouter/anthropic/claude-3.5-haiku.
+        # Domyślny model interaktywnego czatu/CRUD. sonnet-4.6 ($3/$15, 1M kontekstu)
+        # — aktualna generacja, celniejszy przy polach/wersjach Odoo niż 4.5.
         "MODEL_TIER_STANDARD",
-        "openrouter/anthropic/claude-sonnet-4.5",
+        "openrouter/anthropic/claude-sonnet-4.6",
     ),
     ModelTier.PREMIUM: os.environ.get(
-        # FIX: claude-3.5-sonnet wycofany na OpenRouter (404 "No endpoints found").
-        # Aktualny stabilny sonnet (zweryfikowany przez litellm 2026-06-16).
+        # Audyt finansowy/security, architektura, magic-fix. opus-4.8 ($5/$25, 1M) —
+        # realnie mocniejszy niż STANDARD (wcześniej PREMIUM==STANDARD, bug TRUST-01 #5).
         "MODEL_TIER_PREMIUM",
-        "openrouter/anthropic/claude-sonnet-4.5",
+        "openrouter/anthropic/claude-opus-4.8",
     ),
 }
 

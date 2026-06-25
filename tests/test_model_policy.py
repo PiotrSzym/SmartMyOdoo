@@ -55,6 +55,27 @@ def test_premium_model_not_deprecated():
     assert "sonnet" in prem or "opus" in prem  # nadal model premium
 
 
+# TRUST-01 T4 (2026-06-25): PREMIUM musi być MOCNIEJSZY niż STANDARD (bug #5: były równe).
+def test_premium_distinct_from_standard():
+    from smartmyodoo.swarm.model_policy import MODEL_POLICY, ModelTier
+
+    assert (
+        MODEL_POLICY[ModelTier.PREMIUM] != MODEL_POLICY[ModelTier.STANDARD]
+    ), "PREMIUM == STANDARD — audyt finansowy/security dostaje ten sam model co CRUD"
+    # realny tier premium = Opus; standard = Sonnet
+    assert "opus" in MODEL_POLICY[ModelTier.PREMIUM]
+    assert "sonnet" in MODEL_POLICY[ModelTier.STANDARD]
+
+
+# TRUST-01 T4: guard przed cofnięciem do poprzedniej generacji (sonnet-4.5 / llama-8b).
+def test_models_are_current_generation():
+    from smartmyodoo.swarm.model_policy import MODEL_POLICY, ModelTier
+
+    assert MODEL_POLICY[ModelTier.CHEAP].endswith("claude-haiku-4.5")
+    assert MODEL_POLICY[ModelTier.STANDARD].endswith("claude-sonnet-4.6")
+    assert MODEL_POLICY[ModelTier.PREMIUM].endswith("claude-opus-4.8")
+
+
 def test_chat_uses_fallback_model():
     from pathlib import Path
 

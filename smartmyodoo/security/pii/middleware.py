@@ -10,7 +10,10 @@ from typing import Dict
 
 from presidio_anonymizer import AnonymizerEngine
 
-from smartmyodoo.security.pii.recognizers import setup_analyzer
+from smartmyodoo.security.pii.recognizers import (
+    is_business_term_span,
+    setup_analyzer,
+)
 
 
 class PiiMiddleware:
@@ -27,6 +30,11 @@ class PiiMiddleware:
             return text
 
         results = self.analyzer.analyze(text=text, language="pl")
+
+        # TRUST-01 T2: odsiej false-positive na terminach biznesowych Odoo
+        # (Price/Audyt/Invoice…). NIE rusza wzorców osób/e-maili/NIP/PESEL —
+        # 'Henk Molenkamp' (brak terminu) przechodzi dalej i jest maskowany.
+        results = [r for r in results if not is_business_term_span(text[r.start : r.end])]
 
         # Filter overlapping entities keeping the highest score
         results = sorted(results, key=lambda x: x.score, reverse=True)

@@ -82,3 +82,5 @@ check_odoo.py
 vault_diag.py
 odoo_conn_test.py
 odoo19_connect.py
+odoo19_verify.py
+odoo_ver_diff.py

@@ -10,6 +10,33 @@ from smartmyodoo.swarm.sandbox import SandboxManager
 
 logger = logging.getLogger(__name__)
 
+# TRUST-01 T1 (decyzja D1): confab-guard PII. Dane Odoo trafiają do LLM po
+# pseudonimizacji (np. 'RMO <PERSON_2>'). Bez tej reguły model ZGADYWAŁ
+# wartość spod maski ('RMO Billing Type') i podawał ją jako fakt. Reguła jest
+# instrukcją systemową (nie post-processing) — najtańsza i najpewniejsza.
+# NIE odsłania oryginału: model nadal widzi wyłącznie token (Sekcja D).
+PII_CONFAB_GUARD = (
+    "\n\n--- ZASADA DANYCH ZAMASKOWANYCH (BEZWZGLĘDNA) ---\n"
+    "Niektóre wartości w danych są zamaskowane tokenami w formacie "
+    "<TYP_numer>, np. <PERSON_1>, <LOCATION_2>, <ORGANIZATION_1>, <EMAIL_ADDRESS_1>, "
+    "<NIP_1>, <PESEL_1>. To są pseudonimy realnych danych (nazwisk, miejsc, firm). "
+    "NIGDY nie rozwijaj, nie zgaduj ani nie wymyślaj wartości kryjącej się pod takim "
+    "tokenem. Cytuj token DOSŁOWNIE w niezmienionej formie, albo napisz "
+    "\"[zamaskowane]\". Zmyślenie nazwy w miejsce tokenu jest błędem krytycznym."
+)
+
+
+def build_system_prompt(base_prompt: str) -> str:
+    """Składa prompt systemowy: prompt skilla + confab-guard PII (idempotentnie).
+
+    SSoT dla confab-guarda — używane przez execute i execute_stream.
+    """
+    base = base_prompt or ""
+    if "[zamaskowane]" in base:
+        # Guard już doklejony (np. prompt budowany ponownie) — nie dubluj.
+        return base
+    return base + PII_CONFAB_GUARD
+
 
 class RedFlagViolation(Exception):
     """Raised when a user intent matches a configured red flag for a skill."""
@@ -26,6 +53,7 @@ class SkillExecutor:
         session_id: str = "",
         sandbox: Optional[SandboxManager] = None,
         pii: Optional[Any] = None,
+        scope: Optional[Any] = None,
     ):
         self.llm_client = llm_client
         self.chat_repo = chat_repo
@@ -34,6 +62,9 @@ class SkillExecutor:
         self.sandbox = sandbox
         # PiiMiddleware (S1.1): pseudonimizacja PII na granicy LLM. None = brak (np. testy jednostkowe).
         self.pii = pii
+        # TRUST-01 T5 (D5): ConversationScope — pamięć project_id między turami.
+        # None = brak (testy jednostkowe / brak pamięci zakresu).
+        self.scope = scope
         # S2.3: stan przekierowania bazy Odoo na scratchpad (izolacja sandbox)
         self._saved_db: Optional[str] = None
         self._db_redirected = False
@@ -58,6 +89,49 @@ class SkillExecutor:
                 for k, v in args.items()
             }
         return args
+
+    def _capture_scope(self, func_name: str, args: Any) -> None:
+        """TRUST-01 T5: wyłuskaj project_id z domeny zapytania Odoo i zapamiętaj go.
+
+        Domena bywa stringiem w składni Pythona/JSON — parsujemy tolerancyjnie
+        (ast.literal_eval). No-op gdy brak trackera/zakresu (testy jednostkowe)."""
+        if self.scope is None or not isinstance(args, dict):
+            return
+        if "odoo_search" not in func_name and "search" not in func_name:
+            return
+        domain = args.get("domain")
+        if isinstance(domain, str):
+            import ast
+
+            try:
+                domain = ast.literal_eval(domain)
+            except Exception:
+                return
+        if isinstance(domain, (list, tuple)):
+            try:
+                self.scope.capture_domain(
+                    self.workspace_id, self.session_id, domain
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Scope capture failed: {e}")
+
+    def _capture_provenance(self, prov: Any, func_name: str, tool_result_str: str) -> None:
+        """TRUST-01 T6: wyłuskaj 'count' (liczba rekordów) oraz wersję Odoo z wyniku
+        narzędzia, by zbudować stopkę provenance. Tolerancyjny — błędy są nieistotne."""
+        if not isinstance(tool_result_str, str) or not tool_result_str:
+            return
+        try:
+            data = json.loads(tool_result_str)
+        except Exception:
+            return
+        if isinstance(data, dict):
+            cnt = data.get("count")
+            if isinstance(cnt, int):
+                prov.record_count(cnt)
+            # Wersja Odoo, jeśli narzędzie ją zwraca (np. odoo_schema/version).
+            ver = data.get("odoo_version") or data.get("version")
+            if ver:
+                prov.set_version(ver)
 
     def _enter_db_redirect(self, scratchpad: str) -> None:
         """S2.3: przekieruj narzędzia Odoo na scratchpad (przez ODOO_DB), zapisując oryginał."""
@@ -118,8 +192,18 @@ class SkillExecutor:
     def _build_initial_messages(self, skill_config: SkillConfig, message: str) -> list:
         """System prompt + Smart Context (anonimizowany) + wiadomość user (anon) + zapis do historii."""
         messages = [
-            {"role": "system", "content": skill_config.system_prompt},
+            # TRUST-01 T1: dokładamy confab-guard PII do promptu skilla.
+            {"role": "system", "content": build_system_prompt(skill_config.system_prompt)},
         ]
+        # TRUST-01 T5 (D5): jeśli to follow-up, wstrzyknij podpowiedź o zakresie
+        # (project_id z poprzedniej tury), by model nie gubił filtra projektu.
+        if self.scope is not None:
+            try:
+                self.scope.inject_hint(
+                    self.workspace_id, self.session_id, message, messages
+                )
+            except Exception as e:  # noqa: BLE001 — kontekst to ulepszenie, nie bloker
+                logger.warning(f"Scope hint injection failed: {e}")
         if self.chat_repo and self.session_id:
             try:
                 context = self.chat_repo.get_smart_context(
@@ -247,6 +331,10 @@ class SkillExecutor:
         tools_used = set()
         sandbox_activated = False
         audit_db = self._get_audit_db()
+        # TRUST-01 T6: akumulator provenance (rekordy + maski PII) dla stopki.
+        from smartmyodoo.swarm.provenance import ProvenanceAccumulator
+
+        prov = ProvenanceAccumulator(pii=self.pii, workspace_id=self.workspace_id)
 
         if self.llm_client:
             max_iterations = 10
@@ -282,6 +370,10 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
+                        # TRUST-01 T5: zapamiętaj project_id z domeny zapytania Odoo,
+                        # by follow-up w tej samej sesji dziedziczył zakres.
+                        self._capture_scope(func_name, args)
+
                         # ── Sandbox (S2.3): fail-closed + redirect (S3.2: wspólne helpery) ──
                         blocked = False
                         if self._should_sandbox(func_name, sandbox_activated):
@@ -304,6 +396,9 @@ class SkillExecutor:
                         self._audit_tool_call(
                             audit_db, func_name, args, tool_result_str, tool_success
                         )
+
+                        # TRUST-01 T6: zbierz liczbę rekordów + wersję Odoo z wyniku.
+                        self._capture_provenance(prov, func_name, tool_result_str)
 
                         messages.append(
                             {
@@ -336,6 +431,13 @@ class SkillExecutor:
         # S1.1: przywróć realne dane w odpowiedzi dla użytkownika (LLM widział tylko tokeny)
         response_text = self._deanon(response_text)
 
+        # TRUST-01 T6: doklej stopkę provenance (źródło/wersja/rekordy/maski), gdy
+        # tura dotykała danych Odoo. Tylko liczniki — bez wartości (0G).
+        from smartmyodoo.swarm.provenance import append_provenance
+
+        footer = prov.footer()
+        response_text = append_provenance(response_text, footer)
+
         # Save assistant response to history
         self._save_chat(
             "assistant",
@@ -350,6 +452,7 @@ class SkillExecutor:
             "response": response_text,
             "requires_human_override": skill_config.requires_human_override,
             "tools_used": list(tools_used),
+            "provenance": footer,
         }
 
     async def execute_stream(

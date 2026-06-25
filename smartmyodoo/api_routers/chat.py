@@ -24,7 +24,12 @@ from smartmyodoo.swarm.models import ChatRequest, ChatResponse, ChatProposalData
 from smartmyodoo.swarm.model_policy import effective_model, MODEL_POLICY, ModelTier
 from smartmyodoo.mcp.token_governor import governor as _token_governor
 from smartmyodoo.api_deps import require_auth, get_auth_key
-from smartmyodoo.chat_deps import dispatcher, get_pii as _get_pii, get_llm_cache
+from smartmyodoo.chat_deps import (
+    dispatcher,
+    get_pii as _get_pii,
+    get_llm_cache,
+    get_conversation_scope as _get_scope,
+)
 
 router = APIRouter(tags=["chat"])
 
@@ -236,6 +241,7 @@ async def handle_chat(
         session_id=req.session_id,
         sandbox=sandbox,
         pii=_get_pii(),
+        scope=_get_scope(),  # TRUST-01 T5: pamięć project_id między turami
     )
 
     # ── 4. Resolve skill config ──
@@ -413,6 +419,7 @@ async def run_pipeline(
         session_id=session_id,
         sandbox=sandbox,
         pii=_get_pii(),
+        scope=_get_scope(),  # TRUST-01 T5
     )
 
     db_manager = OdooDBManager(odoo_url, odoo_master_pwd)
@@ -538,6 +545,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             session_id=session_id,
             sandbox=sandbox,
             pii=_get_pii(),
+            scope=_get_scope(),  # TRUST-01 T5
         )
 
         skill_config = None

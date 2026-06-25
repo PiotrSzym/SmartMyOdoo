@@ -2,7 +2,20 @@ import xmlrpc.client  # nosec B411
 import os
 import asyncio
 import contextvars
-from typing import Any, Dict, Optional
+import logging
+from typing import Any, Dict, Optional, Set
+
+logger = logging.getLogger(__name__)
+
+
+class OdooFieldError(Exception):
+    """TRUST-01 T3 (D4): pole nie istnieje w tym modelu/wersji Odoo.
+
+    FAIL LOUD — lepszy jawny błąd niż ciche puste wyniki (które napędzały
+    nieufność: zapytanie o pole z innej wersji zwracało pustkę bez ostrzeżenia).
+    """
+
+    pass
 
 # KEY-02-3 (ADR-007): poświadczenia Odoo per workspace ze Skarbca, wstrzykiwane na czas
 # obsługi żądania (ContextVar — bezpieczne dla współbieżności, propaguje się do asyncio.to_thread).
@@ -49,9 +62,20 @@ class OdooClient:
         )
         self.uid: Optional[int] = None
         self.models: Any = None
+        # TRUST-01 T3 (D3): wersja wykryta RAZ przy connect i cache'owana (per instancja
+        # klienta = per workspace, bo fabryka tworzy świeży klient na żądanie).
+        self.version_info: Optional[Dict[str, Any]] = None
+        self.major: Optional[int] = None
+        # fields_get cache per model (D3): nie odpytujemy schematu co request.
+        self._fields_cache: Dict[str, Set[str]] = {}
 
     def connect(self):
-        """Uwierzytelnia się w Odoo i zwraca True w przypadku sukcesu."""
+        """Uwierzytelnia się w Odoo i zwraca True w przypadku sukcesu.
+
+        TRUST-01 T3: dodatkowo wykrywa wersję serwera (common.version()) — wzorzec
+        z swarm/recon.py:36, przeniesiony do connectora czatu. Wykrycie wersji jest
+        NIE-KRYTYCZNE: gdy version() padnie, logujemy i lecimy dalej (auth ważniejszy).
+        """
         if not all([self.url, self.db, self.username, self.password]):
             raise ValueError("Brak konfiguracji Odoo w zmiennych środowiskowych.")
 
@@ -63,8 +87,59 @@ class OdooClient:
                 "Błąd autoryzacji do Odoo. Sprawdź poświadczenia w SmartMyVault."
             )
 
+        # TRUST-01 T3 (D3): wykryj wersję raz przy connect (wzorzec recon.py).
+        try:
+            self.version_info = common.version()
+            svi = (self.version_info or {}).get("server_version_info")
+            if isinstance(svi, (list, tuple)) and svi:
+                self.major = int(svi[0])
+            else:
+                # Fallback: sparsuj prefiks ze 'server_version' (np. '19.0').
+                sv = str((self.version_info or {}).get("server_version", ""))
+                head = sv.split(".")[0]
+                self.major = int(head) if head.isdigit() else None
+        except Exception as e:  # noqa: BLE001 — wersja jest dodatkiem, nie blokerem
+            logger.warning("Nie udało się wykryć wersji Odoo: %s", type(e).__name__)
+            self.version_info = None
+            self.major = None
+
         self.models = xmlrpc.client.ServerProxy("{}/xmlrpc/2/object".format(self.url))
         return True
+
+    def get_available_fields(self, model: str) -> Set[str]:
+        """Zwraca zbiór nazw pól modelu (z `fields_get`), cache'owany per model (D3).
+
+        Dzięki temu lista pól jest świadoma wersji Odoo — pola hardkodowane spoza
+        danej wersji wykrywamy ZANIM odpytamy serwer (patrz validate_fields)."""
+        if model in self._fields_cache:
+            return self._fields_cache[model]
+        if not self.uid:
+            self.connect()
+        fields_info = self.models.execute_kw(
+            self.db, self.uid, self.password, model, "fields_get", [], {"attributes": []}
+        )
+        names: Set[str] = set(fields_info.keys()) if isinstance(fields_info, dict) else set()
+        self._fields_cache[model] = names
+        return names
+
+    def validate_fields(self, model: str, fields: list) -> None:
+        """TRUST-01 T3 (D4): waliduje, że pola istnieją w danej wersji modelu.
+
+        Pole nieobecne (np. analytic_account_id na v19) => OdooFieldError (FAIL LOUD)
+        + log z wersją. NIGDY ciche puste wyniki."""
+        available = self.get_available_fields(model)
+        missing = [f for f in (fields or []) if f not in available]
+        if missing:
+            logger.error(
+                "Pola %s nie istnieją w modelu %s (Odoo major=%s). FAIL LOUD (D4).",
+                missing,
+                model,
+                self.major,
+            )
+            raise OdooFieldError(
+                f"Pola {missing} nie istnieją w modelu '{model}' "
+                f"(Odoo {self.major}). Sprawdź wersję — pola różnią się między 16/18/19."
+            )
 
     def search_read(
         self, model: str, domain: list, fields: Optional[list] = None, limit: int = 10
