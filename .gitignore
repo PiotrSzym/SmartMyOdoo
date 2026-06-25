@@ -76,3 +76,9 @@ smartmyodoo.db*
 
 # Graphify — mapy architektury (artefakty generowane, lokalne)
 graphify-out/
+
+# Lokalne testery połączeń/vaultu z zaszytym dev-PIN — NIGDY do publicznego repo
+check_odoo.py
+vault_diag.py
+odoo_conn_test.py
+odoo19_connect.py
