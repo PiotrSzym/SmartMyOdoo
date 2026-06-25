@@ -369,6 +369,55 @@ def execute_approved_proposals(workspace_id: str = "default") -> str:
     return "\n".join(results)
 
 
+def execute_proposal_by_id(proposal_id: str, workspace_id: str = "default") -> dict:
+    """WRITE-01 T1: wykonaj POJEDYNCZĄ propozycję na LIVE Odoo i oznacz 'executed'.
+
+    Per-propozycja (nie batch) — by apply dotyczył dokładnie tej karty. Bramką jest
+    PIN (require_auth w endpoincie). Schemat spójny: czytamy method/odoo_model/values
+    z db.Proposal, record_ids/values z JSON. Zwraca {success, status, model, method}.
+    """
+    db = shadow_mode.SessionLocal()
+    try:
+        prop = (
+            db.query(shadow_mode.Proposal)
+            .filter(shadow_mode.Proposal.id == proposal_id)
+            .first()
+        )
+        if not prop:
+            return {"success": False, "error": "not_found"}
+        if str(prop.status) == "executed":
+            return {"success": True, "already": True, "status": "executed"}
+        if str(prop.status) == "rejected":
+            return {"success": False, "error": "rejected"}
+
+        val_data = json.loads(str(prop.values)) if prop.values else {}
+        record_ids = val_data.get("record_ids", [])
+        values = val_data.get("values", {})
+        method = str(prop.method)
+        model = str(prop.odoo_model)
+        ws = str(prop.workspace_id) or workspace_id
+
+        target_odoo = get_odoo_client(ws)
+        if method == "create":
+            target_odoo.create(model, [values])
+        elif method == "update":
+            target_odoo.write(model, record_ids, values)
+        elif method == "delete":
+            target_odoo.unlink(model, record_ids)
+        else:
+            return {"success": False, "error": f"unknown_method:{method}"}
+
+        prop.status = "executed"
+        db.commit()
+        logger.info("WRITE-01 apply: %s %s.%s wykonane", proposal_id, model, method)
+        return {"success": True, "status": "executed", "model": model, "method": method}
+    except Exception as e:
+        logger.error("execute_proposal_by_id %s: %s", proposal_id, str(e))
+        return {"success": False, "error": "execution_failed"}
+    finally:
+        db.close()
+
+
 @mcp.tool()
 def propose_magic_fix(
     fix_type: str, record_id: int, reason: str, workspace_id: str = "default"
