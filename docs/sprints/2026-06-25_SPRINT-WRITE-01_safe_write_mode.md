@@ -70,8 +70,8 @@ tags: ["write", "shadow-mode", "step-up-auth", "proposals", "odoo", "gdpr", "adr
 | # | Zadanie | Pliki | Testy | Status |
 |---|---------|-------|-------|--------|
 | T1 | **Endpoint APPLY (PIN step-up)** — `POST /api/proposals/{id}/apply` (require_auth) → `execute_proposal_by_id` (per-propozycja, bypass sandbox D5) → status=executed + audit_log. Idempotencja (`proposal_lock`). | `api_routers/proposals.py`, `mcp/server.py` | `test_apply_proposal.py` (6) | ✅ DONE (BACKEND; domyka lukę E-W003; create/update/delete + idempotencja + guardy; mock — bez prod write. LIVE/UI = T2-T5) |
-| T2 | **Toggle 🟢/🔴 (górny pasek)** — efemeryczny stan UI, mocny wskaźnik; 🟢→🔴 odpala popup PIN; auto-expire (timer + zmiana zakładki). | `ui/index.html`, `ui/js/*` | (manual/e2e) toggle widoczny; 🔴 wymaga PIN; auto-powrót | ⬜ TODO |
-| T3 | **Popup PIN (step-up) + cache 15 min** — modal z PIN, walidacja przez `/api/auth`; po sukcesie „sesja edycji" 15 min; kolejne apply bez PIN. Audyt prób. | `ui/js/*`, ew. `api_routers/auth.py` | popup; cache; audyt prób | ⬜ TODO |
+| T2 | **Toggle 🟢/🔴 (górny pasek)** | `ui/js/store.js`, `ui/js/components/chat.js` | manual/wizualny | ✅ DONE (toggle w nagłówku; stan efemeryczny; auto-expire 15 min + reset przy zmianie workspace) |
+| T3 | **Popup PIN (step-up) + cache 15 min** | `ui/js/components/chat.js` | manual/wizualny | ✅ DONE (modal PIN→/api/auth; tryb 🔴 = cache step-up 15 min; przycisk „Zapisz na Odoo" w 🔴→apply) |
 | T4 | **Tiery + challenge (D4/D6)** — karta apply pokazuje CO się zmieni (model/method/values); delete = dodatkowe potwierdzenie. | `ui/js/components/chat.js`, `proposals.py` | delete wymaga 2. potwierdzenia; karta pokazuje diff | ⬜ TODO |
 | T5 | **Regresja + /qa LIVE + GDPR** — pełna pytest; LIVE: 🔴+PIN→apply→rekord w Odoo 19→executed→audit; 🟢→brak zmian; retencja/workspace OK. | testy | 0 failed; LIVE apply realny | ⬜ TODO |
 

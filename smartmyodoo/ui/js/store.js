@@ -16,7 +16,8 @@ class Store {
             activeTab: 'chat',  // Domyślna zakładka
             authToken: '',
             isAuthenticated: false,
-            lang: 'pl'  // I18N-01: język interfejsu (pl|en)
+            lang: 'pl',  // I18N-01: język interfejsu (pl|en)
+            editMode: false  // WRITE-01: 🟢 tylko-odczyt (domyślnie) / 🔴 edycja. Efemeryczny (NIE persystowany) — reset przy reloadzie = bezpieczeństwo.
         };
         this.listeners = [];
 

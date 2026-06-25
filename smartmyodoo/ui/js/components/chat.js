@@ -14,7 +14,13 @@ class ChatPanel {
             if (newState.workspaceId !== oldState.workspaceId) {
                 this.messages = [];
                 this.sessionId = `hub-${Date.now()}`;
+                // WRITE-01: zmiana przestrzeni → wróć do trybu bezpiecznego (🟢).
+                if (newState.editMode) AppStore.setState({ editMode: false });
                 this.loadSessions();
+                this.render();
+            }
+            // WRITE-01: re-render przy zmianie trybu edycji (toggle 🟢/🔴 + przyciski apply).
+            if (newState.editMode !== oldState.editMode) {
                 this.render();
             }
             if (newState.activeTab === 'chat' && oldState.activeTab !== 'chat') {
@@ -150,6 +156,7 @@ class ChatPanel {
         if (!this.container) return;
 
         const workspaceName = this.getWorkspaceName();
+        const editMode = window.AppStore.getState().editMode;  // WRITE-01: 🟢/🔴
 
         let messagesHtml = '';
         if (this.messages.length === 0) {
@@ -215,6 +222,12 @@ class ChatPanel {
                         <p class="text-xs text-slate-500">Przestrzeń: <span class="text-indigo-400">${this._escapeHtml(workspaceName)}</span> | <span class="opacity-50">Sesja: ${this.sessionId.slice(0, 10)}...</span></p>
                     </div>
                     ${this._renderTaskBadge()}
+                    <button onclick="window.AppChat.toggleEditMode()"
+                        title="${editMode ? 'Tryb EDYCJI — zapis do Odoo możliwy. Kliknij, by wrócić do bezpiecznego.' : 'Tryb TYLKO-ODCZYT (bezpieczny). Kliknij, by włączyć edycję (wymaga PIN).'}"
+                        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${editMode ? 'bg-red-500/15 border-red-500/40 text-red-300 hover:bg-red-500/25' : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25'}">
+                        <span class="w-2 h-2 rounded-full ${editMode ? 'bg-red-400 animate-pulse shadow-[0_0_8px_rgba(248,113,113,0.9)]' : 'bg-emerald-400'}"></span>
+                        ${editMode ? 'Edycja' : 'Tylko odczyt'}
+                    </button>
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse"></span>
                         <span class="text-xs text-emerald-400">Online</span>
@@ -395,10 +408,16 @@ class ChatPanel {
                             </button>
                         </div>
                         ` : `
-                        <div class="text-center py-2 text-xs font-semibold uppercase tracking-wider ${msg.proposalStatus === 'approved' ? 'text-emerald-400' : 'text-red-400'}">
-                            ${msg.proposalStatus === 'approved' ? '✅ Zatwierdzona' : '❌ Odrzucona'}
+                        <div class="text-center py-2 text-xs font-semibold uppercase tracking-wider ${msg.proposalStatus === 'executed' ? 'text-sky-400' : (msg.proposalStatus === 'approved' ? 'text-emerald-400' : 'text-red-400')}">
+                            ${msg.proposalStatus === 'executed' ? '💾 Zapisana na Odoo' : (msg.proposalStatus === 'approved' ? '✅ Zatwierdzona' : '❌ Odrzucona')}
                         </div>
                         `}
+                        ${window.AppStore.getState().editMode && msg.proposalStatus !== 'executed' && msg.proposalStatus !== 'rejected' ? `
+                        <button onclick="window.AppChat.handleProposalAction('${p.proposal_id}', 'apply')"
+                            class="w-full mt-2 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2">
+                            💾 Zapisz na Odoo
+                        </button>
+                        ` : ''}
                     </div>
                     <p class="text-[10px] text-slate-600 mt-1 ml-1">${time}</p>
                 </div>
@@ -521,6 +540,65 @@ class ChatPanel {
         }
     }
 
+    // WRITE-01 T2/T3: przełącznik trybu 🟢↔🔴 + step-up PIN.
+    toggleEditMode() {
+        const s = window.AppStore.getState();
+        if (s.editMode) {
+            // 🔴→🟢: powrót do bezpiecznego nie wymaga PIN.
+            window.AppStore.setState({ editMode: false });
+            if (this._editTimer) { clearTimeout(this._editTimer); this._editTimer = null; }
+        } else {
+            // 🟢→🔴: wymaga PIN (step-up). Po sukcesie tryb wygasa po 15 min (D2/D3).
+            this._promptStepUpPin(() => {
+                window.AppStore.setState({ editMode: true });
+                if (this._editTimer) clearTimeout(this._editTimer);
+                this._editTimer = setTimeout(() => {
+                    window.AppStore.setState({ editMode: false });
+                }, 15 * 60 * 1000);
+            });
+        }
+    }
+
+    _promptStepUpPin(onSuccess) {
+        const old = document.getElementById('stepup-pin-modal');
+        if (old) old.remove();
+        const modal = document.createElement('div');
+        modal.id = 'stepup-pin-modal';
+        modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60]';
+        modal.innerHTML = `
+            <div class="bg-slate-900 border border-red-500/40 rounded-2xl p-6 w-full max-w-sm">
+                <h2 class="text-lg font-bold text-white mb-1">🔴 Włącz tryb edycji</h2>
+                <p class="text-xs text-slate-400 mb-4">Wpisz PIN (ten sam co przy logowaniu), aby umożliwić zapis do Odoo. Tryb wygaśnie po 15 min.</p>
+                <input id="stepup-pin-input" type="password" autocomplete="off" placeholder="PIN" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white mb-2 focus:border-red-500 outline-none" />
+                <p id="stepup-pin-err" class="text-xs text-red-400 mb-2 hidden">Niepoprawny PIN.</p>
+                <div class="flex gap-2">
+                    <button id="stepup-pin-ok" class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm font-semibold">Włącz edycję</button>
+                    <button id="stepup-pin-cancel" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 rounded-lg text-sm">Anuluj</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+        const input = modal.querySelector('#stepup-pin-input');
+        const err = modal.querySelector('#stepup-pin-err');
+        const close = () => modal.remove();
+        setTimeout(() => input.focus(), 30);
+        modal.querySelector('#stepup-pin-cancel').onclick = close;
+        const submit = async () => {
+            const pin = input.value;
+            if (!pin) return;
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pin })
+                });
+                if (res.ok) { close(); onSuccess(pin); }
+                else { err.classList.remove('hidden'); input.value = ''; input.focus(); }
+            } catch (e) { err.classList.remove('hidden'); }
+        };
+        modal.querySelector('#stepup-pin-ok').onclick = submit;
+        input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    }
+
     async handleProposalAction(proposalId, action) {
         try {
             const token = window.AppStore.getState().authToken;
@@ -533,7 +611,10 @@ class ChatPanel {
             // Zaktualizuj status w historii wiadomości
             const msg = this.messages.find(m => m.proposalData && m.proposalData.proposal_id === proposalId);
             if (msg) {
-                msg.proposalStatus = action === 'approve' ? 'approved' : 'rejected';
+                msg.proposalStatus = action === 'approve' ? 'approved'
+                    : action === 'reject' ? 'rejected'
+                    : action === 'apply' ? 'executed'   // WRITE-01: realnie zapisane na Odoo
+                    : msg.proposalStatus;
             }
             this.render();
         } catch (err) {
