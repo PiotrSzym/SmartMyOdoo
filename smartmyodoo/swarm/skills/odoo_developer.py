@@ -9,6 +9,8 @@ skill = SkillConfig(
         "resolve_person",
         "odoo_schema",
         "odoo_create",
+        "odoo_update",
+        "odoo_delete",
         "search_knowledge_base",
         "scaffold_module",
         "read_odoo_log",

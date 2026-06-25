@@ -10,6 +10,8 @@ from smartmyodoo.mcp.server import (
     search_odoo_records,
     read_odoo_schema,
     create_odoo_record,
+    update_odoo_record,
+    delete_odoo_record,
     resolve_person_records,
 )
 from smartmyodoo.swarm.brain.rag_api import SharedBrain
@@ -126,9 +128,32 @@ def odoo_schema(model_name: str) -> str:
 
 @register_tool("odoo_create")
 def odoo_create(model_name: str, values_json: str, reason: str) -> str:
-    """Tworzy nowy rekord w Odoo (Shadow Mode). values_json musi być poprawnym JSONem słownika."""
+    """Tworzy NOWY rekord w Odoo (Shadow Mode → propozycja). values_json = JSON słownika."""
     return create_odoo_record(
         model_name=model_name, values_json=values_json, reason=reason
+    )
+
+
+@register_tool("odoo_update")
+def odoo_update(model_name: str, record_id: int, values_json: str, reason: str) -> str:
+    """WRITE-01: EDYTUJ istniejący rekord Odoo (Shadow Mode → propozycja). Użyj do
+    zmiany pól istniejącego rekordu (np. nazwa szansy, opis zadania). record_id =
+    ID rekordu (z odoo_search); values_json = JSON zmienianych pól, np. {"name":"X"}.
+    Nie zapisuje od razu — tworzy propozycję do zatwierdzenia (PIN)."""
+    return update_odoo_record(
+        model_name=model_name,
+        record_id=record_id,
+        values_json=values_json,
+        reason=reason,
+    )
+
+
+@register_tool("odoo_delete")
+def odoo_delete(model_name: str, record_id: int, reason: str) -> str:
+    """WRITE-01: USUŃ rekord Odoo (Shadow Mode → propozycja). record_id z odoo_search.
+    Operacja nieodwracalna po zatwierdzeniu — używaj ostrożnie."""
+    return delete_odoo_record(
+        model_name=model_name, record_id=record_id, reason=reason
     )
 
 
