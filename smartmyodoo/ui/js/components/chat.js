@@ -40,7 +40,7 @@ class ChatPanel {
         try {
             const token = window.AppStore.getState().authToken;
             const wsId = window.AppStore.getState().workspaceId;
-            const res = await fetch(`/api/chat/sessions?workspace_id=${wsId}&limit=10`, {
+            const res = await fetch(`/api/chat/sessions?workspace_id=${wsId}&limit=30`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
@@ -61,17 +61,20 @@ class ChatPanel {
             if (res.ok) {
                 const msgs = await res.json();
                 this.sessionId = sessionId;
-                // Zamień format bazy na format UI
-                this.messages = msgs.reverse().map(m => {
-                    const extra = m.metadata_json ? JSON.parse(m.metadata_json) : {};
+                // Zamień format bazy na format UI. API zwraca rosnąco (najstarsze
+                // pierwsze) i pola: created_at + metadata(obiekt) — bez .reverse(),
+                // bez JSON.parse (fix: wcześniej czytano timestamp/metadata_json).
+                this.messages = msgs.map(m => {
+                    const extra = (m.metadata && typeof m.metadata === 'object') ? m.metadata : {};
                     return {
                         role: m.role,
                         text: m.content,
-                        timestamp: new Date(m.timestamp).getTime(),
+                        timestamp: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
                         ...extra
                     };
                 });
                 this.render();
+                setTimeout(() => this.scrollToBottom(), 50);
             }
         } catch (e) {
             console.warn('[Chat] Błąd wczytywania wiadomości:', e);
@@ -507,6 +510,9 @@ class ChatPanel {
                 proposalData: data.proposal_data || null,
                 proposalStatus: data.proposal_data ? 'pending' : null,
             });
+            // FIX: odśwież listę sesji, by bieżąca rozmowa OD RAZU pojawiła się
+            // w historii (wcześniej pokazywała się dopiero po reloadzie/zmianie zakładki).
+            this.loadSessions();
 
         } catch (err) {
             console.error('[Chat] Błąd API:', err);
