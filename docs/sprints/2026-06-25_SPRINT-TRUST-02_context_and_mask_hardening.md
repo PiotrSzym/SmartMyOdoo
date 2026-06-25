@@ -1,7 +1,7 @@
 ---
 sprint_id: "TRUST-02"
 workspace: "SmartMyOdoo"
-status: "PLANNED"
+status: "IN_PROGRESS"
 created: 2026-06-25
 closed: null
 goal: "Domknąć trzy krawędzie ujawnione w /qa LIVE TRUST-01: (A) confab-guard nad-strzela (literówka brana za maskę) i maskuje niespójnie ([zamaskowane] blokuje deanonymize) → guard v2 verbatim-only; (B) retencja kontekstu krucha — scope gubi projekt przy nazwie zadania / intencji zapisu → deterministyczny filtr project_id na warstwie narzędzia; (C) brak regresji na te scenariusze → testy 3 trybów awarii."
@@ -89,9 +89,9 @@ ADR-008/011 zachowane. **Verbatim-only NIE odsłania danych chmurze** — model 
 
 | # | Zadanie | Pliki | Wzorzec ref. | Wymagane testy | Status |
 |---|---------|-------|--------------|----------------|--------|
-| T1 | **Confab-guard v2 (verbatim-only)** 🔴: przepisz `PII_CONFAB_GUARD` — maska = wyłącznie `<TYP_numer>`; cytuj DOSŁOWNIE; NIGDY nie zgaduj, NIGDY „[zamaskowane]", słowo bez `<>` NIE jest maską. Zaktualizuj `build_system_prompt` (idempotencja po nowym markerze, nie po „[zamaskowane]"). | `smartmyodoo/swarm/executor.py` | D1 | guard nie zawiera „[zamaskowane]" jako zalecanej ścieżki; instrukcja verbatim; (jeśli możliwe) unit symulujący nie-token | ⬜ TODO |
-| T2 | **Deterministyczny scope enforce** 🔴: w `ConversationScope` dodaj `enforce_scope(workspace, session, tool_name, args, message)` — gdy aktywny `project_id`, narzędzie dotyczy `project.task`/zadań, a domena nie ma `project_id` i message nie sygnalizuje „wszystkie/globalnie"/innego projektu → doklej `[(project_id,=,X)]`. Wepnij w pętlę narzędzi executora (przy budowie args, obok `capture_domain` `executor.py:112`). Rozszerz hint (B1). | `smartmyodoo/swarm/conversation_scope.py`, `smartmyodoo/swarm/executor.py` | D2, `executor.py:112` | unit `enforce_scope`: doklejenie gdy scope aktywny; brak gdy „wszystkie"/inny projekt | ⬜ TODO |
-| T3 | **Regresja 3 trybów** 🟡: rozszerz testy o: (1) literówka „jkie" nie jest maską, (2) follow-up po nazwie zadania trzyma projekt (nie wychodzi do 2671/SO276), (3) intencja zapisu dziedziczy scope (nie „2920"). | `tests/test_pii_confab_guard.py`, `tests/test_scope_enforce.py`, `tests/test_dispatcher_context.py` | 0F | 3 nowe testy zielone; pełna pytest 0 failed | ⬜ TODO |
+| T1 | **Confab-guard v2 (verbatim-only)** 🔴: przepisz `PII_CONFAB_GUARD` — maska = wyłącznie `<TYP_numer>`; cytuj DOSŁOWNIE; NIGDY nie zgaduj, NIGDY „[zamaskowane]", słowo bez `<>` NIE jest maską. Zaktualizuj `build_system_prompt` (idempotencja po nowym markerze, nie po „[zamaskowane]"). | `smartmyodoo/swarm/executor.py` | D1 | guard verbatim-only; zakaz „[zamaskowane]"; zwykłe słowo nie maska | ✅ DONE (`executor.py:18-46`; +3 testy; LIVE: tokeny cytowane dosłownie, zero „Billing Type") |
+| T2 | **Deterministyczny scope enforce** 🔴: w `ConversationScope` dodaj `enforce_scope(workspace, session, tool_name, args, message)` — gdy aktywny `project_id`, narzędzie dotyczy `project.task`/zadań, a domena nie ma `project_id` i message nie sygnalizuje „wszystkie/globalnie"/innego projektu → doklej `[(project_id,=,X)]`. Wepnij w pętlę narzędzi executora (przy budowie args, obok `capture_domain` `executor.py:112`). Rozszerz hint (B1). | `smartmyodoo/swarm/conversation_scope.py`, `smartmyodoo/swarm/executor.py` | D2, `executor.py:112` | unit `enforce_scope` + furtki | ✅ DONE (`conversation_scope.py` + `executor.py` wpięte 2 ścieżki; LIVE: „opis price list" został w RMO, nie SO276; „dodaj" → id 6706/proj 136, nie 2920) |
+| T3 | **Regresja 3 trybów** 🟡: rozszerz testy o: (1) literówka „jkie" nie jest maską, (2) follow-up po nazwie zadania trzyma projekt (nie wychodzi do 2671/SO276), (3) intencja zapisu dziedziczy scope (nie „2920"). | `tests/test_pii_confab_guard.py`, `tests/test_scope_enforce.py`, `tests/test_dispatcher_context.py` | 0F | 3 tryby + furtki | ✅ DONE (`test_scope_enforce.py` 11 testów; regresja 372 passed/0 failed) |
 
 > **Kolejność /dev:** T1 (guard v2 — najtańszy, 2 bugi) → T2 (enforce — rdzeń) → T3 (regresja). Po każdym: pełna pytest `-m 'not e2e'` = 0 failed. NA KOŃCU /qa LIVE: powtórz sekwencję RMO→„opis price list"→„dodaj test" na :8001 i potwierdź brak wycieku do innego projektu.
 
@@ -103,13 +103,13 @@ ADR-008/011 zachowane. **Verbatim-only NIE odsłania danych chmurze** — model 
 - [ ] Brak nowych endpointów / modeli.
 
 ## 🔬 Sekcja C — Definition of Done (/qa + /gf-review)
-- [ ] US-T1a: słowo bez formy `<TYP_numer>` nie jest traktowane jak maska.
-- [ ] US-T1b: model cytuje token dosłownie → deanonymize przywraca realną nazwę (lokalnie).
-- [ ] US-T2a: „opis zadania price list" w kontekście RMO NIE zwraca zadania 2671 (SO276).
-- [ ] US-T2b: „wszystkie zadania price list" / inny projekt → scope NIE narzucony.
-- [ ] US-T3: 3 testy trybów awarii zielone.
-- [ ] Regresja: pełna pytest 0 failed.
-- [ ] /qa LIVE: sekwencja RMO→opis→zapis trzyma projekt 136.
+- [x] US-T1a: guard precyzuje „maska = wyłącznie `<TYP_numer>`"; literówka/zwykłe słowo nie jest maską (test `test_confab_guard_says_plain_word_is_not_a_mask`). LIVE: tokeny cytowane dosłownie.
+- [⚠️] US-T1b: model cytuje token DOSŁOWNIE (verbatim-only ✅, koniec „Billing Type"), ALE deanonymize czasem nie trafia, bo model RENUMERUJE token (`<PERSON_1>` zamiast utworzonego numeru) → user widzi surowy token. **Nowy edge → TRUST-03** (nie błąd danych, kwestia round-tripu PII).
+- [x] US-T2a: LIVE — „opis zadania price list" został w RMO (id 6706), NIE zwrócił 2671/SO276.
+- [x] US-T2b: „wszystkie"/inny projekt → scope NIE narzucony (testy furtek w `test_scope_enforce.py`).
+- [x] US-T3: 11 testów w `test_scope_enforce.py` + 3 nowe w `test_pii_confab_guard.py` (3 tryby awarii).
+- [x] Regresja: pełna pytest **372 passed, 2 skipped, 0 failed**.
+- [x] /qa LIVE: RMO→„opis price list"→„dodaj test" — wszystko trzyma projekt 136; zapis bezpiecznie zablokowany przez Shadow Mode.
 
 ### Close Checklist
 - [ ] Sekcja B = ✅, status → `DONE`, `closed`.

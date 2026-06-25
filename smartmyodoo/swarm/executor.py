@@ -10,19 +10,28 @@ from smartmyodoo.swarm.sandbox import SandboxManager
 
 logger = logging.getLogger(__name__)
 
-# TRUST-01 T1 (decyzja D1): confab-guard PII. Dane Odoo trafiają do LLM po
-# pseudonimizacji (np. 'RMO <PERSON_2>'). Bez tej reguły model ZGADYWAŁ
-# wartość spod maski ('RMO Billing Type') i podawał ją jako fakt. Reguła jest
-# instrukcją systemową (nie post-processing) — najtańsza i najpewniejsza.
-# NIE odsłania oryginału: model nadal widzi wyłącznie token (Sekcja D).
+# TRUST-01 T1 + TRUST-02 T1 (decyzja D1): confab-guard PII — VERBATIM-ONLY.
+# Dane Odoo trafiają do LLM po pseudonimizacji ('RMO <PERSON_2>'). Bez reguły
+# model ZGADYWAŁ wartość spod maski ('RMO Billing Type'). TRUST-02 usuwa ścieżkę
+# "[zamaskowane]" (blokowała deanonymize i odbierała lokalnemu userowi prawdziwą
+# nazwę) oraz precyzuje, że TYLKO token <TYP_numer> jest maską — żeby literówka
+# ('jkie') nie była brana za maskę. Model ma cytować token DOSŁOWNIE; warstwa
+# lokalna (_deanonymize) podmieni go na realną wartość dla usera (Sekcja D:
+# chmura nadal widzi tylko token).
+_GUARD_MARKER = "ZASADA DANYCH ZAMASKOWANYCH"
 PII_CONFAB_GUARD = (
-    "\n\n--- ZASADA DANYCH ZAMASKOWANYCH (BEZWZGLĘDNA) ---\n"
-    "Niektóre wartości w danych są zamaskowane tokenami w formacie "
-    "<TYP_numer>, np. <PERSON_1>, <LOCATION_2>, <ORGANIZATION_1>, <EMAIL_ADDRESS_1>, "
-    "<NIP_1>, <PESEL_1>. To są pseudonimy realnych danych (nazwisk, miejsc, firm). "
-    "NIGDY nie rozwijaj, nie zgaduj ani nie wymyślaj wartości kryjącej się pod takim "
-    "tokenem. Cytuj token DOSŁOWNIE w niezmienionej formie, albo napisz "
-    "\"[zamaskowane]\". Zmyślenie nazwy w miejsce tokenu jest błędem krytycznym."
+    f"\n\n--- {_GUARD_MARKER} (BEZWZGLĘDNA) ---\n"
+    "Maska to WYŁĄCZNIE token w formacie <TYP_numer> w nawiasach ostrokątnych, np. "
+    "<PERSON_1>, <LOCATION_2>, <ORGANIZATION_1>, <EMAIL_ADDRESS_1>, <NIP_1>, <PESEL_1>. "
+    "To pseudonimy realnych danych. ZASADY:\n"
+    "1. Token cytuj ZAWSZE DOSŁOWNIE, w niezmienionej formie (np. <PERSON_1>). Warstwa "
+    "lokalna sama podmieni go na prawdziwą wartość dla użytkownika — to NIE Twoje zadanie.\n"
+    "2. NIGDY nie zgaduj, nie rozwijaj ani nie wymyślaj wartości spod tokenu. Zmyślenie "
+    "nazwy w miejsce tokenu to błąd krytyczny.\n"
+    "3. NIE zastępuj tokenu zwrotem \"[zamaskowane]\" ani opisem — to blokuje podmianę na "
+    "prawdziwą wartość. Zostaw token dokładnie jak jest.\n"
+    "4. Zwykły wyraz, literówka albo fraza użytkownika, która NIE ma formy <TYP_numer>, "
+    "NIE jest maską — traktuj ją normalnie; nie twierdź, że jest zamaskowana."
 )
 
 
@@ -32,7 +41,7 @@ def build_system_prompt(base_prompt: str) -> str:
     SSoT dla confab-guarda — używane przez execute i execute_stream.
     """
     base = base_prompt or ""
-    if "[zamaskowane]" in base:
+    if _GUARD_MARKER in base:
         # Guard już doklejony (np. prompt budowany ponownie) — nie dubluj.
         return base
     return base + PII_CONFAB_GUARD
@@ -114,6 +123,19 @@ class SkillExecutor:
                 )
             except Exception as e:  # noqa: BLE001
                 logger.warning(f"Scope capture failed: {e}")
+
+    def _enforce_scope(self, func_name: str, args: Any, message: str) -> None:
+        """TRUST-02 T2: deterministycznie dokleja project_id aktywnego zakresu do
+        domeny zapytania o zadania (mutuje args in-place). No-op bez trackera/zakresu."""
+        if self.scope is None:
+            return
+        try:
+            if self.scope.enforce_scope(
+                self.workspace_id, self.session_id, func_name, args, message
+            ):
+                logger.info(f"Scope enforce: doklejono project_id do {func_name}")
+        except Exception as e:  # noqa: BLE001 — egzekwowanie zakresu to ulepszenie, nie bloker
+            logger.warning(f"Scope enforce failed: {e}")
 
     def _capture_provenance(self, prov: Any, func_name: str, tool_result_str: str) -> None:
         """TRUST-01 T6: wyłuskaj 'count' (liczba rekordów) oraz wersję Odoo z wyniku
@@ -370,6 +392,9 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
+                        # TRUST-02 T2: deterministycznie utrzymaj zakres projektu
+                        # (doklej project_id), zanim narzędzie wystartuje.
+                        self._enforce_scope(func_name, args, message)
                         # TRUST-01 T5: zapamiętaj project_id z domeny zapytania Odoo,
                         # by follow-up w tej samej sesji dziedziczył zakres.
                         self._capture_scope(func_name, args)
@@ -594,6 +619,9 @@ class SkillExecutor:
                     except Exception:
                         args = {}
                     args = self._deanon_args(args)
+                    # TRUST-02 T2: deterministyczne utrzymanie zakresu projektu.
+                    self._enforce_scope(func_name, args, message)
+                    self._capture_scope(func_name, args)
 
                     yield {
                         "type": "log",

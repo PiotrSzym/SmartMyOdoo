@@ -16,6 +16,7 @@ NIE przechowuje wartości PII, tylko techniczny identyfikator rekordu (project_i
 
 from __future__ import annotations
 
+import ast
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -69,6 +70,35 @@ def _is_followup(message: str) -> bool:
         # nowej NAZWY; zostawiamy heurystyce sygnałów poniżej.
         pass
     return any(h in low for h in _FOLLOWUP_HINTS)
+
+
+# TRUST-02 T2 (D2): sygnały, że user ŚWIADOMIE chce wyjść poza aktywny projekt
+# (szukanie globalne). Wtedy NIE narzucamy filtra project_id.
+_GLOBAL_HINTS = (
+    "wszystk",
+    "globaln",
+    "w całej bazie",
+    "we wszystkich projekt",
+    "w systemie",
+    "każd",
+    "dowoln",
+)
+
+
+def _names_other_project(message: str) -> bool:
+    """Czy user jawnie wskazuje (inny) projekt po słowie 'projekt/projekcie <coś>'."""
+    return bool(re.search(r"\bprojek\w*\s+\S", (message or "").lower()))
+
+
+def _is_task_query(tool_name: str, args: dict, message: str) -> bool:
+    """Czy to wywołanie szukające ZADAŃ (project.task)."""
+    model = str(args.get("model", "")).lower()
+    if "project.task" in model:
+        return True
+    if "task" in (tool_name or "").lower():
+        return True
+    # brak jawnego modelu, ale pytanie wprost o zadania
+    return model == "" and "zadan" in (message or "").lower()
 
 
 class ConversationScope:
@@ -134,3 +164,49 @@ class ConversationScope:
             insert_at = 1 if messages and messages[0].get("role") == "system" else 0
             messages.insert(insert_at, {"role": "system", "content": hint})
         return messages
+
+    def enforce_scope(
+        self,
+        workspace_id: str,
+        session_id: str,
+        tool_name: str,
+        args: Any,
+        message: str,
+    ) -> bool:
+        """TRUST-02 T2 (D2): DETERMINISTYCZNIE dokleja `project_id` aktywnego zakresu
+        do domeny zapytania o zadania — nie polegając na dyscyplinie modelu.
+
+        Mutuje `args["domain"]` IN-PLACE. Zwraca True, gdy doklejono filtr.
+        Furtki (NIE narzuca): brak zapamiętanego project_id; to nie szukanie zadań;
+        domena już ma project_id; user prosi o „wszystkie/globalnie" lub nazywa
+        inny projekt. Działa też, gdy `domain` jest stringiem (składnia Pythona).
+        """
+        pid = self.get_project_id(workspace_id, session_id)
+        if pid is None or not isinstance(args, dict):
+            return False
+        if not isinstance(tool_name, str) or "search" not in tool_name:
+            return False
+        if not _is_task_query(tool_name, args, message):
+            return False
+        low = (message or "").lower()
+        if any(h in low for h in _GLOBAL_HINTS) or _names_other_project(low):
+            return False
+
+        domain = args.get("domain")
+        was_str = isinstance(domain, str)
+        parsed: Any = domain
+        if was_str:
+            try:
+                parsed = ast.literal_eval(domain)
+            except Exception:
+                return False
+        if parsed is None:
+            parsed = []
+        if not isinstance(parsed, (list, tuple)):
+            return False
+        if _extract_project_id(parsed) is not None:
+            return False  # user/model już zawęził projekt — nie ruszamy
+
+        new_domain = list(parsed) + [("project_id", "=", pid)]
+        args["domain"] = str(new_domain) if was_str else new_domain
+        return True
