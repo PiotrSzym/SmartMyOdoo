@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Staging Isolation, Feature Branches, version bump in __manifest__",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

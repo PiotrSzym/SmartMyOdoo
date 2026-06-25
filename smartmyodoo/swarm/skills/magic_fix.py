@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Force unlock, omijanie ORM tylko w sytuacji kryzysowej",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

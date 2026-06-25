@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="API Keys zamiast hasła admina, nigdy auth='public' dla partnerów",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

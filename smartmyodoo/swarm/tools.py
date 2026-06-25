@@ -10,6 +10,7 @@ from smartmyodoo.mcp.server import (
     search_odoo_records,
     read_odoo_schema,
     create_odoo_record,
+    resolve_person_records,
 )
 from smartmyodoo.swarm.brain.rag_api import SharedBrain
 
@@ -98,6 +99,19 @@ def odoo_search(
     res = search_odoo_records(
         model_name=model_name, domain=domain, fields=fields, limit=limit
     )
+    return json.dumps(res, ensure_ascii=False)
+
+
+@register_tool("resolve_person")
+def resolve_person(name_query: str) -> str:
+    """TRUST-04: rozwiąż OSOBĘ (użytkownika Odoo) po nazwie → kandydaci {uid, name}.
+    Wywołaj ZANIM filtrujesz rekordy po osobie (np. szanse/zadania „dla X",
+    „przypisane do X"), żeby dostać prawdziwe user_id. NIGDY nie zgaduj user_id z
+    zamaskowanych nazw. Gdy >1 dopasowanie — zapytaj użytkownika cytując zwrócone
+    tokeny nazw (zostaną podmienione na prawdziwe nazwiska)."""
+    import json
+
+    res = resolve_person_records(name_query=name_query)
     return json.dumps(res, ensure_ascii=False)
 
 

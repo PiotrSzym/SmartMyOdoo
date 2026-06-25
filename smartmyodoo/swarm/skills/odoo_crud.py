@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Magic Tuples (0,0,{}) for One2many",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

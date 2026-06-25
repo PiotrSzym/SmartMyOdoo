@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Batching Mandatory — max 200 rekordów/request",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

@@ -54,16 +54,29 @@ PII_CONFAB_GUARD = (
 )
 
 
-def build_system_prompt(base_prompt: str) -> str:
-    """Składa prompt systemowy: prompt skilla + confab-guard PII (idempotentnie).
+# TRUST-04 T1: standing rule — filtrowanie po OSOBIE idzie przez resolve_person,
+# bo LLM widzi zamaskowane nazwiska i nie dopasuje ich do user_id (stąd „piotr sz"
+# → zły Piotr). resolve_person szuka serwerowo po realnych nazwach i zwraca user_id.
+PEOPLE_RESOLVE_RULE = (
+    "\n\n--- ROZPOZNAWANIE OSÓB (Odoo) ---\n"
+    "Gdy masz filtrować rekordy po OSOBIE (np. szanse/zadania „dla X”, „przypisane do "
+    "X”, „użytkownika X”), NAJPIERW wywołaj narzędzie resolve_person z tą nazwą, by "
+    "dostać prawdziwe user_id. NIGDY nie zgaduj user_id z zamaskowanych nazw "
+    "(<PERSON_x>). Gdy resolve_person zwróci 1 użytkownika — użyj jego uid w filtrze "
+    "user_id. Gdy zwróci kilku — zapytaj użytkownika, cytując zwrócone tokeny nazw "
+    "DOSŁOWNIE (zostaną podmienione na prawdziwe nazwiska)."
+)
 
-    SSoT dla confab-guarda — używane przez execute i execute_stream.
+
+def build_system_prompt(base_prompt: str) -> str:
+    """Składa prompt systemowy: prompt skilla + confab-guard PII + reguła osób
+    (idempotentnie). SSoT — używane przez execute i execute_stream.
     """
     base = base_prompt or ""
     if _GUARD_MARKER in base:
         # Guard już doklejony (np. prompt budowany ponownie) — nie dubluj.
         return base
-    return base + PII_CONFAB_GUARD
+    return base + PII_CONFAB_GUARD + PEOPLE_RESOLVE_RULE
 
 
 class RedFlagViolation(Exception):

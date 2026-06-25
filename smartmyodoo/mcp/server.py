@@ -199,6 +199,42 @@ def search_odoo_records(
         }
 
 
+def resolve_person_records(name_query: str, workspace_id: str = "default") -> dict:
+    """TRUST-04 T1: rozwiąż użytkownika Odoo (osobę) po nazwie → kandydaci {uid, name}.
+
+    Serwerowe rozpoznanie osoby — szuka po REALNYCH nazwach w res.users (czego LLM
+    nie potrafi, bo widzi zamaskowane). `uid` zwracamy REALNE (do filtra user_id),
+    `name` ANONIMIZUJEMY (PII) jak w search_odoo_records — model dostaje uid+token,
+    a deanonymize przywróci prawdziwą nazwę userowi przy liście wyboru. Bez `login`
+    (e-mail) — nie wysyłamy maila do chmury.
+    """
+    if not name_query or not str(name_query).strip():
+        return {"users": [], "count": 0}
+    try:
+        target_odoo = get_odoo_client(workspace_id)
+        records = target_odoo.search_read(
+            "res.users", [["name", "ilike", str(name_query).strip()]], ["id", "name"], 8
+        )
+        anon = get_pii_middleware() if is_pii_enabled(workspace_id) else None
+        users = []
+        for r in records:
+            nm = r.get("name", "") or ""
+            users.append(
+                {
+                    "uid": r.get("id"),
+                    "name": anon.anonymize(nm, workspace_id=workspace_id) if anon else nm,
+                }
+            )
+        return {"users": users, "count": len(users)}
+    except Exception as e:
+        logger.error("Błąd w resolve_person_records dla %r: %s", name_query, str(e))
+        return {
+            "error": "Błąd rozpoznawania osoby. Szczegóły w logach.",
+            "users": [],
+            "count": 0,
+        }
+
+
 @mcp.tool()
 def create_odoo_record(
     model_name: str, values_json: str, reason: str, workspace_id: str = "default"

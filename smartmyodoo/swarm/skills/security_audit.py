@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Client-side Pseudonymization (PII)",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

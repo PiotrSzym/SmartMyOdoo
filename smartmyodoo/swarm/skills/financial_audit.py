@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Lock Dates Respect — Credit Note zamiast Cancel",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",

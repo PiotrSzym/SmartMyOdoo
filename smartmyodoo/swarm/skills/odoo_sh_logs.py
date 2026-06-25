@@ -6,6 +6,7 @@ skill = SkillConfig(
     system_prompt="Tracebacki bottom-up, rozróżniaj logi aplikacji vs deployment",
     allowed_tools=[
         "odoo_search",
+        "resolve_person",
         "odoo_schema",
         "odoo_create",
         "search_knowledge_base",
