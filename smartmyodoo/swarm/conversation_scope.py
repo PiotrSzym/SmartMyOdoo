@@ -18,23 +18,7 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Any, Dict, List, Optional, Tuple
-
-# Słowa-sygnały follow-upu: pytanie nawiązujące do "tych samych" zadań bez
-# nazwania NOWEGO projektu. Świadomie wąskie, by nie nadpisywać świeżego zakresu.
-_FOLLOWUP_HINTS = (
-    "opis",
-    "opisy",
-    "a w nich",
-    "w tych",
-    "tych zadań",
-    "te zadania",
-    "ich ",
-    "szczegół",
-    "więcej o nich",
-    "a jakie",
-)
-
+from typing import Any, Dict, Optional, Tuple
 
 def _extract_project_id(domain: Any) -> Optional[int]:
     """Wyłuskaj project_id z domeny Odoo (lista krotek/list), jeśli obecny.
@@ -60,16 +44,6 @@ def _extract_project_id(domain: Any) -> Optional[int]:
             if isinstance(val, str) and val.isdigit():
                 return int(val)
     return None
-
-
-def _is_followup(message: str) -> bool:
-    low = (message or "").lower()
-    # Jeśli user jawnie nazywa nowy projekt po "projekt/projekcie ..." — to NIE follow-up.
-    if re.search(r"\bprojek\w*\s+\w", low):
-        # ...chyba że to po prostu "w zadaniach tego projektu" — ale wtedy nie ma
-        # nowej NAZWY; zostawiamy heurystyce sygnałów poniżej.
-        pass
-    return any(h in low for h in _FOLLOWUP_HINTS)
 
 
 # TRUST-02 T2 (D2): sygnały, że user ŚWIADOMIE chce wyjść poza aktywny projekt
@@ -107,6 +81,9 @@ class ConversationScope:
     def __init__(self) -> None:
         # (workspace_id, session_id) -> {"project_id": int}
         self._scope: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        # TRUST-03 T2 (Entity Memory): ostatnio POKAZANE rekordy per (ws, sess)
+        # — lista {id, model, title}. Kotwica do disambiguacji nazw (price list↔cennik).
+        self._records: Dict[Tuple[str, str], list] = {}
 
     def _key(self, workspace_id: str, session_id: str) -> Tuple[str, str]:
         return (workspace_id or "default", session_id or "")
@@ -114,11 +91,72 @@ class ConversationScope:
     def capture_domain(
         self, workspace_id: str, session_id: str, domain: Any
     ) -> Optional[int]:
-        """Zapamiętaj project_id z domeny zapytania (jeśli jest). Zwraca wyłuskany id."""
+        """Zapamiętaj project_id z domeny zapytania (jeśli jest). Zwraca wyłuskany id.
+
+        TRUST-03 T2: zmiana projektu → RESET pamięci pokazanych rekordów (US-T2b)."""
         pid = _extract_project_id(domain)
         if pid is not None:
-            self._scope[self._key(workspace_id, session_id)] = {"project_id": pid}
+            key = self._key(workspace_id, session_id)
+            prev = self._scope.get(key, {}).get("project_id")
+            if prev is not None and prev != pid:
+                self._records.pop(key, None)  # inny projekt → kotwica nieaktualna
+            self._scope[key] = {"project_id": pid}
         return pid
+
+    def capture_records(
+        self, workspace_id: str, session_id: str, model: str, records: Any
+    ) -> int:
+        """TRUST-03 T2: zapamiętaj pokazane rekordy (id+tytuł) dla danego modelu.
+
+        Tytuły pochodzą z JUŻ zanonimizowanego wyniku narzędzia (bezpieczne dla LLM).
+        Dedup po (model, id); trzymamy ostatnie 8. Zwraca liczbę dodanych/odświeżonych."""
+        if not model or not isinstance(records, list):
+            return 0
+        key = self._key(workspace_id, session_id)
+        bucket = self._records.setdefault(key, [])
+        added = 0
+        for r in records:
+            if not isinstance(r, dict):
+                continue
+            rid = r.get("id")
+            if rid is None:
+                continue
+            title = r.get("name") or r.get("display_name") or r.get("complete_name") or ""
+            entry = {"id": rid, "model": str(model), "title": str(title)[:120]}
+            bucket[:] = [
+                e for e in bucket if not (e["id"] == rid and e["model"] == entry["model"])
+            ]
+            bucket.append(entry)
+            added += 1
+        if len(bucket) > 8:
+            del bucket[:-8]
+        return added
+
+    def context_block(
+        self, workspace_id: str, session_id: str
+    ) -> Optional[str]:
+        """TRUST-03 T2: kompaktowy blok 'aktywny kontekst' (projekt + pokazane rekordy)
+        + reguła disambiguacji. None, gdy nie ma czego zakotwiczyć."""
+        key = self._key(workspace_id, session_id)
+        pid = self.get_project_id(workspace_id, session_id)
+        records = self._records.get(key, [])
+        if pid is None and not records:
+            return None
+        parts = ["[AKTYWNY KONTEKST ROZMOWY]"]
+        if pid is not None:
+            parts.append(f"Aktywny projekt: project_id={pid}.")
+        if records:
+            items = "; ".join(
+                f'{e["model"]} id={e["id"]} „{e["title"]}"' for e in records[-8:]
+            )
+            parts.append(f"Ostatnio pokazane rekordy: {items}.")
+            parts.append(
+                "Gdy użytkownik odwołuje się nazwą pasującą do któregoś z powyższych "
+                "rekordów, traktuj to jako odwołanie do TEGO rekordu (model+id), NIE do "
+                "modelu Odoo o tej samej nazwie (np. „price list” = pokazane zadanie "
+                "project.task, a nie model product.pricelist/cennik)."
+            )
+        return " ".join(parts)
 
     def get_project_id(
         self, workspace_id: str, session_id: str
@@ -128,42 +166,10 @@ class ConversationScope:
 
     def clear(self, workspace_id: str, session_id: str) -> None:
         self._scope.pop(self._key(workspace_id, session_id), None)
+        self._records.pop(self._key(workspace_id, session_id), None)
 
-    def scope_hint(
-        self, workspace_id: str, session_id: str, message: str
-    ) -> Optional[str]:
-        """Podpowiedź systemowa dla modelu, gdy bieżące pytanie jest follow-upem.
-
-        Zwraca None, gdy brak zapamiętanego zakresu lub pytanie nie jest follow-upem
-        — wtedy nie narzucamy filtra (np. user pyta o zupełnie inny projekt).
-        """
-        pid = self.get_project_id(workspace_id, session_id)
-        if pid is None or not _is_followup(message):
-            return None
-        return (
-            f"[KONTEKST ROZMOWY] Poprzednie pytanie dotyczyło projektu o "
-            f"project_id={pid}. To pytanie jest jego kontynuacją — przy zapytaniach o "
-            f"zadania ZACHOWAJ filtr domeny [(\"project_id\", \"=\", {pid})], "
-            f"chyba że użytkownik wyraźnie wskaże inny projekt."
-        )
-
-    def inject_hint(
-        self,
-        workspace_id: str,
-        session_id: str,
-        message: str,
-        messages: List[dict],
-    ) -> List[dict]:
-        """Wstaw scope_hint jako dodatkową wiadomość systemową (jeśli dotyczy).
-
-        Bezpieczny dla istniejącej listy `messages` — zwraca tę samą listę.
-        """
-        hint = self.scope_hint(workspace_id, session_id, message)
-        if hint:
-            # Po głównym prompcie systemowym (indeks 0), przed historią/userem.
-            insert_at = 1 if messages and messages[0].get("role") == "system" else 0
-            messages.insert(insert_at, {"role": "system", "content": hint})
-        return messages
+    # TRUST-03 T4: usunięto scope_hint/inject_hint (plaster TRUST-01 T5) — zastąpione
+    # nadzbiorem `context_block` (T2) + deterministycznym `enforce_scope` (T2).
 
     def enforce_scope(
         self,

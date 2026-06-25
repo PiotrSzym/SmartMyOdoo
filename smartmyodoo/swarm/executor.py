@@ -10,6 +10,25 @@ from smartmyodoo.swarm.sandbox import SandboxManager
 
 logger = logging.getLogger(__name__)
 
+# TRUST-03 T1 (D1): ile ostatnich tur BIEŻĄCEJ sesji odtwarzać do LLM (Buffer Window).
+# Dziś LLM nie dostawał ich wcale (get_smart_context pomija bieżącą sesję) — stąd
+# gubienie kontekstu („price list" → cennik). ENV-override: CHAT_HISTORY_TURNS.
+_HISTORY_TURNS = int(os.environ.get("CHAT_HISTORY_TURNS", "6"))
+
+# TRUST-03 T4 (D6): po deanonymize w finalnej odpowiedzi mogą zostać NIEROZPOZNANE
+# tokeny maski — gdy model renumerował token (np. napisał <PERSON_1> zamiast utworzonego
+# <PERSON_3>), deanonymize go nie trafi. Zamieniamy takie resztki na „[zamaskowane]",
+# żeby user nie zobaczył surowego tokenu systemowego. Stosowane TYLKO na finalnym
+# reply (NIE na argumentach narzędzi — tam token musi zostać nienaruszony).
+_LEFTOVER_TOKEN_RE = re.compile(r"<[A-Z][A-Z_]*_\d+>")
+
+
+def _mask_leftover_tokens(text: str) -> str:
+    if not isinstance(text, str) or not text:
+        return text
+    return _LEFTOVER_TOKEN_RE.sub("[zamaskowane]", text)
+
+
 # TRUST-01 T1 + TRUST-02 T1 (decyzja D1): confab-guard PII — VERBATIM-ONLY.
 # Dane Odoo trafiają do LLM po pseudonimizacji ('RMO <PERSON_2>'). Bez reguły
 # model ZGADYWAŁ wartość spod maski ('RMO Billing Type'). TRUST-02 usuwa ścieżkę
@@ -155,6 +174,31 @@ class SkillExecutor:
             if ver:
                 prov.set_version(ver)
 
+    def _capture_records(self, func_name: str, args: Any, tool_result_str: str) -> None:
+        """TRUST-03 T2: wyłuskaj POKAZANE rekordy (id+tytuł) z wyniku search → kotwica
+        encji do disambiguacji nazw. Wynik narzędzia jest już zanonimizowany."""
+        if self.scope is None or "search" not in (func_name or ""):
+            return
+        if not isinstance(tool_result_str, str) or not tool_result_str:
+            return
+        try:
+            data = json.loads(tool_result_str)
+        except Exception:
+            return
+        if isinstance(data, dict):
+            records = data.get("records")
+        elif isinstance(data, list):
+            records = data
+        else:
+            return
+        model = (args or {}).get("model_name") or (args or {}).get("model") or ""
+        try:
+            self.scope.capture_records(
+                self.workspace_id, self.session_id, model, records
+            )
+        except Exception as e:  # noqa: BLE001 — kotwica to ulepszenie, nie bloker
+            logger.warning(f"Record capture failed: {e}")
+
     def _enter_db_redirect(self, scratchpad: str) -> None:
         """S2.3: przekieruj narzędzia Odoo na scratchpad (przez ODOO_DB), zapisując oryginał."""
         self._saved_db = os.environ.get("ODOO_DB")
@@ -217,15 +261,20 @@ class SkillExecutor:
             # TRUST-01 T1: dokładamy confab-guard PII do promptu skilla.
             {"role": "system", "content": build_system_prompt(skill_config.system_prompt)},
         ]
-        # TRUST-01 T5 (D5): jeśli to follow-up, wstrzyknij podpowiedź o zakresie
-        # (project_id z poprzedniej tury), by model nie gubił filtra projektu.
+        # TRUST-03 T2+T4 (Entity Memory): jawna kotwica — aktywny projekt + ostatnio
+        # pokazane rekordy + reguła disambiguacji (price list↔cennik). Zastępuje
+        # plaster scope_hint (TRUST-01 T5) — jest jego nadzbiorem. Przeżywa przycięcie
+        # historii (T3). Deterministyczny filtr domeny nadal robi enforce_scope (T2).
         if self.scope is not None:
             try:
-                self.scope.inject_hint(
-                    self.workspace_id, self.session_id, message, messages
-                )
-            except Exception as e:  # noqa: BLE001 — kontekst to ulepszenie, nie bloker
-                logger.warning(f"Scope hint injection failed: {e}")
+                block = self.scope.context_block(self.workspace_id, self.session_id)
+                if block:
+                    insert_at = (
+                        1 if messages and messages[0].get("role") == "system" else 0
+                    )
+                    messages.insert(insert_at, {"role": "system", "content": block})
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Context block injection failed: {e}")
         if self.chat_repo and self.session_id:
             try:
                 context = self.chat_repo.get_smart_context(
@@ -237,6 +286,22 @@ class SkillExecutor:
                 messages.extend(context)
             except Exception as e:
                 logger.warning(f"Smart Context load failed: {e}")
+
+        # TRUST-03 T1+T3: odtwórz historię BIEŻĄCEJ sesji do LLM (Summary Buffer):
+        # ostatnie N tur dosłownie + streszczenie starszych tur (gdy rozmowa dłuższa).
+        # Zanonimizowane jak bieżąca wiadomość. Bez tego model gubił kontekst.
+        if self.chat_repo and self.session_id and _HISTORY_TURNS > 0:
+            try:
+                hist = self.chat_repo.get_history_context(
+                    self.session_id, max_turns=_HISTORY_TURNS
+                )
+                for m in hist:
+                    if isinstance(m, dict) and isinstance(m.get("content"), str):
+                        messages.append(
+                            {"role": m["role"], "content": self._anon(m["content"])}
+                        )
+            except Exception as e:  # noqa: BLE001 — historia to ulepszenie, nie bloker
+                logger.warning(f"Conversation history load failed: {e}")
 
         # S1.1: do LLM trafia pseudonimizowana wiadomość; oryginał idzie do historii.
         messages.append({"role": "user", "content": self._anon(message)})
@@ -424,6 +489,8 @@ class SkillExecutor:
 
                         # TRUST-01 T6: zbierz liczbę rekordów + wersję Odoo z wyniku.
                         self._capture_provenance(prov, func_name, tool_result_str)
+                        # TRUST-03 T2: zapamiętaj pokazane rekordy (kotwica encji).
+                        self._capture_records(func_name, args, tool_result_str)
 
                         messages.append(
                             {
@@ -454,7 +521,8 @@ class SkillExecutor:
                 pass
 
         # S1.1: przywróć realne dane w odpowiedzi dla użytkownika (LLM widział tylko tokeny)
-        response_text = self._deanon(response_text)
+        # TRUST-03 T4/D6: + zamaskuj nierozpoznane tokeny (renumeracja modelu).
+        response_text = _mask_leftover_tokens(self._deanon(response_text))
 
         # TRUST-01 T6: doklej stopkę provenance (źródło/wersja/rekordy/maski), gdy
         # tura dotykała danych Odoo. Tylko liczniki — bez wartości (0G).
@@ -673,7 +741,8 @@ class SkillExecutor:
                 pass
 
         # S1.1: pełna deanonimizacja zapisanej/finalnej odpowiedzi (tokeny → oryginał)
-        response_text = self._deanon(response_text)
+        # TRUST-03 T4/D6: + zamaskuj nierozpoznane tokeny (renumeracja modelu).
+        response_text = _mask_leftover_tokens(self._deanon(response_text))
         self._save_chat(
             "assistant",
             response_text,

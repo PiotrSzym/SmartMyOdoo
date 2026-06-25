@@ -77,3 +77,19 @@ def test_confab_guard_is_idempotent():
     s2 = executor._build_initial_messages(cfg, "b")[0]["content"]
     assert s1.count("ZASADA DANYCH ZAMASKOWANYCH") == 1
     assert s1 == s2
+
+
+# TRUST-03 T4 (D6): nierozpoznane tokeny maski w FINALNEJ odpowiedzi (gdy model
+# renumeruje <PERSON_1>) → „[zamaskowane]", żeby user nie zobaczył surowego tokenu.
+def test_leftover_tokens_masked_in_reply():
+    from smartmyodoo.swarm.executor import _mask_leftover_tokens
+
+    assert _mask_leftover_tokens("RMO <PERSON_1> ma 2 zadania") == "RMO [zamaskowane] ma 2 zadania"
+    assert _mask_leftover_tokens("klient <ORGANIZATION_2> i <LOCATION_1>") == "klient [zamaskowane] i [zamaskowane]"
+
+
+def test_leftover_mask_leaves_normal_text():
+    from smartmyodoo.swarm.executor import _mask_leftover_tokens
+
+    assert _mask_leftover_tokens("Price list possibility (id 6706)") == "Price list possibility (id 6706)"
+    assert _mask_leftover_tokens("") == ""

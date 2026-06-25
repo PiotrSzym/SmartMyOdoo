@@ -49,6 +49,85 @@ class ChatRepository:
         self.db.refresh(msg)
         return msg
 
+    def get_recent_window(
+        self, session_id: str, max_turns: int = 6, max_chars: int = 2000
+    ) -> list[dict]:
+        """TRUST-03 T1 (Buffer Window): ostatnie `max_turns` tur (user+assistant)
+        bieżącej sesji — do ODTWORZENIA kontekstu w LLM (czego dziś brakuje).
+
+        - Pomija rolę 'tool' (duże zrzuty Odoo; assistant je streszcza) → budżet.
+        - Każdą treść przycina do `max_chars` (twardy limit na tokeny).
+        - Zwraca chronologicznie [{role, content}] (najstarsze→najnowsze).
+        Wynik to RAW historia (plaintext) — anonimizację robi warstwa wyżej.
+        """
+        if max_turns <= 0:
+            return []
+        msgs = self.get_session_messages(session_id, limit=400)
+        convo = [m for m in msgs if m.get("role") in ("user", "assistant")]
+        window = convo[-(2 * max_turns):]  # ≈ max_turns par user/assistant
+        out: list[dict] = []
+        for m in window:
+            c = m.get("content") or ""
+            if len(c) > max_chars:
+                c = c[:max_chars] + " […]"
+            out.append({"role": m["role"], "content": c})
+        return out
+
+    def _summarize_older(self, older: list[dict], budget: int = 4000) -> str:
+        """TRUST-03 T3: deterministyczne (ekstraktywne) streszczenie starszych tur.
+
+        Bez dodatkowego wywołania LLM (zero kosztu/latencji/ryzyka 'context poisoning').
+        Zbiera wcześniejsze PYTANIA użytkownika (gist intencji) — identyfikatory rekordów
+        i tak niesie kotwica Entity Memory (T2). Hook na summarizer LLM = przyszły upgrade.
+        """
+        user_qs = [
+            (m.get("content") or "").strip()
+            for m in older
+            if m.get("role") == "user" and (m.get("content") or "").strip()
+        ]
+        if not user_qs:
+            return ""
+        digest = " | ".join(q[:120] for q in user_qs)[:budget]
+        return (
+            f"[STRESZCZENIE WCZEŚNIEJSZEJ ROZMOWY — {len(older)} wiadomości] "
+            f"Wcześniejsze pytania użytkownika: {digest}"
+        )
+
+    def get_history_context(
+        self,
+        session_id: str,
+        max_turns: int = 6,
+        max_chars: int = 2000,
+        summary_budget: int = 4000,
+    ) -> list[dict]:
+        """TRUST-03 T3 (Summary Buffer): ostatnie `max_turns` tur DOSŁOWNIE + (gdy są
+        STARSZE tury poza oknem) JEDNO syntetyczne streszczenie na początku.
+
+        Zwraca [ {role:'system', synthetic:True}?, <okno user/assistant...> ] (RAW —
+        anonimizację robi warstwa wyżej). To produkcyjny wzorzec rynku (last-N + summary).
+        """
+        if max_turns <= 0:
+            return []
+        msgs = self.get_session_messages(session_id, limit=600)
+        convo = [m for m in msgs if m.get("role") in ("user", "assistant")]
+        if not convo:
+            return []
+        win_size = 2 * max_turns
+        window = convo[-win_size:]
+        older = convo[:-win_size] if len(convo) > win_size else []
+
+        out: list[dict] = []
+        if older:  # rozmowa dłuższa niż okno → streść starsze tury
+            summary = self._summarize_older(older, summary_budget)
+            if summary:
+                out.append({"role": "system", "content": summary, "synthetic": True})
+        for m in window:
+            c = m.get("content") or ""
+            if len(c) > max_chars:
+                c = c[:max_chars] + " […]"
+            out.append({"role": m["role"], "content": c})
+        return out
+
     def get_session_messages(self, session_id: str, limit: int = 200) -> list[dict]:
         """Pobierz PEŁNE wiadomości z danej sesji (on-demand load)."""
         rows = (
