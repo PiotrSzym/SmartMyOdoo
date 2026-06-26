@@ -6,7 +6,15 @@ from typing import Dict, Any, Optional
 
 from smartmyodoo.swarm.skills.skill_config import SkillConfig
 from smartmyodoo.swarm.tools import TOOL_REGISTRY
-from smartmyodoo.swarm.sandbox import SandboxManager
+from smartmyodoo.swarm.sandbox import SandboxManager, WRITE_TOOLS
+
+# WRITE-02 T2: komunikat zwracany modelowi, gdy próbuje zapisu w trybie tylko-odczyt (🟢).
+READ_MODE_BLOCK_MSG = (
+    "🟢 TRYB ODCZYTU — zapis ZABLOKOWANY. Użytkownik jest w trybie tylko-do-odczytu, "
+    "więc NIE utworzono żadnej zmiany ani propozycji. Poproś użytkownika, aby przełączył "
+    "kłódkę w prawym górnym rogu czatu na TRYB EDYCJI 🔴 (potwierdza PIN-em) — dopiero "
+    "wtedy przygotujesz propozycję zmiany. NIE twierdź, że cokolwiek zmieniłeś."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +76,31 @@ PEOPLE_RESOLVE_RULE = (
 )
 
 
+# WRITE-02 T3: anty-konfabulacja zapisu. Narzędzia write (odoo_create/update/delete)
+# zwracają PROPOZYCJĘ (Shadow Mode), a NIE wykonany zapis. Model nie może meldować
+# „gotowe/zmieniłem” — realna zmiana następuje dopiero po zatwierdzeniu (apply+PIN).
+WRITE_REPORT_RULE = (
+    "\n\n--- ZAPIS DO ODOO (BEZWZGLĘDNA) ---\n"
+    "Narzędzia zapisu (odoo_create, odoo_update, odoo_delete) NIE zmieniają Odoo od "
+    "razu — tworzą PROPOZYCJĘ oczekującą na zatwierdzenie (Shadow Mode). Dlatego:\n"
+    "1. NIGDY nie pisz „gotowe / zmieniłem / zmieniono / zapisałem / usunąłem” po "
+    "wywołaniu narzędzia zapisu. To NIEPRAWDA — zmiana nie jest jeszcze wykonana.\n"
+    "2. Powiedz, że PRZYGOTOWAŁEŚ propozycję i czeka na zatwierdzenie przyciskiem "
+    "„💾 Zapisz na Odoo” (wymaga PIN). Krótko opisz, co zmieni.\n"
+    "3. Gdy dostaniesz komunikat o TRYBIE ODCZYTU (🟢) — NIE udawaj, że coś zrobiłeś; "
+    "poproś użytkownika, by przełączył kłódkę na TRYB EDYCJI 🔴."
+)
+
+
 def build_system_prompt(base_prompt: str) -> str:
-    """Składa prompt systemowy: prompt skilla + confab-guard PII + reguła osób
-    (idempotentnie). SSoT — używane przez execute i execute_stream.
+    """Składa prompt systemowy: prompt skilla + confab-guard PII + reguła osób +
+    reguła zapisu (idempotentnie). SSoT — używane przez execute i execute_stream.
     """
     base = base_prompt or ""
     if _GUARD_MARKER in base:
         # Guard już doklejony (np. prompt budowany ponownie) — nie dubluj.
         return base
-    return base + PII_CONFAB_GUARD + PEOPLE_RESOLVE_RULE
+    return base + PII_CONFAB_GUARD + PEOPLE_RESOLVE_RULE + WRITE_REPORT_RULE
 
 
 class RedFlagViolation(Exception):
@@ -95,12 +119,18 @@ class SkillExecutor:
         sandbox: Optional[SandboxManager] = None,
         pii: Optional[Any] = None,
         scope: Optional[Any] = None,
+        edit_mode: bool = False,
     ):
         self.llm_client = llm_client
         self.chat_repo = chat_repo
         self.workspace_id = workspace_id
         self.session_id = session_id
         self.sandbox = sandbox
+        # WRITE-02 T2: stan kłódki UI (🟢 read / 🔴 edit). W trybie read write-tool
+        # jest deterministycznie blokowany (autoryzacja = świadome przełączenie 🔴+PIN).
+        self.edit_mode = edit_mode
+        # WRITE-02 T4: ostatnia propozycja utworzona w pętli narzędzi (→ karta w czacie).
+        self.last_proposal: Optional[Dict[str, Any]] = None
         # PiiMiddleware (S1.1): pseudonimizacja PII na granicy LLM. None = brak (np. testy jednostkowe).
         self.pii = pii
         # TRUST-01 T5 (D5): ConversationScope — pamięć project_id między turami.
@@ -211,6 +241,43 @@ class SkillExecutor:
             )
         except Exception as e:  # noqa: BLE001 — kotwica to ulepszenie, nie bloker
             logger.warning(f"Record capture failed: {e}")
+
+    def _capture_proposal(
+        self, func_name: str, args: Any, tool_result_str: str, tool_success: bool
+    ) -> None:
+        """WRITE-02 T4: przechwyć propozycję utworzoną przez write-tool, by `handle_chat`
+        zwrócił ją jako kartę (diff + 💾 Zapisz). Czytamy proposal_id z wyniku narzędzia
+        („… ID: xxxx”) i model/method/values z argumentów (już zdeanonimizowanych)."""
+        if func_name not in WRITE_TOOLS or not tool_success:
+            return
+        if not isinstance(tool_result_str, str):
+            return
+        m = re.search(r"ID:\s*([A-Za-z0-9_-]+)", tool_result_str)
+        if not m:
+            return
+        a = args if isinstance(args, dict) else {}
+        method = {
+            "odoo_create": "create",
+            "odoo_update": "update",
+            "odoo_delete": "delete",
+        }.get(func_name, "update")
+        values: Dict[str, Any] = {}
+        vj = a.get("values_json")
+        if isinstance(vj, str):
+            try:
+                values = json.loads(vj)
+            except Exception:
+                values = {}
+        elif isinstance(vj, dict):
+            values = vj
+        self.last_proposal = {
+            "proposal_id": m.group(1),
+            "model": a.get("model_name") or a.get("model") or "",
+            "method": method,
+            "record_id": a.get("record_id"),
+            "values": values,
+            "reason": a.get("reason") or "",
+        }
 
     def _enter_db_redirect(self, scratchpad: str) -> None:
         """S2.3: przekieruj narzędzia Odoo na scratchpad (przez ODOO_DB), zapisując oryginał."""
@@ -477,6 +544,29 @@ class SkillExecutor:
                         # by follow-up w tej samej sesji dziedziczył zakres.
                         self._capture_scope(func_name, args)
 
+                        # ── WRITE-02 T2: read-mode write-guard (DETERMINISTYCZNY) ──
+                        # W trybie 🟢 (read) NIE wykonujemy narzędzia zapisu — model dostaje
+                        # prośbę o przełączenie na 🔴. Nie ufamy modelowi: blok jest tu, nie w
+                        # prompcie. Pomijamy inwokację (zero propozycji w trybie odczytu).
+                        if func_name in WRITE_TOOLS and not self.edit_mode:
+                            logger.info(
+                                f"🟢 Read-mode: zapis {func_name} zablokowany "
+                                "(brak trybu edycji)"
+                            )
+                            tools_used.add(func_name)
+                            self._audit_tool_call(
+                                audit_db, func_name, args, READ_MODE_BLOCK_MSG, False
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "name": func_name,
+                                    "content": READ_MODE_BLOCK_MSG,
+                                }
+                            )
+                            continue
+
                         # ── Sandbox (S2.3): fail-closed + redirect (S3.2: wspólne helpery) ──
                         blocked = False
                         if self._should_sandbox(func_name, sandbox_activated):
@@ -504,6 +594,10 @@ class SkillExecutor:
                         self._capture_provenance(prov, func_name, tool_result_str)
                         # TRUST-03 T2: zapamiętaj pokazane rekordy (kotwica encji).
                         self._capture_records(func_name, args, tool_result_str)
+                        # WRITE-02 T4: przechwyć propozycję (→ karta z diffem w czacie).
+                        self._capture_proposal(
+                            func_name, args, tool_result_str, tool_success
+                        )
 
                         messages.append(
                             {
@@ -559,6 +653,8 @@ class SkillExecutor:
             "requires_human_override": skill_config.requires_human_override,
             "tools_used": list(tools_used),
             "provenance": footer,
+            # WRITE-02 T4: propozycja utworzona w tej turze (→ karta w czacie) lub None.
+            "proposal": self.last_proposal,
         }
 
     async def execute_stream(

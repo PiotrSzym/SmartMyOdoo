@@ -254,7 +254,12 @@ def create_odoo_record(
         proposal = shadow_mode.create_proposal(
             "create", model_name, [], values, reason, workspace_id=workspace_id
         )
-        return f"✅ Propozycja (CREATE) zapisana. ID: {proposal['id']}"
+        return (
+            f"📝 PROPOZYCJA (CREATE) UTWORZONA — NIE wykonano jeszcze na Odoo. "
+            f"Status: OCZEKUJE_NA_ZATWIERDZENIE. ID: {proposal['id']}. "
+            "Powiedz użytkownikowi, że przygotowałeś propozycję — zatwierdzi ją przyciskiem "
+            "„💾 Zapisz na Odoo” (PIN). NIE mów „gotowe/utworzyłem” — rekord jeszcze nie istnieje."
+        )
     except Exception as e:
         logger.error("Błąd w create_odoo_record dla %s: %s", model_name, str(e))
         return "❌ Błąd zapisu propozycji. Szczegóły w logach systemowych."
@@ -283,7 +288,13 @@ def update_odoo_record(
         proposal = shadow_mode.create_proposal(
             "update", model_name, [record_id], values, reason, workspace_id=workspace_id
         )
-        return f"✅ Propozycja (UPDATE) zapisana. ID: {proposal['id']}"
+        return (
+            f"📝 PROPOZYCJA (UPDATE) UTWORZONA — NIE wykonano jeszcze na Odoo. "
+            f"Status: OCZEKUJE_NA_ZATWIERDZENIE. ID: {proposal['id']}. "
+            "Powiedz użytkownikowi, że przygotowałeś propozycję zmiany — zatwierdzi ją "
+            "przyciskiem „💾 Zapisz na Odoo” (PIN). NIE mów „gotowe/zmieniłem” — zmiana "
+            "jeszcze NIE jest zapisana."
+        )
     except Exception as e:
         logger.error(
             "Błąd w update_odoo_record dla %s (ID %s): %s",
@@ -308,7 +319,12 @@ def delete_odoo_record(
         proposal = shadow_mode.create_proposal(
             "delete", model_name, [record_id], {}, reason, workspace_id=workspace_id
         )
-        return f"✅ Propozycja (DELETE) zapisana. ID: {proposal['id']}"
+        return (
+            f"📝 PROPOZYCJA (DELETE) UTWORZONA — NIE wykonano jeszcze na Odoo. "
+            f"Status: OCZEKUJE_NA_ZATWIERDZENIE. ID: {proposal['id']}. "
+            "Powiedz użytkownikowi, że przygotowałeś propozycję usunięcia — zatwierdzi ją "
+            "przyciskiem „💾 Zapisz na Odoo” (PIN). NIE mów „gotowe/usunąłem” — rekord wciąż istnieje."
+        )
     except Exception as e:
         logger.error(
             "Błąd w delete_odoo_record dla %s (ID %s): %s",

@@ -102,7 +102,7 @@ def test_failclosed_blocks_write_when_clone_fails(monkeypatch):
     monkeypatch.setitem(TOOL_REGISTRY["odoo_create"], "callable", spy)
 
     sandbox = FakeSandbox(scratchpad=None, enabled=True)  # klon się NIE udał
-    ex = SkillExecutor(llm_client=TwoStepLLM(_ARGS), sandbox=sandbox)
+    ex = SkillExecutor(llm_client=TwoStepLLM(_ARGS), sandbox=sandbox, edit_mode=True)
     ex.execute(_skill(), "utwórz partnera")
 
     # narzędzie write NIE zostało wykonane na produkcji
@@ -122,7 +122,7 @@ def test_redirects_db_to_scratchpad(monkeypatch):
     monkeypatch.setitem(TOOL_REGISTRY["odoo_create"], "callable", spy)
 
     sandbox = FakeSandbox(scratchpad="prod_db_agent_scratchpad", enabled=True)
-    ex = SkillExecutor(llm_client=TwoStepLLM(_ARGS), sandbox=sandbox)
+    ex = SkillExecutor(llm_client=TwoStepLLM(_ARGS), sandbox=sandbox, edit_mode=True)
     ex.execute(_skill(), "utwórz partnera")
 
     # podczas wykonania narzędzia baza była przekierowana na scratchpad

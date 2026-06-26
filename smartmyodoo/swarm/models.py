@@ -77,6 +77,9 @@ class ChatRequest(BaseModel):
     session_id: str
     workspace_id: str = "default"
     selected_skills: list[str] | None = None
+    # WRITE-02 T1: stan kłódki UI (🟢 read / 🔴 edit). Backend NIE ufa modelowi —
+    # w trybie read write-tool jest deterministycznie blokowany (autoryzacja = przełączenie 🔴+PIN).
+    edit_mode: bool = False
 
 
 class ChatResponse(BaseModel):

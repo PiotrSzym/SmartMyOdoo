@@ -275,6 +275,7 @@ async def handle_chat(
         sandbox=sandbox,
         pii=_get_pii(),
         scope=_get_scope(),  # TRUST-01 T5: pamięć project_id między turami
+        edit_mode=req.edit_mode,  # WRITE-02: 🟢 read blokuje zapis (autoryzacja = 🔴+PIN)
     )
 
     # ── 4. Resolve skill config ──
@@ -307,6 +308,7 @@ async def handle_chat(
         llm.cache = get_llm_cache()
 
     # ── 5. Execute (async-safe) ──
+    created_proposal = None  # WRITE-02 T4: propozycja utworzona w tej turze (→ karta)
     if llm:
         from smartmyodoo.core.models import AuditLog
 
@@ -315,6 +317,7 @@ async def handle_chat(
                 executor.execute, skill_config, req.message
             )
             reply_text = exec_result.get("response", "Brak odpowiedzi od agenta.")
+            created_proposal = exec_result.get("proposal")
 
             audit = AuditLog(
                 workspace_id=req.workspace_id,
@@ -375,6 +378,24 @@ async def handle_chat(
                 model=str(proposal.odoo_model),
                 method=str(proposal.method),
                 args=[json.loads(str(proposal.values))],
+            ),
+        )
+
+    # ── 6b. WRITE-02 T4: propozycja z LLM → karta z diffem + 💾 Zapisz (apply+PIN) ──
+    if created_proposal and created_proposal.get("proposal_id"):
+        return ChatResponse(
+            reply=reply_text,
+            action_type="SHADOW_PROPOSAL",
+            category=category_value,
+            persona=persona_value,
+            model=recommended_model,
+            selected_skills=selected_skills_to_use,
+            proposal_data=ChatProposalData(
+                proposal_id=created_proposal["proposal_id"],
+                text=created_proposal.get("reason") or "Propozycja zmiany w Odoo",
+                model=created_proposal.get("model") or "",
+                method=str(created_proposal.get("method") or "").upper(),
+                args=[created_proposal.get("values") or {}],
             ),
         )
 

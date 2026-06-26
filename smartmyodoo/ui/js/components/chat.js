@@ -502,7 +502,8 @@ class ChatPanel {
                     active_id: null,
                     session_id: this.sessionId,
                     workspace_id: window.AppStore.getState().workspaceId,
-                    selected_skills: reqSelectedSkills
+                    selected_skills: reqSelectedSkills,
+                    edit_mode: window.AppStore.getState().editMode === true  // WRITE-02: stan kłódki 🟢/🔴
                 })
             });
 
