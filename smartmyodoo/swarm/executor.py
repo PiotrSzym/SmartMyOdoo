@@ -92,15 +92,32 @@ WRITE_REPORT_RULE = (
 )
 
 
+# ERR-01: gdy narzędzie zwróci błąd, model ma go ZACYTOWAĆ, a NIE dorzucać własnych
+# zgadywanych przyczyn (to była istota konfabulacji: „może połączenie, może uprawnienia…”).
+ERROR_REPORT_RULE = (
+    "\n\n--- BŁĘDY NARZĘDZI (BEZWZGLĘDNA) ---\n"
+    "Gdy narzędzie zwróci pole „error” (komunikat zaczynający się od „❌”), przekaż "
+    "użytkownikowi DOKŁADNIE tę przyczynę i sugerowane działanie. NIE wymyślaj "
+    "alternatywnych przyczyn („może połączenie / może uprawnienia / może chwilowo”) — "
+    "konkretny komunikat już mówi, co jest nie tak. Nie udawaj sukcesu, gdy był błąd."
+)
+
+
 def build_system_prompt(base_prompt: str) -> str:
     """Składa prompt systemowy: prompt skilla + confab-guard PII + reguła osób +
-    reguła zapisu (idempotentnie). SSoT — używane przez execute i execute_stream.
+    reguła zapisu + reguła błędów (idempotentnie). SSoT — execute i execute_stream.
     """
     base = base_prompt or ""
     if _GUARD_MARKER in base:
         # Guard już doklejony (np. prompt budowany ponownie) — nie dubluj.
         return base
-    return base + PII_CONFAB_GUARD + PEOPLE_RESOLVE_RULE + WRITE_REPORT_RULE
+    return (
+        base
+        + PII_CONFAB_GUARD
+        + PEOPLE_RESOLVE_RULE
+        + WRITE_REPORT_RULE
+        + ERROR_REPORT_RULE
+    )
 
 
 class RedFlagViolation(Exception):

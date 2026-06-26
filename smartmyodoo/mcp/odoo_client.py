@@ -3,6 +3,8 @@ import os
 import asyncio
 import contextvars
 import logging
+import socket
+import time
 from typing import Any, Dict, Optional, Set
 
 logger = logging.getLogger(__name__)
@@ -79,10 +81,32 @@ class OdooClient:
         if not all([self.url, self.db, self.username, self.password]):
             raise ValueError("Brak konfiguracji Odoo w zmiennych środowiskowych.")
 
+        # ERR-01 T2: pojedynczy retry zimnego startu. Staging odoo.sh WYBUDZA SIĘ z
+        # uśpienia — pierwszy authenticate pada (False / timeout / odmowa połączenia),
+        # a po krótkiej pauzie instancja jest gotowa. Bez tego user dostawał „Błąd
+        # autoryzacji”, mimo że poświadczenia są poprawne (to był zimny start, nie złe hasło).
         common = xmlrpc.client.ServerProxy("{}/xmlrpc/2/common".format(self.url))
-        self.uid = common.authenticate(self.db, self.username, self.password, {})
+        transient = (socket.timeout, TimeoutError, ConnectionError, OSError, xmlrpc.client.ProtocolError)
+        last_exc: Optional[Exception] = None
+        for attempt in range(2):
+            try:
+                self.uid = common.authenticate(self.db, self.username, self.password, {})
+                if self.uid:
+                    last_exc = None
+                    break
+            except transient as e:
+                last_exc = e
+                logger.warning(
+                    "Odoo connect próba %d/2 — błąd przejściowy: %s",
+                    attempt + 1,
+                    type(e).__name__,
+                )
+            if attempt == 0:
+                time.sleep(2)  # daj instancji staging się wybudzić
 
         if not self.uid:
+            if last_exc is not None:
+                raise last_exc  # sieć/timeout — sklasyfikuje classify_odoo_error
             raise PermissionError(
                 "Błąd autoryzacji do Odoo. Sprawdź poświadczenia w SmartMyVault."
             )

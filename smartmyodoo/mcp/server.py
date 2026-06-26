@@ -127,9 +127,8 @@ def read_odoo_schema(model_name: str, workspace_id: str = "default") -> dict:
         return target_odoo.get_model_fields(model_name)
     except Exception as e:
         logger.error("Błąd w read_odoo_schema dla %s: %s", model_name, str(e))
-        return {
-            "error": "Wystąpił błąd podczas pobierania schematu Odoo. Szczegóły w logach systemowych."
-        }
+        # ERR-01: konkretny, actionable komunikat zamiast „szczegóły w logach”.
+        return {"error": classify_odoo_error(e, workspace_id=workspace_id)}
 
 
 @mcp.tool()
@@ -194,9 +193,8 @@ def search_odoo_records(
         return out
     except Exception as e:
         logger.error("Błąd w search_odoo_records dla %s: %s", model_name, str(e))
-        return {
-            "error": "Wystąpił błąd podczas wyszukiwania rekordów. Szczegóły w logach systemowych."
-        }
+        # ERR-01: konkretny błąd (autoryzacja / sieć / uprawnienia) zamiast generyku.
+        return {"error": classify_odoo_error(e, workspace_id=workspace_id)}
 
 
 def resolve_person_records(name_query: str, workspace_id: str = "default") -> dict:
@@ -229,7 +227,7 @@ def resolve_person_records(name_query: str, workspace_id: str = "default") -> di
     except Exception as e:
         logger.error("Błąd w resolve_person_records dla %r: %s", name_query, str(e))
         return {
-            "error": "Błąd rozpoznawania osoby. Szczegóły w logach.",
+            "error": classify_odoo_error(e, workspace_id=workspace_id),  # ERR-01
             "users": [],
             "count": 0,
         }
@@ -340,6 +338,7 @@ def delete_odoo_record(
 # więc poświadczenia wstrzyknięte przez chat.py (set_odoo_creds) nigdy nie docierają
 # do narzędzi Odoo. Jeden moduł = jedna ContextVar = creds ze Skarbca działają.
 from smartmyodoo.mcp.odoo_client import get_odoo_client  # noqa: E402
+from smartmyodoo.mcp.odoo_errors import classify_odoo_error  # noqa: E402 — ERR-01
 
 
 @mcp.tool()
