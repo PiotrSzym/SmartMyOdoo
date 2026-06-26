@@ -191,6 +191,39 @@ async def handle_chat(
     # FIX-03: rate-limit per workspace (429 przy zalaniu)
     _enforce_chat_rate(req.workspace_id)
 
+    # ── SELFDOC-01: wiarygodny self-opis ZANIM ruszymy LLM ──
+    # „co potrafisz / opowiedz o sobie" → opis z PRAWDZIWEGO rejestru (zero
+    # improwizacji/konfabulacji LLM). Pomijamy, gdy user jawnie wybrał skill.
+    from smartmyodoo.swarm.capabilities import (
+        is_self_describe_query,
+        build_capabilities,
+    )
+
+    if not req.selected_skills and is_self_describe_query(req.message):
+        reply_text = build_capabilities()
+        try:
+            from smartmyodoo.core.chat_repository import ChatRepository
+
+            repo = ChatRepository(db=db)
+            repo.save_message(req.workspace_id, req.session_id, "user", req.message)
+            repo.save_message(
+                req.workspace_id,
+                req.session_id,
+                "assistant",
+                reply_text,
+                {"category": "SELF_DESCRIBE"},
+            )
+        except Exception:  # noqa: BLE001 — zapis historii to ulepszenie, nie bloker
+            pass
+        return ChatResponse(
+            reply=reply_text,
+            action_type="CHAT",
+            category="SELF_DESCRIBE",
+            persona="H",
+            model=None,
+            selected_skills=[],
+        )
+
     # ── 1. Dispatch intent ──
     if req.selected_skills:
         category_value = "H"
