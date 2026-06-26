@@ -537,6 +537,17 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
+                        # WRITE-03 T2: narzędzia zapisu MUSZĄ nieść REALNY workspace
+                        # (LLM go nie przekazuje → propozycja lądowałaby jako „default”,
+                        # a apply trafiałby w złą instancję Odoo). Wstrzykujemy go tu,
+                        # by create_proposal otagował propozycję właściwą przestrzenią.
+                        if (
+                            func_name in WRITE_TOOLS
+                            and isinstance(args, dict)
+                            and self.workspace_id
+                        ):
+                            args["workspace_id"] = self.workspace_id
+
                         # TRUST-02 T2: deterministycznie utrzymaj zakres projektu
                         # (doklej project_id), zanim narzędzie wystartuje.
                         self._enforce_scope(func_name, args, message)

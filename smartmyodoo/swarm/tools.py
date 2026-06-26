@@ -127,33 +127,54 @@ def odoo_schema(model_name: str) -> str:
 
 
 @register_tool("odoo_create")
-def odoo_create(model_name: str, values_json: str, reason: str) -> str:
+def odoo_create(
+    model_name: str, values_json: str, reason: str, workspace_id: str = "default"
+) -> str:
     """Tworzy NOWY rekord w Odoo (Shadow Mode → propozycja). values_json = JSON słownika."""
+    # WRITE-03 T2: workspace_id pomijany w schemacie (LLM go nie podaje) — wstrzykuje go
+    # executor, by propozycja niosła REALNĄ przestrzeń (apply trafia we właściwą instancję).
     return create_odoo_record(
-        model_name=model_name, values_json=values_json, reason=reason
+        model_name=model_name,
+        values_json=values_json,
+        reason=reason,
+        workspace_id=workspace_id,
     )
 
 
 @register_tool("odoo_update")
-def odoo_update(model_name: str, record_id: int, values_json: str, reason: str) -> str:
+def odoo_update(
+    model_name: str,
+    record_id: int,
+    values_json: str,
+    reason: str,
+    workspace_id: str = "default",
+) -> str:
     """WRITE-01: EDYTUJ istniejący rekord Odoo (Shadow Mode → propozycja). Użyj do
     zmiany pól istniejącego rekordu (np. nazwa szansy, opis zadania). record_id =
     ID rekordu (z odoo_search); values_json = JSON zmienianych pól, np. {"name":"X"}.
     Nie zapisuje od razu — tworzy propozycję do zatwierdzenia (PIN)."""
+    # WRITE-03 T2: workspace_id wstrzykiwany przez executor (patrz odoo_create).
     return update_odoo_record(
         model_name=model_name,
         record_id=record_id,
         values_json=values_json,
         reason=reason,
+        workspace_id=workspace_id,
     )
 
 
 @register_tool("odoo_delete")
-def odoo_delete(model_name: str, record_id: int, reason: str) -> str:
+def odoo_delete(
+    model_name: str, record_id: int, reason: str, workspace_id: str = "default"
+) -> str:
     """WRITE-01: USUŃ rekord Odoo (Shadow Mode → propozycja). record_id z odoo_search.
     Operacja nieodwracalna po zatwierdzeniu — używaj ostrożnie."""
+    # WRITE-03 T2: workspace_id wstrzykiwany przez executor (patrz odoo_create).
     return delete_odoo_record(
-        model_name=model_name, record_id=record_id, reason=reason
+        model_name=model_name,
+        record_id=record_id,
+        reason=reason,
+        workspace_id=workspace_id,
     )
 
 

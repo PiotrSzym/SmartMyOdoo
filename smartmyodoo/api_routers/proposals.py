@@ -117,6 +117,22 @@ async def apply_proposal(
             prop.status = "approved"  # type: ignore
             db.commit()
 
+        # WRITE-03 T1: wstrzyknij poświadczenia Odoo ze Skarbca dla TEJ przestrzeni
+        # PRZED zapisem — inaczej execute_proposal_by_id → get_odoo_client → „Brak
+        # konfiguracji Odoo” → 500 (apply z UI nie działał od WRITE-01). Czat robił to
+        # przez _inject_odoo_creds; tu replikujemy tę samą bramę KEY-02-3 (ADR-007).
+        try:
+            from smartmyodoo.vault import vault as _vault
+            from smartmyodoo.api_routers.chat import _inject_odoo_creds
+
+            _inject_odoo_creds(_vault.load_vault(auth_data[0]), ws)
+        except Exception as e:  # noqa: BLE001 — brak credów → execute zwróci błąd, audytowany niżej
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "WRITE-03: nie udało się wstrzyknąć credów Odoo dla %s: %s", ws, e
+            )
+
         res = execute_proposal_by_id(proposal_id, ws)
 
         # Audyt (sukces ORAZ błąd) — ADR-013 / D4. Bez wartości PII (tylko meta).
