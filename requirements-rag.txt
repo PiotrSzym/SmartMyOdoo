@@ -1,0 +1,13 @@
+# RAG-DOCKER-01: wektorowy RAG semantyczny (LanceDB + embeddingi ONNX).
+#
+# Slim: zamiast sentence-transformers + torch (~1 GB) używamy fastembed (ONNX Runtime).
+# Ten sam model all-MiniLM-L6-v2 (384 wymiary), te same wektory — lżejszy silnik.
+# onnxruntime i tak jest już w obrazie (ciąga go markitdown/magika), więc realny
+# narzut RAG to tylko fastembed + model ONNX (~80 MB) + lancedb/pyarrow.
+#
+# Instalowane W OBRAZIE obok bazowych deps (patrz Dockerfile). FTS5/MEM-01 zostaje
+# warstwą podstawową (zawsze on, także bez tego stosu — graceful degrade).
+
+fastembed>=0.4.0
+lancedb>=0.13.0
+pyarrow>=17.0.0

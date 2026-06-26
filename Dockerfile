@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 
 # Najpierw tylko manifest zależności — lepszy cache warstw (kod zmienia się częściej).
-COPY requirements.txt constraints.txt ./
+COPY requirements.txt constraints.txt requirements-rag.txt ./
 
 # --pre: dopuszcza prerelease (markitdown[all] ciąga azure-* w wersjach beta — nota
 #   venv-qa-gaps). UWAGA: sprint pisał `--prerelease=allow`, ale to flaga `uv`, nie `pip`
@@ -38,6 +38,12 @@ COPY requirements.txt constraints.txt ./
 # Instalujemy do /install (prefix), żeby skopiować tylko site-packages do runtime.
 # pl_core_news_md jest w requirements.txt jako release wheel (PL model dla PII middleware).
 RUN pip install --prefix=/install --pre -c constraints.txt -r requirements.txt
+
+# RAG-DOCKER-01: wektorowy RAG (LanceDB + sentence-transformers + torch CPU-only).
+# Osobne polecenie BEZ --pre (by nie wciągać prerelease torcha), z constraints (numpy
+# pinned spójnie). torch CPU z indeksu PyTorch (--extra-index-url w requirements-rag.txt)
+# — local-version „+cpu" ma pierwszeństwo nad CUDA z PyPI, więc bez ~2GB CUDA.
+RUN pip install --prefix=/install -c constraints.txt -r requirements-rag.txt
 
 # ------------------------------------------------------------------------------
 # Stage 2: runtime — slim, bez toolchainu, non-root.
@@ -64,9 +70,24 @@ WORKDIR /app
 # Kod aplikacji (sekrety/vault/DB wykluczone przez .dockerignore).
 COPY smartmyodoo ./smartmyodoo
 COPY pyproject.toml requirements.txt ./
+# RAG-DOCKER-01: źródła wiedzy do zasiania bazy wektorowej (dziś NIE kopiowane).
+COPY knowledge ./knowledge
+
+# RAG-DOCKER-01: baza wektorowa + model embeddingów (ONNX) ZASZYTE W OBRAZIE
+# (offline-ready), żeby każdy `docker compose up` miał działający Shared Brain bez
+# pobierania w runtime.
+#   SMARTMYODOO_LANCEDB_PATH=/app/.lancedb — baza w obrazie (NIE na wolumenie /data; to
+#     wspólna treść statyczna, nie stan usera).
+#   FASTEMBED_CACHE=/app/.fastembed — cache modelu ONNX czytelny dla appuser (download robi root).
+ENV SMARTMYODOO_LANCEDB_PATH=/app/.lancedb \
+    FASTEMBED_CACHE=/app/.fastembed
+# Seed konstruuje LanceDBClient → pobiera model ONNX (fastembed) do FASTEMBED_CACHE i embeduje
+# dokumenty knowledge/ do /app/.lancedb. Jeden krok = model + baza zaszyte w obrazie.
+RUN python -m smartmyodoo.swarm.brain.seed_knowledge knowledge
 
 # Non-root user (ADR-008 / Sekcja D). /data tworzony i przejmowany na własność,
-# by first-run init vaultu (POST /api/init) mógł pisać do /data/vault.
+# by first-run init vaultu (POST /api/init) mógł pisać do /data/vault. chown -R /app
+# obejmuje też zaszytą bazę RAG (/app/.lancedb) i cache modelu (/app/.hfcache).
 RUN useradd --create-home --uid 1001 appuser \
     && mkdir -p /data/vault /data/logs \
     && chown -R appuser:appuser /app /data

@@ -8,6 +8,35 @@ logger = logging.getLogger(__name__)
 SHARED_WORKSPACE = "__shared__"
 
 
+def _make_embedder(model_name: str):
+    """RAG-DOCKER-01 (slim): zwróć enkoder z API `.encode(texts)->lista wektorów`.
+
+    Preferuje **fastembed** (ONNX Runtime, ~80 MB model + onnxruntime już w obrazie) zamiast
+    **sentence-transformers + torch** (~1 GB). Ten sam model `all-MiniLM-L6-v2` (384 wymiary),
+    te same wektory — tylko lżejszy silnik. Fallback do sentence-transformers, gdy fastembed
+    niedostępny (kompatybilność wstecz). Cache modelu sterowany ENV `FASTEMBED_CACHE`."""
+    try:
+        from fastembed import TextEmbedding
+    except ImportError:
+        from sentence_transformers import SentenceTransformer
+
+        return SentenceTransformer(model_name)
+
+    # fastembed używa pełnych nazw HF; „all-MiniLM-L6-v2" → „sentence-transformers/all-MiniLM-L6-v2".
+    name = model_name if "/" in model_name else f"sentence-transformers/{model_name}"
+    embedder = TextEmbedding(
+        model_name=name, cache_dir=os.environ.get("FASTEMBED_CACHE") or None
+    )
+
+    class _FastEmbedAdapter:
+        """Drop-in dla SentenceTransformer.encode() — zwraca listę wektorów (np.ndarray 384)."""
+
+        def encode(self, texts):
+            return list(embedder.embed(list(texts)))
+
+    return _FastEmbedAdapter()
+
+
 class LanceDBClient:
     """
     Klient wbudowanej bazy wektorowej LanceDB.
@@ -37,14 +66,14 @@ class LanceDBClient:
     def _init_db(self):
         try:
             import lancedb
-            from sentence_transformers import SentenceTransformer
             import pyarrow as pa
 
             os.makedirs(self.db_path, exist_ok=True)
             self._db = lancedb.connect(self.db_path)
 
-            # Wczytywanie modelu osadzania (Embedding Model)
-            self._model = SentenceTransformer(self.model_name)
+            # Wczytywanie modelu osadzania (Embedding Model).
+            # RAG-DOCKER-01 (slim): preferujemy fastembed (ONNX) nad sentence-transformers+torch.
+            self._model = _make_embedder(self.model_name)
 
             # Definiowanie schematu dla tabeli knowledge_base
             # Embeddings wymiar zalezy od modelu (all-MiniLM-L6-v2 ma 384)

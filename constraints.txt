@@ -12,3 +12,7 @@
 numpy==2.4.6
 spacy==3.8.13
 thinc==8.3.13
+# RAG-DOCKER-01: bez tego `--pre` ciągnął mcp 2.0.0a3 (alpha) — BRAK `mcp.server.fastmcp`
+# → import swarm/tools (i całe /api/chat) padał w kontenerze ModuleNotFoundError.
+# Pin do stabilnej (zgodnej z .venv-qa), gdzie fastmcp istnieje.
+mcp==1.28.0
