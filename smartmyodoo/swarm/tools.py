@@ -191,7 +191,33 @@ def rollback_changes(reason: str) -> str:
 def search_knowledge_base(query: str) -> str:
     """Główne zapytanie RAG dostępne dla Agenta. Zwraca sformatowany tekst kontekstu."""
     brain = SharedBrain()
-    return brain.ask_brain(query)
+    result = brain.ask_brain(query)
+    # MEM-01: gdy wektorowy RAG (LanceDB) jest zdegradowany (brak ML / Py3.14), zamiast
+    # zwracać „tryb zdegradowany” sięgnij do lekkiej pamięci FTS5 (chaty + sprinty).
+    if "zdegradowany" in (result or "").lower() or "niedostępny" in (result or "").lower():
+        try:
+            from smartmyodoo.core.memory_search import search_memory, format_hits
+
+            hits = search_memory(query, limit=5)
+            if hits:
+                return (
+                    "(z lokalnej pamięci historii — semantyczny RAG wyłączony)\n"
+                    + format_hits(hits)
+                )
+        except Exception:  # noqa: BLE001 — fallback nieobowiązkowy
+            pass
+    return result
+
+
+@register_tool("search_history")
+def search_history(query: str) -> str:
+    """Przeszukaj HISTORIĘ rozmów i ROZWIĄZANYCH PROBLEMÓW (sprinty). Użyj, gdy
+    użytkownik pyta „czy rozmawialiśmy o X", „jak rozwiązaliśmy Y", „co ustaliliśmy
+    wcześniej", „pamiętasz problem z Z". Szuka po słowach kluczowych w czatach +
+    dokumentach sprintów + bazie wiedzy. Zwraca najtrafniejsze fragmenty z kontekstem."""
+    from smartmyodoo.core.memory_search import search_memory, format_hits
+
+    return format_hits(search_memory(query, limit=5))
 
 
 @register_tool("scaffold_module")

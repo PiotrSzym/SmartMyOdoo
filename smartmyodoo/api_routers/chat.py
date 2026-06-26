@@ -294,11 +294,18 @@ async def handle_chat(
                 "Jesteś asystentem SmartMyOdoo. Odpowiadaj krótko i merytorycznie. "
                 "Gdy pytanie dotyczy danych w Odoo (liczby rekordów, lista, pola), "
                 "użyj narzędzia odoo_search (do liczby rekordów użyj pola 'count' z "
-                "wyniku) lub odoo_schema. Nie odsyłaj użytkownika do ręcznego logowania."
+                "wyniku) lub odoo_schema. Gdy użytkownik pyta o WCZEŚNIEJSZE rozmowy lub "
+                "rozwiązane problemy (np. 'czy rozmawialiśmy o', 'jak rozwiązaliśmy', "
+                "'pamiętasz problem z'), użyj search_history. Nie odsyłaj do ręcznego logowania."
             ),
             # Domyślny asystent (gdy UI nie wybrał skilla) MUSI móc odpytać Odoo
-            # read-only — inaczej "ile mamy projektów?" kończy się odmową.
-            allowed_tools=["search_knowledge_base", "odoo_search", "odoo_schema"],
+            # read-only oraz przeszukać pamięć historii (MEM-01).
+            allowed_tools=[
+                "search_knowledge_base",
+                "search_history",
+                "odoo_search",
+                "odoo_schema",
+            ],
             red_flags=[],
             recommended_model=recommended_model,
         )
