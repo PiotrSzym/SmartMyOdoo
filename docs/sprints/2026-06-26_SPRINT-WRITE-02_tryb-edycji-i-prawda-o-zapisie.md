@@ -1,9 +1,9 @@
 ---
 sprint_id: "WRITE-02"
 workspace: "SmartMyOdoo"
-status: "IN_PROGRESS"
+status: "DONE"
 created: 2026-06-26
-closed: null
+closed: 2026-06-26
 goal: "Domknąć pętlę zapisu z PRAWDĄ i AUTORYZACJĄ TRYBU. Dziś: (1) backend nie wie, w jakim trybie jest UI (editMode czysto frontendowy) → w trybie 🟢 read i tak powstaje propozycja; (2) narzędzie write zwraca „✅ Propozycja zapisana”, więc model melduje „✅ Gotowe, zmieniłem” = KONFABULACJA udanego zapisu; (3) propozycja z LLM nie wraca jako karta (action_type=CHAT), więc user nie ma jak jej zatwierdzić. Cel: tryb 🟢/🔴 świadomy end-to-end (w 🟢 zapis ZABLOKOWANY z prośbą o przełączenie = autoryzacja), jednoznaczny status PENDING (zero „gotowe”), inline karta z diffem + 💾 Zapisz (apply+PIN)."
 prefix: "WRITE"
 complexity: 6
@@ -47,11 +47,11 @@ W trybie tylko-odczytu (🟢) zapis i tak tworzy propozycję, a model melduje �
 ## 🧱 Sekcja B — Zadania (/dev)
 | # | Zadanie | Pliki | Testy | Status |
 |---|---------|-------|-------|--------|
-| T1 | **edit_mode w kontrakcie** — `ChatRequest.edit_mode`; `chat.js` wysyła `editMode`; `handle_chat` przekazuje do executora | `swarm/models.py`, `ui/js/components/chat.js`, `api_routers/chat.py` | unit: pole istnieje, domyślnie False | ⏳ |
-| T2 | **Read-mode write-guard** — w executorze przed inwokacją write-toola: jeśli `not edit_mode` → blok + komunikat „przełącz na 🔴”, zero inwokacji | `swarm/executor.py` | unit: write w 🟢 nie woła toola, zwraca prośbę o tryb | ⏳ |
-| T3 | **Prawda o wyniku** — jednoznaczny zwrot narzędzi write + `WRITE_REPORT_RULE` (anty-„gotowe”) | `mcp/server.py`, `swarm/executor.py` | unit: zwrot zawiera „OCZEKUJE”/„NIE wykonano”; prompt ma regułę | ⏳ |
-| T4 | **Karta propozycji z LLM** — executor przechwytuje propozycję; `handle_chat` zwraca SHADOW_PROPOSAL + proposal_data | `swarm/executor.py`, `api_routers/chat.py` | unit: po write w 🔴 wynik ma proposal; e2e: action_type=SHADOW_PROPOSAL | ⏳ |
-| T5 | **Regresja + LIVE** — pełna pytest; LIVE: 🟢„zmień”→prośba o tryb; 🔴„zmień”→karta→💾+PIN→rekord zmieniony | testy | 0 failed; LIVE pętla e2e | ⏳ |
+| T1 | **edit_mode w kontrakcie** — `ChatRequest.edit_mode`; `chat.js` wysyła `editMode`; `handle_chat` przekazuje do executora | `swarm/models.py`, `ui/js/components/chat.js`, `api_routers/chat.py` | unit: pole istnieje, domyślnie False | ✅ DONE |
+| T2 | **Read-mode write-guard** — w executorze przed inwokacją write-toola: jeśli `not edit_mode` → blok + komunikat „przełącz na 🔴”, zero inwokacji | `swarm/executor.py` | unit: write w 🟢 nie woła toola, zwraca prośbę o tryb | ✅ DONE |
+| T3 | **Prawda o wyniku** — jednoznaczny zwrot narzędzi write + `WRITE_REPORT_RULE` (anty-„gotowe”) | `mcp/server.py`, `swarm/executor.py` | unit: zwrot zawiera „OCZEKUJE”/„NIE wykonano”; prompt ma regułę | ✅ DONE |
+| T4 | **Karta propozycji z LLM** — executor przechwytuje propozycję; `handle_chat` zwraca SHADOW_PROPOSAL + proposal_data | `swarm/executor.py`, `api_routers/chat.py` | unit: po write w 🔴 wynik ma proposal; e2e: action_type=SHADOW_PROPOSAL | ✅ DONE |
+| T5 | **Regresja + LIVE** — pełna pytest; LIVE: 🟢„zmień”→prośba o tryb; 🔴„zmień”→karta→💾+PIN→rekord zmieniony | testy | 0 failed; LIVE pętla e2e | ✅ DONE |
 
 ## 🛡️ Sekcja D — Security/Trust
 - [ ] Blok w 🟢 jest DETERMINISTYCZNY w backendzie (nie ufamy modelowi).
