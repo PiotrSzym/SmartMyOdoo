@@ -56,6 +56,7 @@
     <script src="js/components/project.js?v=8" defer></script>
     <script src="js/components/skills.js?v=2" defer></script>
     <script src="js/components/docs.js?v=4" defer></script>
+    <script src="js/components/logs.js?v=1" defer></script>
     <!-- DOC-02: render statycznych ikon Lucide (nav) po załadowaniu DOM -->
     <script defer>
         document.addEventListener('DOMContentLoaded', function () {
@@ -121,6 +122,9 @@
                 </button>
                     <button onclick="AppStore.setState({ activeTab: 'docs' })" id="tab-docs" data-i18n-title="tip.docs" title="Dokumentacja — sekcje, wyszukiwarka, kompendium" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
                     <span class="flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4"></i> <span data-i18n="nav.docs">Dokumentacja</span></span>
+                </button>
+                    <button onclick="AppStore.setState({ activeTab: 'logs' })" id="tab-logs" title="Logi Odoo.sh — wklej log, znajdź root cause (bottom-up) i błędy 5xx" class="px-1 py-4 text-sm font-medium border-b-2 transition-all text-slate-400 border-transparent hover:text-slate-300 ml-4">
+                    <span class="flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4"></i> <span>Logi</span></span>
                 </button>
                 </div>
                 <div class="flex-1"></div>
@@ -189,6 +193,29 @@
 
                 <!-- Tab: Dokumentacja (DOC-01) — wypełniane przez docs.js -->
                 <div id="docs-screen" class="w-full hidden flex-col gap-6"></div>
+
+                <!-- Tab: Logi Odoo.sh (SH-LOG-01) — logika w logs.js -->
+                <div id="logs-screen" class="w-full max-w-5xl mx-auto hidden flex-col gap-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h1 class="text-4xl font-bold text-gradient">Logi Odoo.sh</h1>
+                            <p class="text-slate-400 text-sm mt-1">Wklej log z panelu Odoo.sh (zakładka Logs) — wskażę <b>root cause</b> metodą bottom-up i błędy HTTP 5xx.</p>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 flex flex-col gap-3">
+                        <textarea id="logs-input" rows="12" spellcheck="false"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 resize-y"
+                            placeholder="2024-06-29 14:00:23,460 9981 ERROR myodoo-pl-prod odoo.http: Exception...&#10;Traceback (most recent call last):&#10;  ...&#10;odoo.exceptions.UserError: ..."></textarea>
+                        <div class="flex items-center gap-3">
+                            <button id="logs-parse-btn" onclick="parseLogs()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-6 rounded-lg transition">🔍 Analizuj log</button>
+                            <button onclick="clearLogs()" class="border border-slate-600 hover:bg-slate-800 text-slate-300 py-2 px-4 rounded-lg transition text-sm">Wyczyść</button>
+                            <span id="logs-hint" class="text-xs text-slate-500"></span>
+                        </div>
+                    </div>
+
+                    <div id="logs-results" class="flex flex-col gap-4"></div>
+                </div>
 
                 <!-- Tab: Modele (K6) -->
                 <div id="models-screen" class="w-full max-w-3xl mx-auto hidden flex-col gap-6">
