@@ -473,6 +473,46 @@ def test_workspace_delete_no_cascade(client, auth_headers):
     assert "to-delete_ODOO" in secrets
 
 
+def test_workspace_delete_reparents_secrets_to_default(client, auth_headers):
+    """Orphan-guard: usunięcie przestrzeni bez kaskady PRZEPINA jej sekrety na
+    `default` (zamiast zostawiać wiszące, niewidoczne rekordy)."""
+    client.post(
+        "/api/workspaces",
+        json={
+            "id": "orphan-src",
+            "name": "OrphanSrc",
+            "odoo_url": "http://os",
+            "admin_login": "admin",
+            "admin_password": "secret789",
+        },
+        headers=auth_headers,
+    )
+    # Sekret startuje przypięty do orphan-src
+    before = client.get(
+        "/api/secrets?workspace_id=orphan-src", headers=auth_headers
+    ).json()
+    assert "orphan-src_ODOO" in before
+
+    res = client.delete(
+        "/api/workspaces/orphan-src?cascade_vault=false", headers=auth_headers
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["secrets_removed"] == 0
+    assert data["secrets_reassigned"] >= 1
+
+    # Brak sierot: nic nie zostało na nieistniejącej przestrzeni...
+    orphaned = client.get(
+        "/api/secrets?workspace_id=orphan-src", headers=auth_headers
+    ).json()
+    assert "orphan-src_ODOO" not in orphaned
+    # ...a sekret jest teraz widoczny w `default`.
+    in_default = client.get(
+        "/api/secrets?workspace_id=default", headers=auth_headers
+    ).json()
+    assert "orphan-src_ODOO" in in_default
+
+
 def test_workspace_delete_with_cascade(client, auth_headers):
     """DELETE /api/workspaces/{id}?cascade_vault=true soft-deletuje sekrety"""
     # Create
@@ -601,3 +641,31 @@ def test_api_pipeline_run_rollback(client, auth_headers, mocker):
     data = res.json()
     assert data["success"] is False
     assert data["rolled_back"] is True
+
+
+# ── SH-LOG-01: parser wklejanych logów Odoo.sh (endpoint) ──────────────────
+
+
+def test_logs_parse_endpoint(client, auth_headers):
+    """POST /api/logs/parse zwraca strukturę z root cause bottom-up i HTTP 500."""
+    log = (
+        '2024-01-15 14:00:23,456 12345 INFO db werkzeug: 1.2.3.4 - - '
+        '[15/Jan/2024 14:00:23] "POST /web/dataset/call_kw HTTP/1.1" 500 -\n'
+        "2024-01-15 14:00:23,460 12345 ERROR db odoo.http: Exception.\n"
+        "Traceback (most recent call last):\n"
+        '  File "x.py", line 1, in f\n'
+        "odoo.exceptions.ValidationError: Pole wymagane\n"
+    )
+    res = client.post("/api/logs/parse", json={"text": log}, headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    s = data["summary"]
+    assert s["by_level"]["ERROR"] == 1
+    assert s["http_errors"][0]["status"] == 500
+    assert s["root_causes"] == ["odoo.exceptions.ValidationError: Pole wymagane"]
+
+
+def test_logs_parse_requires_auth(client):
+    """Bez Bearer endpoint odrzuca — log może zawierać dane wrażliwe."""
+    res = client.post("/api/logs/parse", json={"text": "x"})
+    assert res.status_code in (401, 403)

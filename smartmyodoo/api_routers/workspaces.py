@@ -372,21 +372,36 @@ async def delete_workspace(
         raise HTTPException(status_code=404, detail="Workspace not found")
 
     secrets_removed = 0
-    if cascade_vault:
-        vk, _, _ = auth_data
-        try:
-            vault_data = vault.load_vault(vk)
-            for key, val in list(vault_data.items()):
-                if isinstance(val, dict) and val.get("workspace_id") == ws_id:
-                    vault_data[key]["deleted_at"] = datetime.datetime.now().isoformat()
-                    secrets_removed += 1
-            if secrets_removed > 0:
-                vault.save_vault(vk, vault_data)
-        except vault.VaultDecryptionError as e:
-            import logging
+    secrets_reassigned = 0
+    vk, _, _ = auth_data
+    try:
+        vault_data = vault.load_vault(vk)
+        changed = False
+        for key, val in list(vault_data.items()):
+            if not (isinstance(val, dict) and val.get("workspace_id") == ws_id):
+                continue
+            if cascade_vault:
+                # Tryb kaskady: soft-delete sekretów tej przestrzeni.
+                vault_data[key]["deleted_at"] = datetime.datetime.now().isoformat()
+                secrets_removed += 1
+            elif ws_id != "default":
+                # FIX (orphan-guard): „zachowaj sekrety" NIE może zostawiać wiszących
+                # rekordów wskazujących na nieistniejącą przestrzeń — przepinamy je na
+                # `default`, inaczej stają się niewidoczne (filtr widoku po workspace_id).
+                vault_data[key]["workspace_id"] = "default"
+                secrets_reassigned += 1
+            changed = True
+        if changed:
+            vault.save_vault(vk, vault_data)
+    except vault.VaultDecryptionError as e:
+        import logging
 
-            logging.warning(f"Vault cascade failed for workspace {ws_id}: {e}")
+        logging.warning(f"Vault re-parent/cascade failed for workspace {ws_id}: {e}")
 
     db.delete(ws)
     db.commit()
-    return {"success": True, "secrets_removed": secrets_removed}
+    return {
+        "success": True,
+        "secrets_removed": secrets_removed,
+        "secrets_reassigned": secrets_reassigned,
+    }

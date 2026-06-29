@@ -1159,6 +1159,8 @@
 
                     if (cascade && data.secrets_removed > 0) {
                         showToast(`🗑️ Przestrzeń usunięta + ${data.secrets_removed} sekretów z Vault.`);
+                    } else if (data.secrets_reassigned > 0) {
+                        showToast(`🗑️ Przestrzeń usunięta. ${data.secrets_reassigned} sekretów przeniesiono do „Domyślnej".`);
                     } else {
                         showToast('🗑️ Przestrzeń usunięta.');
                     }

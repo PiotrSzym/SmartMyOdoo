@@ -87,6 +87,7 @@ from smartmyodoo.api_routers.models import router as models_router  # noqa: E402
 from smartmyodoo.api_routers.secrets import router as secrets_router  # noqa: E402
 from smartmyodoo.api_routers.auth import router as auth_router  # noqa: E402
 from smartmyodoo.api_routers.chat import router as chat_router  # noqa: E402
+from smartmyodoo.api_routers.logs import router as logs_router  # noqa: E402
 
 # FIX-02 S3.1: re-eksport dla kompatybilności (tests/test_security_s13.py importuje stąd).
 from smartmyodoo.api_routers.auth import _AuthRateLimiter  # noqa: E402,F401
@@ -98,6 +99,7 @@ app.include_router(models_router)
 app.include_router(secrets_router)
 app.include_router(auth_router)
 app.include_router(chat_router)
+app.include_router(logs_router)
 
 ui_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 app.mount("/", StaticFiles(directory=ui_dir, html=True), name="ui")
