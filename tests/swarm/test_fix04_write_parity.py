@@ -126,6 +126,16 @@ class StreamFakeLLM:
             yield _SChunk([_SChoice(_SDelta(content="OK."))])
 
 
+class RaisingStreamLLM:
+    """chat_stream wybucha PRZY WYWOŁANIU wyjątkiem niosącym „sekret" w treści (np. błąd
+    401 klienta LLM) — trafia w try/except wokół `chat_stream()` (executor.py:755)."""
+
+    _SECRET = "SEKRET-LLM-KEY-sk-DO-NOT-LEAK-9999"
+
+    def chat_stream(self, messages=None, tools=None):
+        raise RuntimeError(f"Error code: 401 - {self._SECRET}")
+
+
 @pytest.fixture
 def skill_config():
     return SkillConfig(
@@ -234,3 +244,19 @@ async def test_stream_edit_mode_executes_and_injects_workspace(skill_config, spy
     assert spy_update_tool["kwargs"].get("workspace_id") == "ws-real", (
         "🔴 stream: workspace_id MUSI być wstrzyknięty (parytet z execute)"
     )
+
+
+# ── S-1 (/sec): błąd streamu LLM nie może echować str(e) do klienta WS ──
+@pytest.mark.asyncio
+async def test_stream_llm_error_does_not_leak_exception_content(skill_config):
+    """FIX-04 S-1 (A-4): wyjątek chat_stream → chunk błędu zawiera TYLKO typ, nie treść.
+    chat.py forwarduje chunki verbatim, więc sanityzacja musi być w executorze."""
+    ex = SkillExecutor(
+        llm_client=RaisingStreamLLM(), edit_mode=False, workspace_id="ws-real"
+    )
+    chunks = await _drain(ex.execute_stream(skill_config, "cokolwiek"))
+    errors = [c for c in chunks if c.get("type") == "error"]
+    assert errors, "oczekiwano chunku błędu"
+    content = errors[-1]["content"]
+    assert RaisingStreamLLM._SECRET not in content, "sekret NIE może przeciec do klienta WS"
+    assert content == "Błąd LLM: RuntimeError"

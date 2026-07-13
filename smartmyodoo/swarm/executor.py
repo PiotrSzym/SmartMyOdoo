@@ -492,8 +492,10 @@ class SkillExecutor:
                     self.sandbox.exit_sandbox(success=False)
                     self._restore_db_redirect()
                     sandbox_activated = False
+                # FIX-04 S-2 (PII / ADR-011): błąd narzędzia trafia do kontekstu LLM —
+                # anonimizuj PRZED modelem, parytet ze ścieżką sukcesu (`_anon(str(result))`).
                 return (
-                    f"Error executing {func_name}: {str(e)}",
+                    self._anon(f"Error executing {func_name}: {str(e)}"),
                     False,
                     sandbox_activated,
                 )
@@ -753,7 +755,11 @@ class SkillExecutor:
                         tools=tools_schemas if tools_schemas else None,
                     )
                 except Exception as e:
-                    yield {"type": "error", "content": str(e)}
+                    # FIX-04 S-1 (A-4 / ADR-011): NIE echujemy treści wyjątku klienta
+                    # LLM do klienta WS (chat.py forwarduje chunk verbatim). Parytet z
+                    # sanityzacją handlera WS — do klienta tylko typ, pełny błąd do logu.
+                    logger.exception("Błąd streamu LLM (chat_stream)")
+                    yield {"type": "error", "content": f"Błąd LLM: {type(e).__name__}"}
                     break
 
                 full_message_content = ""
