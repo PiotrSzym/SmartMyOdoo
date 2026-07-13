@@ -8,6 +8,12 @@ from smartmyodoo.swarm.skills.skill_config import SkillConfig
 from smartmyodoo.swarm.tools import TOOL_REGISTRY
 from smartmyodoo.swarm.sandbox import SandboxManager, WRITE_TOOLS
 
+# FIX-04 T1/T3 (D1/D4): narzędzia, do których executor wstrzykuje REALNY workspace_id.
+# = WRITE_TOOLS (propozycja musi trafić we właściwą instancję Odoo, WRITE-03) ∪
+#   {search_history} (izolacja pamięci per-workspace, A-3). Guard 🟢/🔴 dotyczy TYLKO
+#   WRITE_TOOLS — search_history jest read-only, więc bez blokady trybu odczytu.
+WORKSPACE_SCOPED_TOOLS = WRITE_TOOLS | {"search_history"}
+
 # WRITE-02 T2: komunikat zwracany modelowi, gdy próbuje zapisu w trybie tylko-odczyt (🟢).
 READ_MODE_BLOCK_MSG = (
     "🟢 TRYB ODCZYTU — zapis ZABLOKOWANY. Użytkownik jest w trybie tylko-do-odczytu, "
@@ -331,6 +337,32 @@ class SkillExecutor:
                 return flag
         return None
 
+    def _pre_tool_policy(self, func_name: str, args: Any) -> Optional[str]:
+        """FIX-04 T1 (D1/D4): wspólna polityka pre-tool dla OBU pętli (execute + execute_stream).
+
+        (a) INJECTION: dla WORKSPACE_SCOPED_TOOLS (WRITE_TOOLS ∪ {search_history})
+            wstrzykuje REALNY self.workspace_id do args in-place — LLM go nie przekazuje,
+            więc bez tego propozycja/pamięć lądują jako „default" (staging→prod przy
+            dual-instance; przeciek historii między przestrzeniami).
+        (b) READ-MODE GUARD (🟢): gdy func_name ∈ WRITE_TOOLS i NIE ma trybu edycji,
+            zwraca READ_MODE_BLOCK_MSG → caller POMIJA inwokację (zero propozycji w 🟢).
+            Guard dotyczy TYLKO WRITE_TOOLS (search_history to read-only).
+
+        Zwraca komunikat blokady (str) LUB None (można wykonać narzędzie). Caller
+        decyduje o PREZENTACJI (append vs yield) — polityka jest jedna (zasada S3.2).
+        """
+        # (a) workspace injection (WRITE + search_history)
+        if (
+            func_name in WORKSPACE_SCOPED_TOOLS
+            and isinstance(args, dict)
+            and self.workspace_id
+        ):
+            args["workspace_id"] = self.workspace_id
+        # (b) read-mode write-guard (deterministyczny; nie ufamy modelowi)
+        if func_name in WRITE_TOOLS and not self.edit_mode:
+            return READ_MODE_BLOCK_MSG
+        return None
+
     def _prepare_tools(
         self, skill_config: SkillConfig, phase_restrictions: Optional[list]
     ) -> tuple:
@@ -554,16 +586,10 @@ class SkillExecutor:
                         # S1.1: przywróć realne dane do wywołania narzędzia (Odoo potrzebuje oryginału)
                         args = self._deanon_args(args)
 
-                        # WRITE-03 T2: narzędzia zapisu MUSZĄ nieść REALNY workspace
-                        # (LLM go nie przekazuje → propozycja lądowałaby jako „default”,
-                        # a apply trafiałby w złą instancję Odoo). Wstrzykujemy go tu,
-                        # by create_proposal otagował propozycję właściwą przestrzenią.
-                        if (
-                            func_name in WRITE_TOOLS
-                            and isinstance(args, dict)
-                            and self.workspace_id
-                        ):
-                            args["workspace_id"] = self.workspace_id
+                        # FIX-04 T1 (D1): wspólna polityka pre-tool (SSoT dla obu pętli):
+                        # (a) workspace injection (WRITE-03 + search_history), (b) read-mode
+                        # write-guard (🟢). Zwraca komunikat blokady lub None.
+                        block_msg = self._pre_tool_policy(func_name, args)
 
                         # TRUST-02 T2: deterministycznie utrzymaj zakres projektu
                         # (doklej project_id), zanim narzędzie wystartuje.
@@ -576,21 +602,21 @@ class SkillExecutor:
                         # W trybie 🟢 (read) NIE wykonujemy narzędzia zapisu — model dostaje
                         # prośbę o przełączenie na 🔴. Nie ufamy modelowi: blok jest tu, nie w
                         # prompcie. Pomijamy inwokację (zero propozycji w trybie odczytu).
-                        if func_name in WRITE_TOOLS and not self.edit_mode:
+                        if block_msg is not None:
                             logger.info(
                                 f"🟢 Read-mode: zapis {func_name} zablokowany "
                                 "(brak trybu edycji)"
                             )
                             tools_used.add(func_name)
                             self._audit_tool_call(
-                                audit_db, func_name, args, READ_MODE_BLOCK_MSG, False
+                                audit_db, func_name, args, block_msg, False
                             )
                             messages.append(
                                 {
                                     "role": "tool",
                                     "tool_call_id": tool_call.id,
                                     "name": func_name,
-                                    "content": READ_MODE_BLOCK_MSG,
+                                    "content": block_msg,
                                 }
                             )
                             continue
@@ -824,9 +850,40 @@ class SkillExecutor:
                     except Exception:
                         args = {}
                     args = self._deanon_args(args)
+
+                    # FIX-04 T1 (D1): PARYTET z execute — ta sama polityka pre-tool
+                    # (workspace injection + read-mode write-guard). Bez tego stream
+                    # omijał guard 🟢/🔴 i tagowanie workspace (A-1, dryf stream vs REST).
+                    block_msg = self._pre_tool_policy(func_name, args)
                     # TRUST-02 T2: deterministyczne utrzymanie zakresu projektu.
                     self._enforce_scope(func_name, args, message)
                     self._capture_scope(func_name, args)
+
+                    # ── WRITE-02 T2 (parytet streamingu): read-mode write-guard 🟢 ──
+                    # W trybie odczytu narzędzie zapisu NIE jest wołane; audytujemy
+                    # tool-call tak samo jak REST i informujemy model (rola „tool").
+                    if block_msg is not None:
+                        logger.info(
+                            f"🟢 Read-mode (stream): zapis {func_name} zablokowany "
+                            "(brak trybu edycji)"
+                        )
+                        tools_used.add(func_name)
+                        self._audit_tool_call(
+                            audit_db, func_name, args, block_msg, False
+                        )
+                        yield {
+                            "type": "log",
+                            "content": f"🟢 Tryb odczytu — zapis {func_name} zablokowany",
+                        }
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "name": func_name,
+                                "content": block_msg,
+                            }
+                        )
+                        continue
 
                     yield {
                         "type": "log",

@@ -8,15 +8,24 @@ api.py dołącza ten router na końcu, gdy require_auth jest już zdefiniowane).
 import json
 from typing import Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core import models as db_models
 from smartmyodoo.core.lock import proposal_lock
-from smartmyodoo.api_deps import require_auth
+from smartmyodoo.api_deps import require_auth, get_auth_key
+# FIX-04 T2 (A-2/D3): reużywamy WSPÓLNEGO limitera prób logowania (bez osobnego licznika).
+from smartmyodoo.api_routers.auth import _auth_limiter
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
+
+
+class ApplyProposalRequest(BaseModel):
+    """FIX-04 T2 (A-2): świeży PIN (step-up) wymagany do zapisu na LIVE Odoo."""
+
+    pin: str = ""
 
 
 @router.get("")
@@ -91,14 +100,19 @@ async def reject_proposal(
 @router.post("/{proposal_id}/apply")
 async def apply_proposal(
     proposal_id: str,
+    body: ApplyProposalRequest,
+    request: Request,
     auth_data: Tuple[bytes, str, str] = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
     """WRITE-01 T1: STEP-UP APPLY — wykonuje propozycję na LIVE Odoo.
 
-    Domyka lukę E-W003 (execute nigdy nie wołane). PIN = `require_auth` (bramka
-    step-up; tryb 🔴 + PIN = jawna autoryzacja człowieka, D5 — z pominięciem sandboxa).
-    Auto-approve z pending → execute. Każda akcja (sukces/błąd) → audit_log (ADR-013/D4).
+    Domyka lukę E-W003 (execute nigdy nie wołane). FIX-04 T2 (A-2/D3): oprócz tokena
+    sesji (`require_auth`) wymagany jest ŚWIEŻY PIN w body, walidowany SERWEROWO przeciw
+    temu samemu źródłu co login (`get_auth_key`) — nie ufamy wyłącznie bramce klienckiej.
+    Zły/brak PIN → 403 + audit_log `proposal_apply_denied` (ochrona limiterem prób).
+    Tryb 🔴 + PIN = jawna autoryzacja człowieka (D5 — z pominięciem sandboxa). Auto-approve
+    z pending → execute. Każda akcja (sukces/błąd) → audit_log (ADR-013/D4).
     """
     from smartmyodoo.mcp.server import execute_proposal_by_id
 
@@ -111,6 +125,34 @@ async def apply_proposal(
         if not prop:
             raise HTTPException(status_code=404, detail="Proposal not found")
         ws = str(prop.workspace_id)
+
+        # ── FIX-04 T2 (A-2/D3): serwerowa walidacja PIN (step-up) ──
+        # Świeży PIN z body — NIE z nagłówka sesji. To samo źródło co login (get_auth_key:
+        # master lub PIN). Odmowa audytowana; brute-force ograniczony wspólnym limiterem.
+        client = request.client.host if request.client else "unknown"
+        rl_key = f"apply-pin:{client}"
+        if _auth_limiter.is_locked(rl_key):
+            raise HTTPException(
+                status_code=429,
+                detail="Zbyt wiele nieudanych prób PIN. Spróbuj ponownie później.",
+            )
+        pin_vk, _pin_role = get_auth_key(body.pin)
+        if not pin_vk:
+            _auth_limiter.record_failure(rl_key)
+            # Audyt odmowy — BEZ echa PIN (tylko meta). ADR-011: zero danych wrażliwych.
+            db.add(
+                db_models.AuditLog(
+                    workspace_id=ws,
+                    action="proposal_apply_denied",
+                    details=f"id={proposal_id} reason=bad_pin",
+                )
+            )
+            db.commit()
+            raise HTTPException(
+                status_code=403, detail="Nieprawidłowy PIN — zapis wstrzymany."
+            )
+        _auth_limiter.reset(rl_key)
+
         if str(prop.status) == "rejected":
             raise HTTPException(status_code=409, detail="Proposal already rejected")
         if str(prop.status) == "pending":
