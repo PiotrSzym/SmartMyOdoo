@@ -74,7 +74,11 @@ def _resolve_odoo_creds(vault_data, ws_id, prefer_timesheet=False) -> dict:
             "url": cred.url,
             "db": cred.db,
             "login": cred.login,
-            "password": cred.password,
+            # AZURE-01 T1: klucz API Odoo działa jak hasło w authenticate/execute_kw
+            # (Odoo 14+). Preferuj api_key nad password — spójnie z chat.py:56 — aby
+            # sekret ODOO_DATA z samym kluczem (bez hasła) łączył też ścieżkę
+            # workspace/timesheet. Connector czyta `api_key or password` w tym polu.
+            "password": cred.api_key or cred.password or "",
             "default_project_ref": cred.default_project_ref,
             "default_task_ref": cred.default_task_ref,
         }

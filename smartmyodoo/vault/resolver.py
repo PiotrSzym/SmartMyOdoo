@@ -54,6 +54,10 @@ def to_credential(name: str, raw: Any) -> Optional[Credential]:
                 url=raw.get("url"),
                 db=raw.get("db"),
                 login=raw.get("login"),
+                # AZURE-01 T6 (F-1): parytet z nowym formatem — legacy `<ws>_ODOO`
+                # z samym kluczem API (bez hasła) musi nieść `api_key`, by KAŻDA
+                # ścieżka Odoo (chat/workspace) uwierzytelniała się kluczem (D2).
+                api_key=raw.get("api_key"),
                 password=raw.get("password"),
             )
         except Exception:
