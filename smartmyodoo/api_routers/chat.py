@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core.ratelimit import chat_limiter
 from smartmyodoo.core.odoo_connector import sanitize_db_name
-from smartmyodoo.mcp.odoo_client import set_odoo_creds
+from smartmyodoo.mcp.odoo_client import set_odoo_creds, set_odoo_unconfigured
 from smartmyodoo.vault import vault
 from smartmyodoo.vault.resolver import resolve_llm_key, resolve_credential
 from smartmyodoo.vault.schemas import CredentialType
@@ -46,8 +46,18 @@ def _enforce_chat_rate(workspace_id: str) -> None:
 
 def _inject_odoo_creds(vault_data: dict, workspace_id: str) -> None:
     """KEY-02-3 (ADR-007): wstrzyknij poświadczenia Odoo ze Skarbca (per workspace) do
-    kontekstu żądania, aby narzędzia agenta (odoo_search/schema) łączyły się BEZ ENV/`vault run`."""
-    cred = resolve_credential(vault_data, CredentialType.ODOO_DATA, workspace_id)
+    kontekstu żądania, aby narzędzia agenta (odoo_search/schema) łączyły się BEZ ENV/`vault run`.
+
+    WSISO-01 (V1+V3): `allow_default_fallback=False` — wybrany nie-`default` workspace
+    NIE dziedziczy Odoo z `default`. Przy braku własnego ODOO_DATA ustawiamy marker
+    „nieskonfigurowany" → narzędzia Odoo zwrócą jawny błąd zamiast łączyć z cudzą
+    instancją/ENV (cross-client). `default` bez creds zachowuje ENV (`vault run`)."""
+    cred = resolve_credential(
+        vault_data,
+        CredentialType.ODOO_DATA,
+        workspace_id,
+        allow_default_fallback=False,  # WSISO-01 V1: nie-default nie dziedziczy default
+    )
     if cred and cred.url and cred.db:
         creds = {
             "url": cred.url,
@@ -60,6 +70,17 @@ def _inject_odoo_creds(vault_data: dict, workspace_id: str) -> None:
         # Kontekst jest per-żądanie (jeden workspace), więc "default" == ten workspace. Bez tego
         # creds wstrzyknięte pod np. "myodooTest" nie byłyby widoczne dla wywołań "default".
         set_odoo_creds({workspace_id: creds, "default": creds})
+        set_odoo_unconfigured(None)  # creds OK → wyczyść ewentualny marker
+        return
+    # WSISO-01 V3 (D3): brak własnych creds Odoo dla tej tury.
+    if workspace_id and workspace_id != "default":
+        # Wybrany KONKRETNY workspace bez ODOO_DATA → FAIL LOUD (marker). Zero fallbacku
+        # do ENV / instancji innego workspace. Czyścimy też creds (świeżość kontekstu).
+        set_odoo_creds(None)
+        set_odoo_unconfigured(workspace_id)
+    else:
+        # ws=`default` bez creds → zachowaj ENV/`vault run` (bez markera).
+        set_odoo_unconfigured(None)
 
 
 class PipelineRunRequest(BaseModel):

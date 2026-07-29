@@ -64,11 +64,18 @@ def _resolve_odoo_creds(vault_data, ws_id, prefer_timesheet=False) -> dict:
     z fallbackiem na `odoo_data`. Dla reszty operacji — `odoo_data`.
     Na końcu fallback legacy po nazwie `{ws}_ODOO`/`default_ODOO` (kompatybilność).
     """
+    # WSISO-01 (V1, D1): nie-`default` workspace NIE dziedziczy Odoo z `default`
+    # (allow_default_fallback=False). Dla `default` dokładne dopasowanie i tak zwraca
+    # sekret default — więc workspace `default` działa jak dawniej.
     cred = None
     if prefer_timesheet:
-        cred = resolve_credential(vault_data, CredentialType.ODOO_TIMESHEET, ws_id)
+        cred = resolve_credential(
+            vault_data, CredentialType.ODOO_TIMESHEET, ws_id, allow_default_fallback=False
+        )
     if cred is None:
-        cred = resolve_credential(vault_data, CredentialType.ODOO_DATA, ws_id)
+        cred = resolve_credential(
+            vault_data, CredentialType.ODOO_DATA, ws_id, allow_default_fallback=False
+        )
     if cred is not None:
         return {
             "url": cred.url,
@@ -82,13 +89,17 @@ def _resolve_odoo_creds(vault_data, ws_id, prefer_timesheet=False) -> dict:
             "default_project_ref": cred.default_project_ref,
             "default_task_ref": cred.default_task_ref,
         }
-    # Legacy fallback (np. niekompletne stare sekrety, których resolver nie przyjął)
+    # Legacy fallback (np. niekompletne stare sekrety, których resolver nie przyjął).
+    # WSISO-01 (V2, D2): `default_ODOO` NIE jest fallbackiem dla nie-`default` workspace —
+    # inaczej wybrany klient bez własnego sekretu cicho łączyłby się z Odoo `default`
+    # (grfood→myodoo, cross-client). Legacy `default_ODOO` służy WYŁĄCZNIE ws=`default`.
     secret_key = f"{ws_id}_ODOO"
-    if secret_key not in vault_data:
+    if secret_key not in vault_data and ws_id == "default":
         secret_key = "default_ODOO"  # nosec B105
     if secret_key not in vault_data:
         raise HTTPException(
-            status_code=400, detail="Brak poświadczeń Odoo w sejfie dla tego workspace."
+            status_code=400,
+            detail=f"Brak poświadczeń Odoo dla workspace {ws_id}",
         )
     return vault_data[secret_key]
 

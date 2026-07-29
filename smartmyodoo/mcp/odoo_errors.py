@@ -24,6 +24,24 @@ def classify_odoo_error(exc: Exception, *, workspace_id: str | None = None) -> s
     msg = str(exc) or ""
     low = msg.lower()
 
+    # 0. WSISO-01 (V3, D4): wybrany nie-`default` workspace bez własnego ODOO_DATA.
+    # Klucz izolacji klienta — jawny, sanityzowany komunikat (nazwa przestrzeni z
+    # WYJĄTKU, bo narzędzia wołają OdooClient("default"), NIE realny ws z markera).
+    # NIGDY nie łączymy z Odoo innego workspace ani z ENV.
+    try:
+        from smartmyodoo.mcp.odoo_client import OdooWorkspaceUnconfigured
+
+        if isinstance(exc, OdooWorkspaceUnconfigured):
+            target_ws = getattr(exc, "workspace_id", None) or workspace_id
+            wslabel = f" „{target_ws}”" if target_ws else ""
+            return (
+                f"❌ Ta przestrzeń{wslabel} nie ma skonfigurowanego połączenia z Odoo. "
+                "Dodaj dla niej klucz API (ODOO_DATA) w SmartMyVault — dane z Odoo innej "
+                "przestrzeni NIE są udostępniane (izolacja klienta)."
+            )
+    except Exception:  # noqa: BLE001 — import nieistotny przy braku modułu  # nosec B110
+        pass
+
     # 1. Brak konfiguracji (creds nie wstrzyknięte / niekompletne) — ValueError z connect()
     if isinstance(exc, ValueError) and "brak konfiguracji" in low:
         return (

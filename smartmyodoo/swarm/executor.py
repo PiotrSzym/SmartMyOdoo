@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from smartmyodoo.swarm.skills.skill_config import SkillConfig
 from smartmyodoo.swarm.tools import TOOL_REGISTRY
 from smartmyodoo.swarm.sandbox import SandboxManager, WRITE_TOOLS
+from smartmyodoo.mcp.odoo_client import OdooWorkspaceUnconfigured
 
 # FIX-04 T1/T3 (D1/D4): narzędzia, do których executor wstrzykuje REALNY workspace_id.
 # = WRITE_TOOLS (propozycja musi trafić we właściwą instancję Odoo, WRITE-03) ∪
@@ -486,6 +487,25 @@ class SkillExecutor:
                 result = TOOL_REGISTRY[func_name]["callable"](**args)
                 # S1.1: anonimizuj wynik narzędzia (dane klientów) PRZED LLM
                 return self._anon(str(result)), True, sandbox_activated
+            except OdooWorkspaceUnconfigured:
+                # WSISO-01 T4 (V3, D4): wybrany nie-default workspace bez Odoo → zwróć
+                # SANITYZOWANY komunikat (bez URL/hasła/klucza, bez str(e)). Prefiks „❌"
+                # → ERROR_REPORT_RULE każe modelowi zacytować go użytkownikowi 1:1.
+                # (Narzędzia Odoo z mcp/server.py routują ten sam wyjątek przez
+                # classify_odoo_error; ta gałąź to parytet dla narzędzi, które re-raise'ują.)
+                if sandbox_activated and self.sandbox:
+                    self.sandbox.exit_sandbox(success=False)
+                    self._restore_db_redirect()
+                    sandbox_activated = False
+                return (
+                    self._anon(
+                        "❌ Ta przestrzeń nie ma skonfigurowanego połączenia z Odoo. "
+                        "Dodaj dla niej klucz API (ODOO_DATA) w SmartMyVault — dane z "
+                        "Odoo innej przestrzeni NIE są udostępniane (izolacja klienta)."
+                    ),
+                    False,
+                    sandbox_activated,
+                )
             except Exception as e:
                 # ── Sandbox: rollback on error ──
                 if sandbox_activated and self.sandbox:

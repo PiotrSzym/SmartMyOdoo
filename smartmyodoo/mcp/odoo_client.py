@@ -19,6 +19,27 @@ class OdooFieldError(Exception):
 
     pass
 
+
+class OdooWorkspaceUnconfigured(Exception):
+    """WSISO-01 T3 (V3, D3): wybrany NIE-`default` workspace nie ma skonfigurowanego
+    połączenia Odoo (brak własnego ODOO_DATA).
+
+    FAIL LOUD zamiast cichego fallbacku do ENV / instancji Odoo innego workspace
+    (bug live: grfood→myodoo). Niesie `workspace_id` (nazwa przestrzeni — NIE sekret),
+    by warstwa UX zbudowała czytelny, sanityzowany komunikat.
+    """
+
+    def __init__(self, workspace_id: str, message: Optional[str] = None):
+        self.workspace_id = workspace_id
+        super().__init__(
+            message
+            or (
+                f"Workspace '{workspace_id}' nie ma skonfigurowanego połączenia Odoo — "
+                "dodaj klucz API (ODOO_DATA) dla tej przestrzeni."
+            )
+        )
+
+
 # KEY-02-3 (ADR-007): poświadczenia Odoo per workspace ze Skarbca, wstrzykiwane na czas
 # obsługi żądania (ContextVar — bezpieczne dla współbieżności, propaguje się do asyncio.to_thread).
 # Format: {workspace_id: {"url","db","username","password"}}. Mają PIERWSZEŃSTWO nad ENV.
@@ -26,10 +47,25 @@ _odoo_creds_ctx: "contextvars.ContextVar[Optional[Dict[str, Dict[str, str]]]]" =
     contextvars.ContextVar("odoo_creds", default=None)
 )
 
+# WSISO-01 T3 (V3, D3): marker „wybrany nie-default workspace jest NIESKONFIGUROWANY".
+# Ustawiany per-żądanie przez _inject_odoo_creds, gdy nie-default workspace nie ma
+# własnego ODOO_DATA. Trzyma REALNĄ nazwę wybranej przestrzeni (np. „grfood") — nawet
+# gdy narzędzia budują OdooClient("default"), marker mówi „ta cała tura ma być zablokowana".
+# None = brak (workspace `default` lub tryb `vault run` — ENV działa jak dawniej).
+_odoo_unconfigured_ctx: "contextvars.ContextVar[Optional[str]]" = contextvars.ContextVar(
+    "odoo_unconfigured_ws", default=None
+)
+
 
 def set_odoo_creds(creds: Optional[Dict[str, Dict[str, str]]]) -> None:
     """Ustawia poświadczenia Odoo dla bieżącego żądania (per workspace). None = wyczyść."""
     _odoo_creds_ctx.set(creds)
+
+
+def set_odoo_unconfigured(workspace_id: Optional[str]) -> None:
+    """WSISO-01 T3 (V3): oznacz wybrany nie-`default` workspace jako nieskonfigurowany
+    (brak ODOO_DATA). None = wyczyść marker (workspace ma creds / to `default`)."""
+    _odoo_unconfigured_ctx.set(workspace_id)
 
 
 class OdooClient:
@@ -41,6 +77,16 @@ class OdooClient:
 
         ctx = _odoo_creds_ctx.get() or {}
         c = ctx.get(workspace_id) or ctx.get("default") or {}
+
+        # WSISO-01 T3 (V3, D3): FAIL LOUD ZANIM sięgniemy po ENV. Gdy bieżąca tura
+        # dotyczy wybranego nie-`default` workspace bez własnego ODOO_DATA (marker),
+        # a Skarbiec nie wstrzyknął dla niego creds (c puste) — NIE wolno po cichu
+        # połączyć się z instancją Odoo innego workspace (grfood→myodoo) ani z ENV.
+        # Marker NIE jest ustawiany dla `default` / `vault run`, więc te ścieżki
+        # nadal czytają ENV normalnie (regres zachowany).
+        unconfigured_ws = _odoo_unconfigured_ctx.get()
+        if unconfigured_ws and not c:
+            raise OdooWorkspaceUnconfigured(unconfigured_ws)
 
         prefix = (
             f"PROJECT_HUB_{workspace_id.upper()}_ODOO"

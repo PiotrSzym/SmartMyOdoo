@@ -71,15 +71,30 @@ def resolve_credential(
     type: CredentialType,
     workspace_id: str = "default",
     provider: Optional[str] = None,
+    allow_default_fallback: bool = True,
 ) -> Optional[Credential]:
-    """Zwraca najlepiej dopasowane poświadczenie danego typu lub None."""
+    """Zwraca najlepiej dopasowane poświadczenie danego typu lub None.
+
+    WSISO-01 (V1, D1): `allow_default_fallback` steruje dziedziczeniem z `default`.
+    - `True` (domyślnie): kandydatem jest sekret z `workspace_id` LUB `"default"`
+      (zachowanie historyczne — potrzebne dla LLM, gdzie klucz jest globalny).
+    - `False`: kandydatami są WYŁĄCZNIE sekrety `cred.workspace_id == workspace_id`
+      (bez „default"). Wołający Odoo przekazują `False`, by wybrany nie-`default`
+      workspace bez własnego ODOO_DATA dostał None (jawny błąd), a NIE cudzą
+      instancję Odoo (cross-client). Dla `workspace_id="default"` `False` i tak
+      zwraca sekret default (dokładne dopasowanie) — workspace default działa normalnie.
+    """
     candidates = []
     for name, raw in vault_data.items():
         cred = to_credential(name, raw)
         if not cred or not cred.enabled or cred.type != type:
             continue
-        if cred.workspace_id not in (workspace_id, "default"):
-            continue
+        if allow_default_fallback:
+            if cred.workspace_id not in (workspace_id, "default"):
+                continue
+        else:
+            if cred.workspace_id != workspace_id:
+                continue
         if provider and cred.provider != provider:
             continue
         candidates.append(cred)
