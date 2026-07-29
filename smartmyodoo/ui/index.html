@@ -831,6 +831,29 @@
                 `;
                 list.appendChild(card);
             });
+
+            // Stan pusty: pusta zakładka wyglądała jak utrata danych. Klucze są
+            // przypisane PER WORKSPACE (izolacja klienta, secrets.py filtruje po
+            // workspace_id) — na przestrzeni bez kluczy pokazujemy jawny komunikat
+            // zamiast białej pustki. Rozróżniamy: brak kluczy / brak wyników / pusty kosz.
+            if (list.children.length === 0) {
+                const ws = (window.AppStore ? AppStore.getState().workspaceId : '') || 'default';
+                const entries = Object.values(secretsCache || {});
+                const activeCount = entries.filter(v => !v.deleted_at).length;
+                let msg;
+                if (showTrash) {
+                    msg = 'Kosz jest pusty — brak usuniętych kluczy w tej przestrzeni.';
+                } else if (term && activeCount > 0) {
+                    msg = `Brak kluczy pasujących do „${term}".`;
+                } else {
+                    msg = `Ta przestrzeń <span class="text-indigo-300 font-semibold break-all">${ws}</span> nie ma zapisanych kluczy.<br>` +
+                          `Klucze są przypisane <b>per&nbsp;workspace</b> (izolacja klienta) — przełącz przestrzeń, żeby zobaczyć jej klucze, albo dodaj klucz tutaj przyciskiem „Dodaj Sekret".`;
+                }
+                const empty = document.createElement('div');
+                empty.className = 'col-span-full text-center text-slate-400 py-12 px-6 border border-dashed border-slate-700 rounded-xl bg-slate-900/30';
+                empty.innerHTML = `<div class="text-4xl mb-3">🗝️</div><div class="text-sm leading-relaxed max-w-md mx-auto">${msg}</div>`;
+                list.appendChild(empty);
+            }
         }
 
         function filterSecrets() {
