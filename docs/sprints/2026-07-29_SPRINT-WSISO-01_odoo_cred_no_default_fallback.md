@@ -90,4 +90,15 @@ Setupy, które ŚWIADOMIE liczyły na jedno Odoo z `default` współdzielone prz
 
 **Regres — 0 zepsutych:** (a) ws=`default` łączy (vault+ENV), (b) `resolve_llm_key` z fallbackiem, (c) `test_odoo_apikey_auth.py`/`test_credential_resolver.py`/`test_odoo_creds_context.py` zielone. Suita 478 passed / 0 failed. Ruff clean, bandit 0 nowych.
 
-**Poza zakresem (D5, świadomie):** brak opt-in „dziedzicz Odoo z default", brak zmiany semantyki `default`, brak migracji sekretów. **Nie commitowano** (czeka na approval usera). **Następny krok: /qa.**
+**Poza zakresem (D5, świadomie):** brak opt-in „dziedzicz Odoo z default", brak zmiany semantyki `default`, brak migracji sekretów. **Następny krok: /qa.**
+
+## 🔁 Handoff WSISO-02 (write-path) — guard done + pełny sprint do /arch (2026-07-29)
+**Commit `cee896b` (WSISO-01, odczyt) + `864032d` (WSISO-02 guard, zapis).**
+
+/qa wykrył, że WSISO-01 pokrył TYLKO ścieżkę czatu/odczytu (`_inject_odoo_creds` → ContextVar → `OdooClient`). Objaw usera „zawsze ta sama baza niezależnie od workspace" dotyczył **trybu ZAPIS/wykonanie** — ścieżka pipeline/sandbox (`chat.py` POST `/api/pipeline/run:466-521` + WS `/api/chat/stream:677-736`, `swarm/sandbox.py:31-35`) budowała połączenie z `os.environ["ODOO_URL"]` + generycznego sekretu `ODOO`, BEZ rozróżnienia workspace. To cross-client na ZAPISIE (gorsze niż odczyt), świadomie pominięte w D5.
+
+**Guard tymczasowy (`864032d`):** helper `_resolve_write_odoo_target()` — nie-`default` MUSI mieć własny ODOO_DATA (kieruje url/db na jego instancję), brak → `OdooWorkspaceUnconfigured`/HTTP 400 ZANIM zbuduje pipeline. Wpięty w POST i WS. Testy: 4 jednostkowe + 1 endpointowy (`pipeline.assert_not_called()`) + 2 istniejące dostosowane. Regres: 503 passed / 0 failed.
+
+**Ograniczenie guarda (→ WSISO-02 /arch):** `master_password`/semantyka sandboxa/scratchpad DB NADAL z ENV. Pełna per-workspace izolacja write-path (per-ws master-password, klon bazy per klient) = nowy sprint **WSISO-02** do zaplanowania przez /arch. Echo audytu #2 A-1.
+
+> Uwaga: to jest hardening pre-existing zachowania (fallback istniał przed AZURE-01) — NIE regresja z ostatniego merge. Priorytet wysoki: cross-client data exposure.
