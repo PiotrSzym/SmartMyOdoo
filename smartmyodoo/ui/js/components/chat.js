@@ -601,6 +601,12 @@ class ChatPanel {
     }
 
     async handleProposalAction(proposalId, action) {
+        // FIX-04 T2 (A-2): apply na LIVE Odoo wymaga ŚWIEŻEGO PIN (step-up), walidowanego
+        // serwerowo. Re-use tego samego modala co przełączenie kłódki 🔴 → PIN w body.
+        if (action === 'apply') {
+            this._promptStepUpPin((pin) => this._applyProposal(proposalId, pin));
+            return;
+        }
         try {
             const token = window.AppStore.getState().authToken;
             const res = await fetch(`/api/proposals/${proposalId}/${action}`, {
@@ -614,12 +620,33 @@ class ChatPanel {
             if (msg) {
                 msg.proposalStatus = action === 'approve' ? 'approved'
                     : action === 'reject' ? 'rejected'
-                    : action === 'apply' ? 'executed'   // WRITE-01: realnie zapisane na Odoo
                     : msg.proposalStatus;
             }
             this.render();
         } catch (err) {
             console.error('[Chat] Błąd akcji propozycji:', err);
+        }
+    }
+
+    // FIX-04 T2 (A-2): wykonanie apply z PIN w body (walidacja serwerowa → 403 przy złym PIN).
+    async _applyProposal(proposalId, pin) {
+        try {
+            const token = window.AppStore.getState().authToken;
+            const res = await fetch(`/api/proposals/${proposalId}/apply`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ pin })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            const msg = this.messages.find(m => m.proposalData && m.proposalData.proposal_id === proposalId);
+            if (msg) msg.proposalStatus = 'executed';   // WRITE-01: realnie zapisane na Odoo
+            this.render();
+        } catch (err) {
+            console.error('[Chat] Błąd zapisu propozycji:', err);
         }
     }
 }

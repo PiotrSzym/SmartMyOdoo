@@ -210,14 +210,17 @@ def search_knowledge_base(query: str) -> str:
 
 
 @register_tool("search_history")
-def search_history(query: str) -> str:
+def search_history(query: str, workspace_id: str = "default") -> str:
     """Przeszukaj HISTORIĘ rozmów i ROZWIĄZANYCH PROBLEMÓW (sprinty). Użyj, gdy
     użytkownik pyta „czy rozmawialiśmy o X", „jak rozwiązaliśmy Y", „co ustaliliśmy
     wcześniej", „pamiętasz problem z Z". Szuka po słowach kluczowych w czatach +
     dokumentach sprintów + bazie wiedzy. Zwraca najtrafniejsze fragmenty z kontekstem."""
+    # FIX-04 T3 (A-3/D4): workspace_id pomijany w schemacie (LLM go nie podaje) —
+    # wstrzykuje go executor (WORKSPACE_SCOPED_TOOLS), by izolować CZATY per przestrzeń.
+    # Filtr w search_memory obejmuje TYLKO chat_messages; sprint/knowledge zostają globalne.
     from smartmyodoo.core.memory_search import search_memory, format_hits
 
-    return format_hits(search_memory(query, limit=5))
+    return format_hits(search_memory(query, limit=5, workspace_id=workspace_id))
 
 
 @register_tool("scaffold_module")

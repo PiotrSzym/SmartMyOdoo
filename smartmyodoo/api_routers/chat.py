@@ -539,6 +539,9 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
         session_id = req_data.get("session_id", str(uuid.uuid4()))
         pwd = req_data.get("password", "")
         selected_skills = req_data.get("selected_skills", [])
+        # FIX-04 T1 (D2): stan kłódki 🟢/🔴 z payloadu WS — parytet z REST (ChatRequest.edit_mode).
+        # Fail-closed: brak pola → False (bez jawnej zgody człowieka zapis jest blokowany).
+        edit_mode = bool(req_data.get("edit_mode", False))
 
         # 1. Auth manual (ponieważ WebSocket i headers bywają problematyczne w niektórych klientach)
         vk, role = get_auth_key(pwd)
@@ -607,6 +610,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             sandbox=sandbox,
             pii=_get_pii(),
             scope=_get_scope(),  # TRUST-01 T5
+            edit_mode=edit_mode,  # FIX-04 T1 (D2): 🟢 read blokuje zapis także w streamie
         )
 
         skill_config = None
@@ -724,9 +728,14 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        # FIX-04 T4 (A-4 / D5, ADR-011): NIE echujemy treści wyjątku do klienta —
+        # str(e) może zawierać dane wrażliwe/sekrety. Do payloadu WS trafia TYLKO
+        # nazwa typu (parytet z REST :339); pełny stack-trace zostaje w logu serwera.
+        logger.exception("WebSocket error")
         try:
-            await websocket.send_json({"type": "error", "content": str(e)})
+            await websocket.send_json(
+                {"type": "error", "content": f"Błąd agenta: {type(e).__name__}"}
+            )
         except Exception:
             pass
     finally:

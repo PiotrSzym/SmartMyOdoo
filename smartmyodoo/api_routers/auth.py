@@ -72,7 +72,16 @@ async def init_api(data: schemas.InitRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/auth", response_model=schemas.AuthResponse)
+@router.post(
+    "/api/auth",
+    response_model=schemas.AuthResponse,
+    # ADR-016 (Contract Parity): openapi.json jest mechanicznym punktem odniesienia
+    # bramki 4 — deklarujemy realnie zwracane kody, nie tylko domyślne 200/422.
+    responses={
+        401: {"description": "Invalid credentials (złe hasło master / PIN)"},
+        429: {"description": "Rate limit — zbyt wiele nieudanych prób logowania"},
+    },
+)
 async def auth(data: schemas.AuthRequest, request: Request):
     client = request.client.host if request.client else "unknown"
     if _auth_limiter.is_locked(client):
