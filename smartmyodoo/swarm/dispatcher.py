@@ -162,6 +162,19 @@ Zwróć TYLKO czysty JSON w następującym formacie:
                 # nadal trafia do historii zmian, nie do audytu księgowego.
                 category = IntentCategory.E_RESEARCH
                 skill_name = SkillName.FINANCIAL_AUDIT
+            elif any(
+                k in msg_lower
+                for k in [
+                    "alias", "smtp", "nadawc", "email_from", "serwer poczt",
+                    "skrzynk", "reply-to", "reply_to", "z jakiego adresu",
+                    "wychodzą maile", "wychodza maile", "wychodzą powiadom", "adres wysył",
+                ]
+            ):
+                # Konfiguracja poczty Odoo (serwery wych./przych., aliasy, nadawca per
+                # moduł) → ODOO_MAIL_CONFIG. CELOWO przed „test" (bo bywa „sprawdź adres…")
+                # i po księgowości (żeby „faktura na maila" nie kanibalizowała).
+                category = IntentCategory.B_DATABASE_ADMIN
+                skill_name = SkillName.ODOO_MAIL_CONFIG
             elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
                 category = IntentCategory.C_TESTING_QA
             elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):

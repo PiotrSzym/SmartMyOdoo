@@ -64,6 +64,8 @@ PROBES: dict[SkillName, tuple[str, str | None]] = {
         "zrób deploy na branch staging github odoo.sh push",
         None,
     ),
+    # Konfiguracja poczty (nadawca/alias/serwer) — ścieżka fallback heurystyk.
+    SkillName.ODOO_MAIL_CONFIG: ("zmień alias nadawcy maili projektów", None),
 }
 
 

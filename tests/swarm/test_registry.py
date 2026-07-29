@@ -2,7 +2,7 @@ from smartmyodoo.swarm.skills.registry import SKILL_REGISTRY
 
 
 def test_registry_size():
-    assert len(SKILL_REGISTRY) == 11
+    assert len(SKILL_REGISTRY) == 12
 
 
 def test_registry_valid_prompts():

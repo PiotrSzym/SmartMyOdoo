@@ -13,6 +13,7 @@ from .odoo_devops_github import skill as odoo_devops_github_skill
 from .odoo_sh_logs import skill as odoo_sh_logs_skill
 from .odoo_api_expert import skill as odoo_api_expert_skill
 from .magic_fix import skill as magic_fix_skill
+from .odoo_mail_config import skill as odoo_mail_config_skill
 
 SKILL_REGISTRY: Dict[SkillName, SkillConfig] = {
     odoo_business_analyst_skill.name: odoo_business_analyst_skill,
@@ -26,4 +27,5 @@ SKILL_REGISTRY: Dict[SkillName, SkillConfig] = {
     odoo_sh_logs_skill.name: odoo_sh_logs_skill,
     odoo_api_expert_skill.name: odoo_api_expert_skill,
     magic_fix_skill.name: magic_fix_skill,
+    odoo_mail_config_skill.name: odoo_mail_config_skill,
 }
