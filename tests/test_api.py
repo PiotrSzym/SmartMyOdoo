@@ -606,8 +606,10 @@ def test_api_pipeline_run(client, auth_headers, mocker):
     res = client.post(
         "/api/pipeline/run",
         json={
+            # WSISO-02 guard: `default` zachowuje ENV (test mechaniki pipeline, nie izolacji);
+            # nie-default bez ODOO_DATA jest teraz świadomie blokowany 400 (osobny test niżej).
             "message": "uruchom pipeline",
-            "workspace_id": "test_ws",
+            "workspace_id": "default",
             "session_id": "test_sess",
         },
         headers=auth_headers,
@@ -618,6 +620,27 @@ def test_api_pipeline_run(client, auth_headers, mocker):
     assert data["success"] is True
     assert data["final_state"] == "SYNC"
     assert data["rolled_back"] is False
+
+
+def test_api_pipeline_run_blocks_unconfigured_workspace(client, auth_headers, mocker):
+    """WSISO-02 guard (endpoint): nie-`default` workspace bez własnego ODOO_DATA →
+    HTTP 400 sanityzowany, ZANIM zbuduje się pipeline (koniec cichego cross-client
+    write do bazy ENV/`default`). Pipeline NIE może zostać wywołany."""
+    mock_pipeline = mocker.patch("smartmyodoo.swarm.pipeline.ExecutionPipeline")
+
+    res = client.post(
+        "/api/pipeline/run",
+        json={
+            "message": "zapisz cos",
+            "workspace_id": "grfood",  # brak grfood_ODOO w vaultcie testowym
+            "session_id": "test_sess",
+        },
+        headers=auth_headers,
+    )
+
+    assert res.status_code == 400
+    assert "grfood" in res.json()["detail"]
+    mock_pipeline.assert_not_called()  # guard blokuje PRZED budową pipeline
 
 
 def test_api_pipeline_run_rollback(client, auth_headers, mocker):
@@ -631,7 +654,7 @@ def test_api_pipeline_run_rollback(client, auth_headers, mocker):
         "/api/pipeline/run",
         json={
             "message": "zrob cos zlego",
-            "workspace_id": "test_ws",
+            "workspace_id": "default",  # WSISO-02 guard: test rollbacku, nie izolacji
             "session_id": "test_sess",
         },
         headers=auth_headers,

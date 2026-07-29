@@ -286,3 +286,50 @@ def test_t4_tool_path_returns_clean_error(monkeypatch):
     assert MYODOO_URL not in result["error"]
     # nie zwrócono rekordów z cudzej instancji
     assert "records" not in result
+
+
+# ── WSISO-02 (guard write-path): _resolve_write_odoo_target ───────────────────
+# Pipeline/sandbox (ZAPIS) budowały połączenie z ENV/generycznego sekretu `ODOO` bez
+# rozróżnienia workspace (cross-client na zapisie). Guard: nie-default bez własnego
+# ODOO_DATA → głośno; z własnym → jego instancja; default → ENV bez zmian.
+
+
+def test_wsiso02_guard_nondefault_without_creds_raises():
+    """GREEN: grfood bez własnego ODOO_DATA → OdooWorkspaceUnconfigured (nie ENV/myodoo).
+    RED przed guardem: pipeline szedł na ENV `ODOO_URL` niezależnie od workspace."""
+    from smartmyodoo.api_routers.chat import _resolve_write_odoo_target
+
+    with pytest.raises(OdooWorkspaceUnconfigured) as ei:
+        _resolve_write_odoo_target(
+            _vault_default_only_typed(), "grfood", MYODOO_URL, "myodoo"
+        )
+    assert ei.value.workspace_id == "grfood"
+
+
+def test_wsiso02_guard_nondefault_with_own_creds_targets_own():
+    """Nie-default z własnym ODOO_DATA → połączenie kierowane na JEGO instancję (gfit),
+    nie na przekazany ENV-default (myodoo)."""
+    from smartmyodoo.api_routers.chat import _resolve_write_odoo_target
+
+    url, db = _resolve_write_odoo_target(
+        _vault_grfood_has_own(), "grfood", MYODOO_URL, "myodoo"
+    )
+    assert url == GRFOOD_URL and db == "gfitdb"
+
+
+def test_wsiso02_guard_default_keeps_env():
+    """Regres: ws=`default` → zwraca przekazany ENV/generyczny target bez zmian (write `default`)."""
+    from smartmyodoo.api_routers.chat import _resolve_write_odoo_target
+
+    url, db = _resolve_write_odoo_target(
+        _vault_default_only_typed(), "default", MYODOO_URL, "myodoo"
+    )
+    assert url == MYODOO_URL and db == "myodoo"
+
+
+def test_wsiso02_guard_empty_workspace_keeps_env():
+    """Pusty workspace_id → traktowany jak default (ENV bez zmian), nie rzuca."""
+    from smartmyodoo.api_routers.chat import _resolve_write_odoo_target
+
+    url, db = _resolve_write_odoo_target({}, "", MYODOO_URL, "myodoo")
+    assert url == MYODOO_URL and db == "myodoo"

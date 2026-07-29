@@ -16,7 +16,12 @@ from sqlalchemy.orm import Session
 from smartmyodoo.core.database import get_db
 from smartmyodoo.core.ratelimit import chat_limiter
 from smartmyodoo.core.odoo_connector import sanitize_db_name
-from smartmyodoo.mcp.odoo_client import set_odoo_creds, set_odoo_unconfigured
+from smartmyodoo.mcp.odoo_client import (
+    set_odoo_creds,
+    set_odoo_unconfigured,
+    OdooWorkspaceUnconfigured,
+)
+from smartmyodoo.mcp.odoo_errors import classify_odoo_error
 from smartmyodoo.vault import vault
 from smartmyodoo.vault.resolver import resolve_llm_key, resolve_credential
 from smartmyodoo.vault.schemas import CredentialType
@@ -81,6 +86,34 @@ def _inject_odoo_creds(vault_data: dict, workspace_id: str) -> None:
     else:
         # ws=`default` bez creds → zachowaj ENV/`vault run` (bez markera).
         set_odoo_unconfigured(None)
+
+
+def _resolve_write_odoo_target(
+    vault_data: dict, workspace_id: str, default_url: str, default_db: str
+) -> Tuple[str, str]:
+    """WSISO-02 (guard tymczasowy): izolacja klienta na ŚCIEŻCE ZAPISU (pipeline/sandbox).
+
+    Pipeline/sandbox budują połączenie z ENV/generycznego sekretu `ODOO` — BEZ rozróżnienia
+    workspace (cross-client na ZAPISIE; gorszy wariant WSISO-01, świadomie poza jego D5).
+    Guard: wybrany nie-`default` workspace MUSI mieć własny ODOO_DATA — kierujemy połączenie
+    na JEGO instancję (url/db); przy braku → `OdooWorkspaceUnconfigured` (głośno) ZAMIAST
+    cichego ENV/generic. `default` → ENV/generyczny sekret bez zmian (regres zachowany).
+
+    Uwaga: master-password/semantyka sandboxa NADAL z ENV — pełna izolacja write-path
+    (per-ws master-password) to zakres sprintu WSISO-02 (/arch). Guard tylko zamyka
+    cichy cross-client leak: nie-default nigdy po cichu nie pisze do bazy ENV/`default`.
+    """
+    if not workspace_id or workspace_id == "default":
+        return default_url, default_db
+    cred = resolve_credential(
+        vault_data,
+        CredentialType.ODOO_DATA,
+        workspace_id,
+        allow_default_fallback=False,  # WSISO-01 V1: nie-default nie dziedziczy default
+    )
+    if not (cred and cred.url and cred.db):
+        raise OdooWorkspaceUnconfigured(workspace_id)
+    return cred.url, sanitize_db_name(cred.db)
 
 
 class PipelineRunRequest(BaseModel):
@@ -486,6 +519,15 @@ async def run_pipeline(
     openrouter_key = resolve_llm_key(vault_data, req.workspace_id)
     odoo_db_name = sanitize_db_name(odoo_db_name)  # utnij etykietę Odoo.sh
 
+    # WSISO-02 (guard): write-path — nie-`default` bez własnego ODOO_DATA → głośny błąd,
+    # NIE cichy ENV/generic (cross-client write). Kieruje url/db na instancję workspace.
+    try:
+        odoo_url, odoo_db_name = _resolve_write_odoo_target(
+            vault_data, req.workspace_id, odoo_url, odoo_db_name
+        )
+    except OdooWorkspaceUnconfigured as e:
+        raise HTTPException(status_code=400, detail=classify_odoo_error(e))
+
     llm = (
         OpenRouterClient(api_key=openrouter_key, governor=_token_governor)
         if openrouter_key
@@ -674,6 +716,7 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             from smartmyodoo.swarm.recon import EnvironmentRecon
 
             # SEC-01/SEC-02: Read Odoo credentials from Vault
+            ws_vault_data: dict = {}
             ws_odoo_url = os.environ.get("ODOO_URL", "http://localhost:8069")
             ws_odoo_master_pwd = os.environ.get("ODOO_MASTER_PASSWORD", "")
             ws_odoo_db_name = os.environ.get("ODOO_DB", "odoo_prod")
@@ -702,6 +745,19 @@ async def chat_stream_endpoint(websocket: WebSocket, db: Session = Depends(get_d
             ws_odoo_db_name = sanitize_db_name(
                 ws_odoo_db_name
             )  # utnij etykietę Odoo.sh
+
+            # WSISO-02 (guard): write-path izolacja — jak w run_pipeline. Nie-`default`
+            # bez własnego ODOO_DATA → błąd w streamie, NIE cichy ENV/generic (cross-client).
+            try:
+                ws_odoo_url, ws_odoo_db_name = _resolve_write_odoo_target(
+                    ws_vault_data, workspace_id, ws_odoo_url, ws_odoo_db_name
+                )
+            except OdooWorkspaceUnconfigured as e:
+                await websocket.send_json(
+                    {"type": "error", "content": classify_odoo_error(e)}
+                )
+                return
+
             db_manager = OdooDBManager(ws_odoo_url, ws_odoo_master_pwd)
             decision_engine = DecisionEngine(llm_client=llm)
             recon_engine = EnvironmentRecon(db_manager)
