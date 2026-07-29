@@ -27,11 +27,13 @@
 `gf-review`, `gf-auditor`, `find-bugs`, `threat-hunting`, `dependency-management`, `security-audit`
 
 ### 🏭 Ops / DevOps / Release (4)
-`production-readiness` *(LOCAL override — adaptowany CLEAN-01)*, `docker-compose`,
-`github-actions-ci`, `git-pushing`
+`production-readiness` *(LOCAL override — adaptowany CLEAN-01)*,
+`docker-compose` *(LOCAL override 2026-07-11 — realny stack 4 serwisów SMO)*,
+`github-actions-ci` *(LOCAL override 2026-07-11 — realny ci.yml RELEASE-01)*, `git-pushing`
 
 ### 🧠 Knowledge / Process / Governance (9)
-`knowledge-search`, `lessons-learned-engine`, `onboarding-guide`, `plan-routing`,
+`knowledge-search`, `lessons-learned-engine`,
+`onboarding-guide` *(LOCAL override 2026-07-11 — onboarding do SMO, nie GoForge)*, `plan-routing`,
 `spike`, `context-management`, `research-ops`, `software-architecture`, `verification-before-completion`
 
 ### 🛡️ Compliance / Data (2)
