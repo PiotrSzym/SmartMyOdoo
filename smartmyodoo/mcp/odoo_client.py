@@ -6,6 +6,7 @@ import logging
 import socket
 import time
 from typing import Any, Dict, Optional, Set
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,16 @@ class OdooClient:
             c.get("password")
             or os.getenv(f"{prefix}_PASSWORD")
             or os.getenv("ODOO_PASSWORD")
+        )
+        # WSISO-track: sanityzowany trace „który workspace → na jaki host Odoo".
+        # Tylko host (bez url z creds/query), bez loginu/hasła/klucza. Ułatwia live
+        # weryfikację izolacji (odczyt): w logach widać czy ws faktycznie zmienia bazę.
+        logger.info(
+            "[ODOO-TRACK] read ws=%s host=%s db=%s src=%s",
+            workspace_id,
+            (urlparse(self.url).hostname if self.url else None),
+            self.db,
+            "vault" if c else ("ENV" if self.url else "none"),
         )
         self.uid: Optional[int] = None
         self.models: Any = None

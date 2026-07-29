@@ -7,7 +7,9 @@ governor bezpośrednio z mcp.token_governor; auth z api_deps. Zachowanie bez zmi
 
 import os
 import json
+import logging
 from typing import List, Tuple
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -37,6 +39,22 @@ from smartmyodoo.chat_deps import (
 )
 
 router = APIRouter(tags=["chat"])
+logger = logging.getLogger(__name__)
+
+
+def _log_odoo_target(
+    mode: str, workspace_id: str, url: "str | None", db: "str | None", src: str
+) -> None:
+    """WSISO-track: sanityzowany trace „workspace → host Odoo" (tylko host + db + źródło;
+    BEZ pełnego url/loginu/hasła/klucza). Ułatwia live weryfikację izolacji na zapisie."""
+    logger.info(
+        "[ODOO-TRACK] %s ws=%s host=%s db=%s src=%s",
+        mode,
+        workspace_id,
+        (urlparse(url).hostname if url else None),
+        db,
+        src,
+    )
 
 
 def _enforce_chat_rate(workspace_id: str) -> None:
@@ -104,6 +122,7 @@ def _resolve_write_odoo_target(
     cichy cross-client leak: nie-default nigdy po cichu nie pisze do bazy ENV/`default`.
     """
     if not workspace_id or workspace_id == "default":
+        _log_odoo_target("write", workspace_id or "default", default_url, default_db, "ENV")
         return default_url, default_db
     cred = resolve_credential(
         vault_data,
@@ -112,8 +131,11 @@ def _resolve_write_odoo_target(
         allow_default_fallback=False,  # WSISO-01 V1: nie-default nie dziedziczy default
     )
     if not (cred and cred.url and cred.db):
+        _log_odoo_target("write", workspace_id, None, None, "BLOCKED")
         raise OdooWorkspaceUnconfigured(workspace_id)
-    return cred.url, sanitize_db_name(cred.db)
+    db = sanitize_db_name(cred.db)
+    _log_odoo_target("write", workspace_id, cred.url, db, "vault")
+    return cred.url, db
 
 
 class PipelineRunRequest(BaseModel):
