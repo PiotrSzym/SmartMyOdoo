@@ -87,15 +87,128 @@ Zwróć TYLKO czysty JSON w następującym formacie:
 {{"category": "A"}}
 """
 
+    def _keyword_route(self, msg_lower: str):
+        """Deterministyczny router słów kluczowych → (category, skill_name).
+
+        Zwraca `skill_name=None`, gdy żaden słownik konkretnego skilla nie pasuje
+        (kategoria bywa wtedy ustalona ogólnie, np. C_TESTING_QA lub H_GENERAL_CHAT).
+
+        Używany w OBU ścieżkach `classify_intent`:
+        - fallback (brak LLM) — jako JEDYNY klasyfikator (kategoria + skill),
+        - ścieżka LLM — jako SPECJALIZATOR skilla wewnątrz kategorii z LLM (klasyfikator
+          LLM zna wyłącznie A-H, więc sam nie wskaże konkretnego skilla).
+        """
+        skill_name = None
+        if any(k in msg_lower for k in ["kod", "napisz", "bug", "fix", "code"]):
+            category = IntentCategory.A_CODE_GENERATION
+            skill_name = SkillName.ODOO_DEVELOPER
+        elif any(k in msg_lower for k in ["import", "etl", "mass", "5000"]):
+            category = IntentCategory.B_DATABASE_ADMIN
+            skill_name = SkillName.ODOO_ETL_MANAGER
+        elif any(k in msg_lower for k in ["baz", "sql", "tabel", "db", "migracj"]):
+            category = IntentCategory.B_DATABASE_ADMIN
+            skill_name = SkillName.ODOO_CRUD
+        elif any(
+            k in msg_lower for k in ["zmienił", "kto", "kiedy", "audit", "history"]
+        ):
+            category = IntentCategory.E_RESEARCH
+            skill_name = SkillName.ODOO_AUDIT_HISTORY
+        elif any(
+            k in msg_lower for k in ["security", "pii", "audyt", "bezpieczeństw"]
+        ):
+            category = IntentCategory.C_TESTING_QA
+            skill_name = SkillName.SECURITY_AUDIT
+        # --- WIRE-01 (D1/T1): podpięcie 3 osieroconych skili z SKILL_REGISTRY ---
+        # Kolejność CELOWA: po `audyt/security` i `kto/kiedy` (te nie mogą być
+        # kanibalizowane), przed generycznym `test`. „odoo.sh" sprowadzone do
+        # `odoo_sh` przez `.` → spacja w msg_lower jest niezmienione, dlatego
+        # matchujemy zarówno wariant z kropką, jak i frazę „odoo sh".
+        elif any(
+            k in msg_lower
+            for k in ["deploy", "branch", "staging", "github", "odoo.sh", "odoo sh", "push"]
+        ):
+            # DevOps/CI Odoo.sh (deploy, gałęzie, staging) — przed gałęzią logów,
+            # bo „błąd deploy" diagnozujemy z logów, ale samo „deploy/branch/push"
+            # to operacja DevOps.
+            category = IntentCategory.F_ARCHITECTURE
+            skill_name = SkillName.ODOO_DEVOPS_GITHUB
+        elif any(
+            k in msg_lower
+            for k in ["logi", "logu", "logó", "loga", "logach", "traceback", "stacktrace"]
+        ):
+            # Diagnostyka logów/tracebacków → ODOO_SH_LOGS (E_RESEARCH).
+            # Świadomie NIE matchujemy bare „log", bo łapie „logowanie/zalogować"
+            # (false positive, kanibalizował test C_TESTING_QA „testy dla logowania").
+            category = IntentCategory.E_RESEARCH
+            skill_name = SkillName.ODOO_SH_LOGS
+        elif any(
+            k in msg_lower
+            for k in ["faktur", "księgow", "ksiegow", "vat", "zaksięgow", "zaksiegow", "journal"]
+        ):
+            # Audyt księgowy (faktury/VAT/zapisy księgowe) → FINANCIAL_AUDIT.
+            # UWAGA: po `kto/kiedy` (ODOO_AUDIT_HISTORY), więc „kto zmienił fakturę"
+            # nadal trafia do historii zmian, nie do audytu księgowego.
+            category = IntentCategory.E_RESEARCH
+            skill_name = SkillName.FINANCIAL_AUDIT
+        elif any(
+            k in msg_lower
+            for k in [
+                "alias", "smtp", "nadawc", "email_from", "serwer poczt",
+                "skrzynk", "reply-to", "reply_to", "z jakiego adresu",
+                "wychodzą maile", "wychodza maile", "wychodzą powiadom", "adres wysył",
+            ]
+        ):
+            # Konfiguracja poczty Odoo (serwery wych./przych., aliasy, nadawca per
+            # moduł) → ODOO_MAIL_CONFIG. CELOWO przed „test" (bo bywa „sprawdź adres…")
+            # i po księgowości (żeby „faktura na maila" nie kanibalizowała).
+            category = IntentCategory.B_DATABASE_ADMIN
+            skill_name = SkillName.ODOO_MAIL_CONFIG
+        elif any(
+            k in msg_lower
+            for k in [
+                "osadź stron", "osadzić stron", "osadź szkol", "osadz html",
+                "hostuj html", "hostować html", "wgraj html", "standalone html",
+                "website page", "stronę website", "strona website", "iframe",
+                "srcdoc", "szkolenie w odoo", "prezentacj w odoo", "deck w odoo",
+            ]
+        ):
+            # Osadzanie samodzielnego HTML+JS (deck/SPA) jako strona Website Odoo
+            # (ir.attachment + qweb view + website.page, srcdoc). CELOWO przed „test",
+            # bo bywa „sprawdź stronę…", i po poczcie (żeby „strona z mailem" nie
+            # kanibalizowała).
+            category = IntentCategory.B_DATABASE_ADMIN
+            skill_name = SkillName.ODOO_WEBSITE_EMBED
+        elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
+            category = IntentCategory.C_TESTING_QA
+        elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):
+            category = IntentCategory.F_ARCHITECTURE
+            skill_name = SkillName.ODOO_API_EXPERT
+        else:
+            category = IntentCategory.H_GENERAL_CHAT
+        return category, skill_name
+
     def classify_intent(self, message: str) -> DispatchResult:
         """
         Klasyfikuje intencję na podstawie wiadomości i zwraca obiekt DispatchResult.
-        Jeśli llm_client nie jest dostarczony, używa prostego klasyfikatora na bazie heurystyk (fallback).
+
+        Dwuwarstwowy routing:
+        1) `_keyword_route` (liczony ZAWSZE) — deterministyczny router słów kluczowych.
+           Daje zgrubną kategorię ORAZ konkretny skill (np. ODOO_MAIL_CONFIG,
+           ODOO_WEBSITE_EMBED, ETL, SH_LOGS...).
+        2) Jeśli dostępny `llm_client`, kategoria z LLM (A-H) NADPISUJE kategorię
+           heurystyczną (steruje personą/modelem), ale skill wybrany słowami kluczowymi
+           ZOSTAJE. Dzięki temu skile o wąskim zastosowaniu są osiągalne także w
+           produkcyjnej ścieżce LLM — klasyfikator LLM zna wyłącznie A-H i sam nie
+           wskazałby konkretnego skilla (byłyby „martwe" poza fallbackiem).
+        Brak `llm_client` → działa sam router heurystyk (kategoria + skill).
         """
-        skill_name = None
+        # Warstwa 1: deterministyczny router słów kluczowych (zawsze).
+        category, skill_name = self._keyword_route(message.lower())
+
+        # Warstwa 2: kategoria z LLM nadpisuje heurystyczną (jeśli klient dostępny).
         if self.llm_client:
-            # S2.1: poprawny kontrakt — chat() przyjmuje messages=[...] i zwraca OBIEKT odpowiedzi,
-            # nie string. Wcześniej chat(str) → None → json.loads(None) → TypeError (crash).
+            # S2.1: poprawny kontrakt — chat() przyjmuje messages=[...] i zwraca OBIEKT
+            # odpowiedzi, nie string. Wcześniej chat(str) → None → json.loads(None) → crash.
             response = self.llm_client.chat(
                 messages=[{"role": "user", "content": self._build_prompt(message)}]
             )
@@ -105,98 +218,14 @@ Zwróć TYLKO czysty JSON w następującym formacie:
             try:
                 data = json.loads(response_text)
                 category_val = data.get("category", "H")
+                # Kategoria z LLM (A-H) nadpisuje zgrubną kategorię heurystyczną.
+                # skill_name ze słów kluczowych ZOSTAJE (specjalizacja w obrębie kategorii).
                 category = IntentCategory(category_val)
             except (json.JSONDecodeError, ValueError, TypeError):
-                category = IntentCategory.H_GENERAL_CHAT
-        else:
-            # Fallback (heurystyki do testów lub gdy brak dostępu do LLM)
-            msg_lower = message.lower()
-            if any(k in msg_lower for k in ["kod", "napisz", "bug", "fix", "code"]):
-                category = IntentCategory.A_CODE_GENERATION
-                skill_name = SkillName.ODOO_DEVELOPER
-            elif any(k in msg_lower for k in ["import", "etl", "mass", "5000"]):
-                category = IntentCategory.B_DATABASE_ADMIN
-                skill_name = SkillName.ODOO_ETL_MANAGER
-            elif any(k in msg_lower for k in ["baz", "sql", "tabel", "db", "migracj"]):
-                category = IntentCategory.B_DATABASE_ADMIN
-                skill_name = SkillName.ODOO_CRUD
-            elif any(
-                k in msg_lower for k in ["zmienił", "kto", "kiedy", "audit", "history"]
-            ):
-                category = IntentCategory.E_RESEARCH
-                skill_name = SkillName.ODOO_AUDIT_HISTORY
-            elif any(
-                k in msg_lower for k in ["security", "pii", "audyt", "bezpieczeństw"]
-            ):
-                category = IntentCategory.C_TESTING_QA
-                skill_name = SkillName.SECURITY_AUDIT
-            # --- WIRE-01 (D1/T1): podpięcie 3 osieroconych skili z SKILL_REGISTRY ---
-            # Kolejność CELOWA: po `audyt/security` i `kto/kiedy` (te nie mogą być
-            # kanibalizowane), przed generycznym `test`. „odoo.sh" sprowadzone do
-            # `odoo_sh` przez `.` → spacja w msg_lower jest niezmienione, dlatego
-            # matchujemy zarówno wariant z kropką, jak i frazę „odoo sh".
-            elif any(
-                k in msg_lower
-                for k in ["deploy", "branch", "staging", "github", "odoo.sh", "odoo sh", "push"]
-            ):
-                # DevOps/CI Odoo.sh (deploy, gałęzie, staging) — przed gałęzią logów,
-                # bo „błąd deploy" diagnozujemy z logów, ale samo „deploy/branch/push"
-                # to operacja DevOps.
-                category = IntentCategory.F_ARCHITECTURE
-                skill_name = SkillName.ODOO_DEVOPS_GITHUB
-            elif any(
-                k in msg_lower
-                for k in ["logi", "logu", "logó", "loga", "logach", "traceback", "stacktrace"]
-            ):
-                # Diagnostyka logów/tracebacków → ODOO_SH_LOGS (E_RESEARCH).
-                # Świadomie NIE matchujemy bare „log", bo łapie „logowanie/zalogować"
-                # (false positive, kanibalizował test C_TESTING_QA „testy dla logowania").
-                category = IntentCategory.E_RESEARCH
-                skill_name = SkillName.ODOO_SH_LOGS
-            elif any(
-                k in msg_lower
-                for k in ["faktur", "księgow", "ksiegow", "vat", "zaksięgow", "zaksiegow", "journal"]
-            ):
-                # Audyt księgowy (faktury/VAT/zapisy księgowe) → FINANCIAL_AUDIT.
-                # UWAGA: po `kto/kiedy` (ODOO_AUDIT_HISTORY), więc „kto zmienił fakturę"
-                # nadal trafia do historii zmian, nie do audytu księgowego.
-                category = IntentCategory.E_RESEARCH
-                skill_name = SkillName.FINANCIAL_AUDIT
-            elif any(
-                k in msg_lower
-                for k in [
-                    "alias", "smtp", "nadawc", "email_from", "serwer poczt",
-                    "skrzynk", "reply-to", "reply_to", "z jakiego adresu",
-                    "wychodzą maile", "wychodza maile", "wychodzą powiadom", "adres wysył",
-                ]
-            ):
-                # Konfiguracja poczty Odoo (serwery wych./przych., aliasy, nadawca per
-                # moduł) → ODOO_MAIL_CONFIG. CELOWO przed „test" (bo bywa „sprawdź adres…")
-                # i po księgowości (żeby „faktura na maila" nie kanibalizowała).
-                category = IntentCategory.B_DATABASE_ADMIN
-                skill_name = SkillName.ODOO_MAIL_CONFIG
-            elif any(
-                k in msg_lower
-                for k in [
-                    "osadź stron", "osadzić stron", "osadź szkol", "osadz html",
-                    "hostuj html", "hostować html", "wgraj html", "standalone html",
-                    "website page", "stronę website", "strona website", "iframe",
-                    "srcdoc", "szkolenie w odoo", "prezentacj w odoo", "deck w odoo",
-                ]
-            ):
-                # Osadzanie samodzielnego HTML+JS (deck/SPA) jako strona Website Odoo
-                # (ir.attachment + qweb view + website.page, srcdoc). CELOWO przed „test",
-                # bo bywa „sprawdź stronę…", i po poczcie (żeby „strona z mailem" nie
-                # kanibalizowała).
-                category = IntentCategory.B_DATABASE_ADMIN
-                skill_name = SkillName.ODOO_WEBSITE_EMBED
-            elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
-                category = IntentCategory.C_TESTING_QA
-            elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):
-                category = IntentCategory.F_ARCHITECTURE
-                skill_name = SkillName.ODOO_API_EXPERT
-            else:
-                category = IntentCategory.H_GENERAL_CHAT
+                # Zepsuty JSON / błąd LLM → zostajemy przy kategorii heurystycznej.
+                # Dla „czystej rozmowy" heurystyka i tak daje H → parytet z poprzednim
+                # zachowaniem (graceful fallback bez crasha, US S2.1).
+                pass
 
         route = ROUTING_TABLE[category]
         final_skill = skill_name or route.get("skill_name")
