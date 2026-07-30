@@ -65,6 +65,15 @@ Realny test: **przypisz zadanie do kogoś** → sprawdź nagłówek From w odebr
 - **Zmiana nadawcy:** podmień adres w `DEDICATED_FROM` i w `search(from_filter ilike ...)` w kodzie akcji (`ir.actions.server.code`) + w domenie reguły. Upewnij się, że nowy adres ma serwer z `from_filter`.
 - **Alias projektu (reply_to):** jeśli ktoś nada projektowi alias na nieodbieranej skrzynce → reply_to się przełącza i odpowiedzi giną. Cofnięcie: `mail.alias.write([alias_id],{'alias_name': False})` → reply_to wraca na `catchall@`. Sprawdź serwery przychodzące: `fetchmail.server` (które skrzynki Odoo realnie pobiera) — `catchall@` zwykle jest, dedykowany adres projektu zwykle NIE.
 
+## 🔥 4 lekcje z produkcji (zmiana na NOWY adres, 2026-07-30)
+Wpadki, na które łatwo wpaść przy przełączaniu nadawcy na inny adres:
+
+1. **Reguła bywa ZARCHIWIZOWANA — nie „zniknęła".** Jeśli `base.automation` nie widać, czytaj z `active_test=False`:
+   `search_read([[...]], {"context":{"active_test":False}})`. Reaktywacja = `write({"active": True})`. (U nas automat „Maile z projektów" był `active=false` → maile znów leciały z prywatnych adresów.)
+2. **Zmiana na ISTNIEJĄCY adres ≠ na NOWY.** Gdy docelowy adres ma już `ir.mail_server` (jak `gf-komunikacja@`/`powiadomienia@`) — hasła nie potrzebujesz, tylko wskazujesz serwer. **Nowy adres** (np. `gf-projekty@`) wymaga serwera z pasującym `from_filter`, a ten — uwierzytelnienia: **skrzynka M365 + app password** (osobny serwer) ALBO **Send-As** dla istniejącego konta (dopisz adres do `from_filter` istniejącego serwera). Bez tego strict-From przepisze nagłówek. Sprawdź brak serwera: `search([[("from_filter","ilike","<adres>")]])`.
+3. **`test_smtp_connection` = realny test logowania SMTP** (to co robi przycisk „Testuj połączenie"). Rób go PRZED podpięciem reguły: `execute_kw(...,"ir.mail_server","test_smtp_connection",[[srv_id]])` → sukces zwraca notyfikację „Test połączenia zakończony powodzeniem!", błąd rzuca Fault. Zielone = konto się uwierzytelnia.
+4. **Test bezpieczny MUSI mieć realny `res_id`.** `mail.mail` _inherits_ `mail.message`, więc `create` z `model="project.task"` + `res_id=0` **crashuje** na `_get_reply_to` (`KeyError: False`). Użyj **tymczasowego `project.task`** (utwórz → test → `unlink` zadania i maila). Nie celuj w realne zadanie (mail.message zaśmieca jego chatter). Wzorzec: utwórz tmp task w dowolnym projekcie, mail `state="cancel"`, sprawdź `email_from`+`mail_server_id`, posprzątaj oba; przy niepowodzeniu od razu `active=False` (rollback).
+
 ## Dostęp (SmartMyOdoo → instancja klienta)
 Klucz Odoo klienta jest w Skarbcu per workspace. Połączenie in-process (read/write przez ORM):
 ```python
@@ -78,10 +87,11 @@ c = get_odoo_client('default'); c.connect()
 K = lambda m,meth,a,kw={}: c.models.execute_kw(c.db,c.uid,c.password,m,meth,a,kw)
 ```
 
-## Konfiguracja live — Gourmet Foods (gfcrm.pl, Odoo 18, 2026-07-29)
+## Konfiguracja live — Gourmet Foods (gfcrm.pl, Odoo 18)
 - Instancja: `www.gfcrm.pl`, db `rwyszewski-gourmetfoods-main-15940999`, Odoo 18 Enterprise. Workspace SMO: `rwyszewski-gourmetfoods-main-15940999`, PIN 1111.
-- Reguła: **„Maile z projektów"** (`base.automation`, model `mail.mail`, `on_create`), server action **id 1844**.
-- Nadawca ustawiony: **`GF Projekty <gf-komunikacja@gourmetfoods.pl>`** (serwer „Komunikacja GF", from_filter pasuje). Wcześniej był `powiadomienia@` — zmienione, bo ludzie kasowali „powiadomienia" jako automat.
-- reply_to: **`catchall@gourmetfoods.pl`** (fetchmail działa, wróciło nim 43 realne odpowiedzi). Alias `projekty@` (id 2658) **wyłączony** (`alias_name=False`) bo nie był pobierany.
-- Chronione: `serwis@gourmetfoods.pl` (Field Service, szablony id 77/78) — wykluczone w domenie.
-- Zweryfikowane realnym mailem: „Zostałeś przydzielony" (mail.mail id 84488) → From = GF Projekty <gf-komunikacja@>, reply_to catchall@, state=sent.
+- Reguła: **„Maile z projektów"** = `base.automation` **id 90** (model `mail.mail`, `on_create`) → server action **id 1844**. Bywa zarchiwizowana → czytaj z `active_test=False`.
+- **AKTUALNY nadawca (od 2026-07-30): `GF Projekty <gf-projekty@gourmetfoods.pl>`**, serwer `mail_server_id` = **id 14** („gf-projekty", `from_filter=gf-projekty@gourmetfoods.pl`, smtp.outlook.com:587 STARTTLS, `test_smtp_connection` OK). Serwer 14 to PRZEROBIONY dawny „Komunikacja GF" → `gf-komunikacja@` nie ma już własnego serwera.
+- Historia: `powiadomienia@` → `gf-komunikacja@` (2026-07-29, ludzie kasowali „powiadomienia") → **`gf-projekty@` (2026-07-30)**.
+- reply_to: **`catchall@gourmetfoods.pl`** (fetchmail działa). Alias `projekty@` (id 2658) **wyłączony** (`alias_name=False`).
+- Chronione: `serwis@gourmetfoods.pl` (Field Service) — wykluczone w domenie.
+- Zweryfikowane testem bezpiecznym (tmp `project.task`, mail `state=cancel`) → email_from `gf-projekty@`, mail_server_id 14, reply_to catchall@; rekordy skasowane.
