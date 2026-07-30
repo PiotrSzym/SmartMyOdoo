@@ -33,6 +33,7 @@ class SkillName(str, Enum):
     ODOO_API_EXPERT = "ODOO_API_EXPERT"
     MAGIC_FIX = "MAGIC_FIX"
     ODOO_MAIL_CONFIG = "ODOO_MAIL_CONFIG"
+    ODOO_WEBSITE_EMBED = "ODOO_WEBSITE_EMBED"
 
 
 class Persona(str, Enum):

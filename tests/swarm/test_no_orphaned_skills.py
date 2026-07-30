@@ -66,6 +66,8 @@ PROBES: dict[SkillName, tuple[str, str | None]] = {
     ),
     # Konfiguracja poczty (nadawca/alias/serwer) — ścieżka fallback heurystyk.
     SkillName.ODOO_MAIL_CONFIG: ("zmień alias nadawcy maili projektów", None),
+    # Osadzanie samodzielnego HTML jako strona Website — ścieżka fallback heurystyk.
+    SkillName.ODOO_WEBSITE_EMBED: ("osadź szkolenie jako stronę website w odoo", None),
 }
 
 

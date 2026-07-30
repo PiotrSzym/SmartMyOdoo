@@ -175,6 +175,21 @@ Zwróć TYLKO czysty JSON w następującym formacie:
                 # i po księgowości (żeby „faktura na maila" nie kanibalizowała).
                 category = IntentCategory.B_DATABASE_ADMIN
                 skill_name = SkillName.ODOO_MAIL_CONFIG
+            elif any(
+                k in msg_lower
+                for k in [
+                    "osadź stron", "osadzić stron", "osadź szkol", "osadz html",
+                    "hostuj html", "hostować html", "wgraj html", "standalone html",
+                    "website page", "stronę website", "strona website", "iframe",
+                    "srcdoc", "szkolenie w odoo", "prezentacj w odoo", "deck w odoo",
+                ]
+            ):
+                # Osadzanie samodzielnego HTML+JS (deck/SPA) jako strona Website Odoo
+                # (ir.attachment + qweb view + website.page, srcdoc). CELOWO przed „test",
+                # bo bywa „sprawdź stronę…", i po poczcie (żeby „strona z mailem" nie
+                # kanibalizowała).
+                category = IntentCategory.B_DATABASE_ADMIN
+                skill_name = SkillName.ODOO_WEBSITE_EMBED
             elif any(k in msg_lower for k in ["test", "playwright", "qa", "sprawdź"]):
                 category = IntentCategory.C_TESTING_QA
             elif any(k in msg_lower for k in ["architektura", "wzorzec", "hld"]):
