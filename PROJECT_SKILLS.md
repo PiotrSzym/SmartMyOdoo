@@ -1,12 +1,12 @@
 # 🛠️ SmartMyOdoo — PROJECT SKILLS (allowlist)
 
 > **Źródło prawdy „co jest nasze".** Stack = **Python/FastAPI + vanilla JS + Odoo**, LOCAL-ONLY (ADR-008), vanilla JS (ADR-006).
-> **48 skili dozwolonych** w discovery (`.claude/skills/`). **27 skili Go/React** wyniesionych do kwarantanny `.claude/_graveyard/skills/` (CLEAN-01, 2026-06-23 — patrz `.claude/_graveyard/README.md`).
+> **51 skili dozwolonych** w discovery (`.claude/skills/`). **27 skili Go/React** wyniesionych do kwarantanny `.claude/_graveyard/skills/` (CLEAN-01, 2026-06-23 — patrz `.claude/_graveyard/README.md`).
 > **Tagi:** `[#skills, #allowlist, #tooling, #clean-01]`
 
 ---
 
-## ✅ 48 dozwolonych skili (discovery)
+## ✅ 51 dozwolonych skili (discovery)
 
 ### 🤖 Agent/LLM engineering (6)
 `agent-architecture-audit`, `agent-evaluation`, `agent-harness-construction`,
@@ -15,10 +15,13 @@
 ### 🐍 Python / Backend / API (4)
 `fastapi-patterns`, `python-testing`, `redis-patterns`, `mcp-server`
 
-### 🦋 Odoo (10)
+### 🦋 Odoo (13)
 `odoo-api-expert`, `odoo-audit-history`, `odoo-business-analyst`, `odoo-crud`,
 `odoo-developer`, `odoo-devops-github`, `odoo-docker-environment`, `odoo-etl-manager`,
-`odoo-sh-logs`, `financial-audit`
+`odoo-sh-logs`, `financial-audit`,
+`odoo-mail-from-override` *(2026-08-01: zmiana adresu nadawcy maili per moduł — automat na mail.mail; live gfcrm.pl Projekty → gf-komunikacja@; rejestracja uzupełniona 2026-08-06 — wcześniej brakował w allowliście)*,
+`odoo-website-embed` *(2026-08-04: osadzanie samodzielnego HTML jako strona Website + kurs eLearning z certyfikacją; sprawdzony na PROD gfcrm.pl — deck „Metodyka Projektowa", kurs 18)*,
+`odoo-website-domain` *(2026-08-06: dodawanie/podpinanie domen do witryn Website — DNS SEOHOST → Cyberfolks/.htaccess → SSL → panel Odoo → website.domain → web.base.url → Azure; skodyfikowane z modułu Wiedza GF art. 3797/3552/2569/3554 + audyt live 12 witryn prod)*
 
 ### 🔬 Testing / QA / E2E (5)
 `e2e-testing-patterns`, `playwright-e2e`, `webapp-testing`, `test-fixing`, `systematic-debugging`
@@ -42,7 +45,7 @@
 ### 🆘 Awaryjne / Edukacja (2)
 `magic-fix`, `teacher`
 
-> **Razem: 48.** (Weryfikacja: `ls .claude/skills/ | wc -l` = 48.)
+> **Razem: 51.** (Weryfikacja: `ls -d .claude/skills/*/ | wc -l` = 51; stan 2026-08-06.)
 
 ---
 
