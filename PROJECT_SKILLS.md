@@ -1,12 +1,12 @@
 # 🛠️ SmartMyOdoo — PROJECT SKILLS (allowlist)
 
 > **Źródło prawdy „co jest nasze".** Stack = **Python/FastAPI + vanilla JS + Odoo**, LOCAL-ONLY (ADR-008), vanilla JS (ADR-006).
-> **51 skili dozwolonych** w discovery (`.claude/skills/`). **27 skili Go/React** wyniesionych do kwarantanny `.claude/_graveyard/skills/` (CLEAN-01, 2026-06-23 — patrz `.claude/_graveyard/README.md`).
+> **52 skile dozwolone** w discovery (`.claude/skills/`). **27 skili Go/React** wyniesionych do kwarantanny `.claude/_graveyard/skills/` (CLEAN-01, 2026-06-23 — patrz `.claude/_graveyard/README.md`).
 > **Tagi:** `[#skills, #allowlist, #tooling, #clean-01]`
 
 ---
 
-## ✅ 51 dozwolonych skili (discovery)
+## ✅ 52 dozwolone skile (discovery)
 
 ### 🤖 Agent/LLM engineering (6)
 `agent-architecture-audit`, `agent-evaluation`, `agent-harness-construction`,
@@ -34,8 +34,9 @@
 `docker-compose` *(LOCAL override 2026-07-11 — realny stack 4 serwisów SMO)*,
 `github-actions-ci` *(LOCAL override 2026-07-11 — realny ci.yml RELEASE-01)*, `git-pushing`
 
-### 🧠 Knowledge / Process / Governance (9)
+### 🧠 Knowledge / Process / Governance (10)
 `knowledge-search`, `lessons-learned-engine`,
+`fireflies-transcripts` *(2026-08-07: pobieranie na żądanie transkryptów Fireflies → `Klienci\<klient>\04_Spotkania`; skrypt `scripts/fireflies_pull.py` + sekret FIREFLIES_KEY w Skarbcu + mapa `_fireflies_map.yml`)*,
 `onboarding-guide` *(LOCAL override 2026-07-11 — onboarding do SMO, nie GoForge)*, `plan-routing`,
 `spike`, `context-management`, `research-ops`, `software-architecture`, `verification-before-completion`
 
@@ -45,7 +46,7 @@
 ### 🆘 Awaryjne / Edukacja (2)
 `magic-fix`, `teacher`
 
-> **Razem: 51.** (Weryfikacja: `ls -d .claude/skills/*/ | wc -l` = 51; stan 2026-08-06.)
+> **Razem: 52.** (Weryfikacja: `ls -d .claude/skills/*/ | wc -l` = 52; stan 2026-08-07.)
 
 ---
 
