@@ -39,6 +39,12 @@ python scripts/fireflies_pull.py fetch <ID> [<ID>...]  # zapis; drukuje TYLKO ś
 3. Sekrety: nazwy tak, wartości nigdy (dotyczy też komunikatów o błędach).
 4. Opracowanie transkryptu w notatkę (decyzje/next steps) — TYLKO na prośbę właściciela, jako osobny plik lub edycja `status: raw → draft`.
 
+## Bezpieczeństwo kluczy (lekcje 2026-08-07 — pełny wzorzec: skill globalny `fireflies-vault-access`)
+- Klucz TYLKO ze Skarbca (`FIREFLIES_KEY`, kaskada `api_key|password`); wartości nigdy w kodzie/czacie/logach — przy debugowaniu odpowiedzi API sanityzuj: `body.replace(klucz, "[KLUCZ]")`.
+- **`auth_failed` w HTTP 500 = zły/nieaktualny klucz** (Fireflies nie zwraca 401!). Klucz znaleziony w `ir.config_parameter` Odoo bywa przeterminowany — ZAWSZE przetestuj `{ transcripts(limit: 1) { id } }` przed zapisem do Skarbca.
+- Komendy interaktywne (PIN/getpass) nie działają przez `!` w sesji — wiszą bez TTY; użytkownik odpala je w swoim PowerShellu (bez `!`, ścieżki `C:\...`, separator `;`).
+- Skrypt tymczasowy z wartością klucza: tylko scratchpad + skasuj po użyciu. Klucz, który przeszedł przez czat → zrotuj.
+
 ## Troubleshooting
 - `BLAD: brak sekretu 'FIREFLIES_KEY'` → Krok „Wymagania wstępne" (dodaj sekret).
 - Świeże spotkanie: `summary`/`sentences` mogą być puste → plik z placeholderami; dociągnij później `fetch <ID> --force`.
