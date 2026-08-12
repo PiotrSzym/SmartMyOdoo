@@ -1,0 +1,4 @@
+# Wzór configu dla scripts/gh_flow.py. Skopiuj do _gh_flow.yml i dostosuj per repo.
+prod_branch: main        # branch produkcyjny Odoo.sh (chroniony, push zablokowany)
+staging_branch: staging  # domyślna baza PR / źródło promote
+remote: origin

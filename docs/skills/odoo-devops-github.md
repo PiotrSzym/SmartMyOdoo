@@ -2,7 +2,7 @@
 
 > Wersjonowany mirror skilla `odoo-devops-github` (żywy skill: `.claude/skills/odoo-devops-github/SKILL.md` + `REFERENCE.md` — lokalne, bo `.claude/` jest gitignored). Ten plik trzyma wiedzę w gicie. Źródło: baza wiedzy myodoo.pl (art. 83/85/93/103/116/219/224) scalona z oficjalną dokumentacją Odoo.sh/GitHub (2026-08-12).
 
-Powiązane narzędzie: `scripts/odoo_sh_logs.py` (pull logów Odoo.sh przez SSH). Logi/diagnostyka: skill `odoo-sh-logs`.
+Powiązane narzędzia: `scripts/odoo_sh_logs.py` (pull logów Odoo.sh przez SSH) · `scripts/gh_flow.py` (bezpieczny GitHub flow: `status/feature/pr/promote/push/install-hook` z twardą blokadą push na prod). Logi/diagnostyka: skill `odoo-sh-logs`.
 
 ## Złote zasady
 1. **Staging Isolation + Feature Branches.** `feature/*`|`fix/*` → PR (review) → merge do **staging** (test na neutralizowanej kopii proda) → promocja do **production**.

@@ -88,3 +88,4 @@ odoo_ver_diff.py
 # Odoo.sh logs tool (WSISO — routing + pobrane logi poza repo)
 scripts/_odoo_sh_hosts.yml
 _odoo_sh_logs/
+scripts/_gh_flow.yml
