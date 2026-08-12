@@ -49,6 +49,21 @@ Dla KSeF sprawdzamy w tej kolejności: **Trilab + nasza wiedza → oficjalne MF 
 - Odoo docs — lokalizacja fiskalna Polska / `l10n_pl_edi` (pod Accounting → Fiscal localizations).
 - Reszta: Stack Overflow [odoo] i github odoo/odoo jak w tier 2–3 wyżej.
 
+## Polska księgowość (Trilab #1 — jak KSeF)
+Dla polskiej lokalizacji/księgowości sprawdzamy **najpierw Trilab** (opisy modułów + **changelog na stronie modułu = jakie zmiany wprowadzili, per wersja Odoo**), potem nasza wiedza, potem OCA/oficjalne.
+
+**Moduły Trilab (Apps Store — opis + Changelog):**
+- **Poland - Accounting (Trilab)** `l10n_pl_trilab` — polski plan kont + podatki: https://apps.odoo.com/apps/modules/16.0/l10n_pl_trilab
+- **Trilab PL Financial Reports** `trilab_pl_reports` — Bilans + RZiS (struktura sprawozdań): https://apps.odoo.com/apps/modules/13.0/trilab_pl_reports/
+- **Trilab Partners Sync for Poland** `trilab_pl_partners_sync` — kontrahenci z GUS / biała lista VAT / VIES / KRD: https://apps.odoo.com/apps/modules/15.0/trilab_pl_partners_sync
+- **Trilab PKD for PL** `trilab_pkd` — kody PKD z GUS: https://apps.odoo.com/apps/modules/17.0/trilab_pkd
+- **KSeF** `trilab_ksef` — patrz sekcja KSeF wyżej.
+- Wszystkie moduły / partner: https://www.odoo.com/partners/trilab-1795724 · Apps Store → szukaj autora „Trilab".
+
+> Na stronie każdego modułu jest **opis** + sekcja **Changelog** (wersje + wprowadzone zmiany). Podmieniaj wersję w URL (13.0/15.0/16.0/17.0/18.0) — ten sam moduł bywa pod różnymi wersjami Odoo.
+
+**Uzupełniająco:** OCA `l10n-poland` (https://github.com/OCA/l10n-poland), Odoo core `l10n_pl` (plan kont), nasza baza wiedzy myodoo.pl (JPK, plan kont, Trilab — art. 63/88/105/119).
+
 ## 4. Społeczność / tutoriale (przydatne, ale WERYFIKUJ z tier 1–3)
 - **Cybrosys** (partner Odoo, dużo how-to): https://www.cybrosys.com/blog
 - **Odoo Mates:** https://www.odoomates.tech
