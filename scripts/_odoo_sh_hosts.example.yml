@@ -1,0 +1,28 @@
+# WZÓR mapy hostów Odoo.sh dla scripts/odoo_sh_logs.py
+# Skopiuj do _odoo_sh_hosts.yml (poza repo) i uzupełnij realnymi danymi.
+#
+# host/user bierzesz z dashboardu Odoo.sh:
+#   Projekt → wybrany branch → przycisk "Connect" / zakładka SSH →
+#   pokaże komendę typu:  ssh <USER>@<HOST>
+#   (USER to zwykle build-id/hash, HOST to <coś>.dev.odoo.com lub <coś>.odoo.sh)
+# key_path = lokalny klucz prywatny, którego PUBLICZNY odpowiednik jest
+#   zarejestrowany na koncie Odoo.sh z rolą co najmniej Developer w projekcie.
+#
+# host/user/log_dir = routing (NIE sekret). Sekretem jest tylko klucz prywatny (plik).
+
+# KLUCZ: preferuj 'key_from_vault' (klucz prywatny trzymany w Skarbcu, materializowany
+# do pliku tymczasowego 0600 tylko na czas SSH i kasowany). Wymaga VAULT_PIN w env.
+# Alternatywa: 'key_path' — wskazanie lokalnego pliku klucza (mniej bezpieczne, luzem).
+
+projects:
+  myodoo-stage:
+    host: xxxxxxxx.dev.odoo.com        # <-- nazwa builda + .dev.odoo.com (z dashboardu)
+    user: xxxxxxxxxxxxxxxx             # <-- nazwa builda (bez nawiasu [stage/wersja])
+    key_from_vault: ODOO_SH_SSH        # klucz ze Skarbca (zalecane)
+    log_dir: ~/logs
+
+  # gourmet-prod:
+  #   host: ...
+  #   user: ...
+  #   key_from_vault: ODOO_SH_SSH
+  #   log_dir: ~/logs

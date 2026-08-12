@@ -23,6 +23,8 @@
 `odoo-website-embed` *(2026-08-04: osadzanie samodzielnego HTML jako strona Website + kurs eLearning z certyfikacją; sprawdzony na PROD gfcrm.pl — deck „Metodyka Projektowa", kurs 18)*,
 `odoo-website-domain` *(2026-08-06: dodawanie/podpinanie domen do witryn Website — DNS SEOHOST → Cyberfolks/.htaccess → SSL → panel Odoo → website.domain → web.base.url → Azure; skodyfikowane z modułu Wiedza GF art. 3797/3552/2569/3554 + audyt live 12 witryn prod)*
 
+> **2026-08-12 — wzbogacenie (bez zmiany liczby):** `odoo-devops-github` przepisany na pełny playbook GitHub→Odoo.sh (feature→dev→staging→prod, wersjonowanie, migracje, submoduły, backupy, upgrade, role, hard-blocks) + companion `REFERENCE.md` z cytatami (baza wiedzy myodoo.pl art. 83/85/93/103/116/219/224 scalona z oficjalną dok. Odoo.sh/GitHub). `odoo-sh-logs` doładowany o typy logów (`install/update/odoo/pip.log`) + strukturę FS builda. Kopie global + lokalna zsynchronizowane.
+
 ### 🔬 Testing / QA / E2E (5)
 `e2e-testing-patterns`, `playwright-e2e`, `webapp-testing`, `test-fixing`, `systematic-debugging`
 
