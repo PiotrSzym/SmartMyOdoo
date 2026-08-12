@@ -24,6 +24,31 @@ Stałe, wiarygodne źródła do sprawdzania Odoo/Odoo.sh: dokumentacja, fora z r
 - **OpenUpgrade (migracje między wersjami):** https://github.com/OCA/OpenUpgrade · https://oca.github.io/OpenUpgrade/
 - **Enterprise (jeśli mamy dostęp):** https://github.com/odoo/enterprise (issues/kod modułów EE).
 
+## KSeF (osobny priorytet — inna kolejność sprawdzania)
+Dla KSeF sprawdzamy w tej kolejności: **Trilab + nasza wiedza → oficjalne MF → OCA/SO/Odoo.**
+
+**A. Trilab — praktyka Odoo↔KSeF (sprawdzamy NAJPIERW):**
+- Moduł `trilab_ksef`: https://apps.odoo.com/apps/modules/18.0/trilab_ksef (dep: Trilab Invoice / Enterprise)
+- Blog/instrukcje: https://www.trilab.pl/blog · Odoo instrukcje: https://www.trilab.pl/en_US/blog/odoo-instrukcje-2
+- KSeF 2.0: https://www.trilab.pl/en_US/blog/news-3/ksef-2-0-nadchodzi-75
+- Strona/wsparcie: https://www.trilab.pl _(forum/support Trilab — jeśli masz bezpośredni URL forum, dopnę)_
+
+**B. Nasza wiedza (wewnętrzna):**
+- Baza wiedzy myodoo.pl (`knowledge.article`): m.in. art. 63 (instalacja księgowości Trilab), 88 (JPK_MAG Trilab).
+- Lokalne zasoby: `trilab_ksef` 18.0 (dep Enterprise), `l10n_pl_edi`/KSeF w Community 19 (patrz pamięć `local-odoo-assets-map`).
+
+**C. Oficjalne MF (autorytet dla standardu/API/prawa):**
+- Portal KSeF: https://ksef.podatki.gov.pl · Krajowy System e-Faktur (KAS): https://www.gov.pl/web/kas/krajowy-system-e-faktur
+- **API KSeF** (KAS): https://www.gov.pl/web/kas/api-krajowego-system-e-faktur
+- Wsparcie dla integratorów (SDK Java/.Net, OpenAPI 3.0.4, endpointy): https://ksef.podatki.gov.pl/ksef-na-okres-obligatoryjny/wsparcie-dla-integratorow/
+- Dokumentacja API 2.0 + struktura FA(3): https://ksef.podatki.gov.pl/wyjasnienia/publikacja-dokumentacji-api-ksef-20-oraz-struktury-logicznej-fa-3-30062025/
+- **Środowiska API:** prod `https://api.ksef.mf.gov.pl` · demo `https://api-demo.ksef.mf.gov.pl` · test `https://api-test.ksef.mf.gov.pl`
+
+**D. OCA / Odoo (best-practice PL):**
+- OCA l10n-poland: https://github.com/OCA/l10n-poland (lokalizacja PL, w tym prace KSeF)
+- Odoo docs — lokalizacja fiskalna Polska / `l10n_pl_edi` (pod Accounting → Fiscal localizations).
+- Reszta: Stack Overflow [odoo] i github odoo/odoo jak w tier 2–3 wyżej.
+
 ## 4. Społeczność / tutoriale (przydatne, ale WERYFIKUJ z tier 1–3)
 - **Cybrosys** (partner Odoo, dużo how-to): https://www.cybrosys.com/blog
 - **Odoo Mates:** https://www.odoomates.tech
