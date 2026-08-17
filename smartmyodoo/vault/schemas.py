@@ -37,10 +37,14 @@ class SecretCreateRequest(BaseModel):
     expires: Optional[str] = ""
     workspace_id: Optional[str] = "default"
     # K6 (KEY-01): typowany rejestr — typ klucza + provider LLM + domyślne ref timesheet
-    type: Optional[str] = ""  # odoo_data | odoo_timesheet | llm_provider
+    type: Optional[str] = ""  # odoo_data | odoo_timesheet | llm_provider | git_token | api_token | ssh_key
     provider: Optional[str] = ""  # openrouter | anthropic | openai (tylko llm_provider)
     default_project_ref: Optional[str] = ""  # tylko odoo_timesheet
     default_task_ref: Optional[str] = ""  # tylko odoo_timesheet
+    # VCS / API token
+    host: Optional[str] = ""  # np. 'github.com' (git_token/api_token)
+    scopes: Optional[str] = ""  # opis uprawnień (audyt/rotacja)
+    resource_owner: Optional[str] = ""  # org dla fine-grained (git_token)
 
 
 class SecretResponse(BaseModel):
@@ -64,6 +68,9 @@ class CredentialType(str, Enum):
     ODOO_DATA = "odoo_data"  # Odoo klienta — czytanie/zapis danych
     ODOO_TIMESHEET = "odoo_timesheet"  # Odoo do logowania czasu pracy (może być inne)
     LLM_PROVIDER = "llm_provider"  # klucz do modeli AI
+    GIT_TOKEN = "git_token"  # token VCS (GitHub/GitLab) — dla git/gh (api_key=token, host=serwer)
+    SSH_KEY = "ssh_key"  # klucz SSH (np. odoo.sh deploy) — key/pubkey/key_path
+    API_TOKEN = "api_token"  # generyczny token API (Fireflies itp.) — api_key wymagany
 
 
 class Credential(BaseModel):
@@ -86,6 +93,14 @@ class Credential(BaseModel):
     # binding (timesheet)
     default_project_ref: Optional[str] = None
     default_task_ref: Optional[str] = None
+    # VCS / API token (KEY-03: git_token/api_token)
+    host: Optional[str] = None  # np. 'github.com' — serwer VCS/API
+    scopes: Optional[str] = None  # opis uprawnień tokenu (do audytu/rotacji)
+    resource_owner: Optional[str] = None  # org dla tokenu fine-grained (np. 'myOdoo-pl')
+    # SSH (KEY-03: ssh_key — formalizacja istniejącego ODOO_SH_SSH)
+    key: Optional[str] = None  # prywatny klucz (PEM) — trzymany zaszyfrowany w vault
+    pubkey: Optional[str] = None  # klucz publiczny (jawny)
+    key_path: Optional[str] = None  # ścieżka do pliku klucza na dysku (alternatywa dla key)
 
     @model_validator(mode="after")
     def _validate_by_type(self) -> "Credential":
@@ -96,6 +111,16 @@ class Credential(BaseModel):
             missing = [f for f in ("url", "db", "login") if not getattr(self, f)]
             if missing:
                 raise ValueError(f"{self.type.value} wymaga pól: {', '.join(missing)}")
+        elif self.type == CredentialType.GIT_TOKEN:
+            missing = [f for f in ("api_key", "host") if not getattr(self, f)]
+            if missing:
+                raise ValueError(f"git_token wymaga pól: {', '.join(missing)}")
+        elif self.type == CredentialType.API_TOKEN:
+            if not self.api_key:
+                raise ValueError("api_token wymaga pola: api_key")
+        elif self.type == CredentialType.SSH_KEY:
+            if not (self.key or self.key_path):
+                raise ValueError("ssh_key wymaga pola: key lub key_path")
         return self
 
 

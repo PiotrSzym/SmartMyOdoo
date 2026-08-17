@@ -266,6 +266,19 @@ def update_pin(vk: bytes, new_pin: str) -> None:
         f.write(f_pin_new.encrypt(vk))
 
 
+def update_master(vk: bytes, new_master: str) -> None:
+    """Zmienia Master Password. Wymaga poprawnego vk (z PIN lub STAREGO Mastera).
+
+    Symetryczne do `update_pin`: nowa losowa sól + przepakowanie tego samego `vk`
+    kluczem z nowego Mastera. NIE re-szyfruje danych (envelope encryption).
+    """
+    master_salt = os.urandom(16)
+    with open(MASTER_SALT_FILE, "wb") as f:
+        f.write(master_salt)
+    with open(MASTER_KEY_FILE, "wb") as f:
+        f.write(Fernet(derive_key(new_master, master_salt)).encrypt(vk))
+
+
 def init_vault() -> None:
     if os.path.exists(VAULT_DATA_FILE):
         print("Vault juz istnieje!")
@@ -367,6 +380,55 @@ def restore_secret(key_name: str) -> None:
         print(f"Sekret {key_name} przywrocony.")
 
 
+def _auth_vk_for_change(purpose: str) -> bytes:
+    """Autoryzacja do zmiany PIN/Master: preferuj Master (kotwica), fallback PIN.
+
+    Enter przy pytaniu o Master => użyj PIN. Zwraca vk lub kończy z komunikatem.
+    """
+    master = getpass.getpass(
+        f"[{purpose}] Podaj haslo Master (albo Enter, by autoryzowac PIN-em): "
+    )
+    try:
+        if master:
+            return get_vault_key_from_master(master, exit_on_fail=False)
+        pin = getpass.getpass("Podaj obecny PIN: ")
+        return get_vault_key_from_pin(pin, exit_on_fail=False)
+    except ValueError:
+        print("Niewlasciwe poswiadczenie — przerywam.")
+        sys.exit(1)
+
+
+def change_pin() -> None:
+    """CLI: zmiana PIN (recovery bez GUI). Autoryzacja Masterem lub starym PIN-em."""
+    vk = _auth_vk_for_change("zmiana PIN")
+    new_pin = getpass.getpass("Nowy PIN (min 4 znaki): ")
+    if getpass.getpass("Potwierdz nowy PIN: ") != new_pin:
+        print("PINy sie nie zgadzaja!")
+        sys.exit(1)
+    if len(new_pin) < 4:
+        print("PIN za krotki (min 4).")
+        sys.exit(1)
+    update_pin(vk, new_pin)
+    print("PIN zaktualizowany.")
+
+
+def change_master() -> None:
+    """CLI: zmiana hasla Master. Autoryzacja starym Masterem lub PIN-em.
+
+    Twardy prog min. 8 znakow — CLI ODMAWIA oslabienia kotwicy odzyskiwania.
+    """
+    vk = _auth_vk_for_change("zmiana Master")
+    new_master = getpass.getpass("Nowe haslo Master (min 8 znakow): ")
+    if getpass.getpass("Potwierdz nowe haslo Master: ") != new_master:
+        print("Hasla sie nie zgadzaja!")
+        sys.exit(1)
+    if len(new_master) < 8:
+        print("Master za krotki (min 8). Odmawiam oslabienia kotwicy odzyskiwania.")
+        sys.exit(1)
+    update_master(vk, new_master)
+    print("Haslo Master zaktualizowane.")
+
+
 def run_wrapped_command(cmd_args: List[str]) -> None:
     if not cmd_args:
         print("Blad: Nie podano komendy do uruchomienia.")
@@ -438,6 +500,13 @@ def main() -> None:
     restore_parser = subparsers.add_parser("restore", help="Przywroc klucz z kosza")
     restore_parser.add_argument("key", help="Nazwa klucza")
 
+    subparsers.add_parser(
+        "changepin", help="Zmien PIN (autoryzacja Master lub starym PIN-em)"
+    )
+    subparsers.add_parser(
+        "changemaster", help="Zmien haslo Master (autoryzacja starym Master lub PIN-em)"
+    )
+
     run_parser = subparsers.add_parser(
         "run", help="Uruchom komende ze wstrzyknietymi zmiennymi ze skarbca"
     )
@@ -480,6 +549,10 @@ def main() -> None:
         delete_secret(args.key)
     elif args.command == "restore":
         restore_secret(args.key)
+    elif args.command == "changepin":
+        change_pin()
+    elif args.command == "changemaster":
+        change_master()
     elif args.command == "run":
         run_wrapped_command(args.cmd)
     elif args.command == "gui":

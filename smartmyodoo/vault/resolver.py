@@ -104,6 +104,39 @@ def resolve_credential(
     return candidates[0] if candidates else None
 
 
+def resolve_git_token(
+    vault_data: Dict[str, Any],
+    host: str = "github.com",
+    workspace_id: str = "default",
+    allow_default_fallback: bool = True,
+) -> Optional[Credential]:
+    """KEY-03: token VCS (git/gh) po TYPIE + HOST (nie po nazwie sekretu).
+
+    Dobiera sekret `type=git_token` pasujący do `host` (np. 'github.com'),
+    preferując dopasowanie do `workspace_id` nad `default`. `allow_default_fallback`
+    działa jak w `resolve_credential` (False = twarde WSISO). Zwraca `Credential`
+    (token w polu `api_key`) lub None.
+    """
+    host_l = (host or "").lower()
+    candidates = []
+    for name, raw in vault_data.items():
+        cred = to_credential(name, raw)
+        if not cred or not cred.enabled or cred.type != CredentialType.GIT_TOKEN:
+            continue
+        if host_l and cred.host and cred.host.lower() != host_l:
+            continue
+        if allow_default_fallback:
+            if cred.workspace_id not in (workspace_id, "default"):
+                continue
+        else:
+            if cred.workspace_id != workspace_id:
+                continue
+        candidates.append(cred)
+
+    candidates.sort(key=lambda c: 0 if c.workspace_id == workspace_id else 1)
+    return candidates[0] if candidates else None
+
+
 def resolve_llm_key(
     vault_data: Dict[str, Any],
     workspace_id: str = "default",
